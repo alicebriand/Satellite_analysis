@@ -17,6 +17,7 @@ library(tidyverse)
 library(tidync)
 library(gganimate)
 library(doParallel); registerDoParallel(cores = 14)
+library(heatwaveR)
 
 # functions -----------------------------------------------------------------
 
@@ -53,7 +54,106 @@ load("~/Downloads/SEXTANT/SPM/sextant_2015_2025_SPM.Rdata")
 load("~/Downloads/SEXTANT/CHL/sextant_2015_2025_CHL.Rdata")
 load("~/Documents/Alice/Hydro France/Y6442010_Hydro.Rdata")
 
+# climatology -------------------------------------------------------------
+
+sextant_2015_2025_SPM_climatology <- sextant_2015_2025_SPM %>% 
+  mutate(year = year(date), month = month(date), doy = yday(date)) %>% 
+  dplyr::filter(date >= as.Date("2016-01-01"))
+
+sextant_2015_2025_SPM_climatology_year <- sextant_2015_2025_SPM_climatology %>% 
+  summarise(spm_mean = mean(mean_spm, na.rm = TRUE), .by = "year")
+
+sextant_2015_2025_SPM_climatology_month <- sextant_2015_2025_SPM_climatology %>% 
+  summarise(spm_mean = mean(mean_spm, na.rm = TRUE), .by = "month")
+
+sextant_2015_2025_SPM_climatology_day <- sextant_2015_2025_SPM_climatology %>% 
+  summarise(spm_mean = mean(mean_spm, na.rm = TRUE), .by = "doy")
+
+sextant_spm_climatology_doy <- ts2clm(data = sextant_2015_2025_SPM, x = date, 
+                                      y = mean_spm, climatologyPeriod = c("2016-01-01", "2025-12-31"), 
+                                      windowHalfWidth = 3, smoothPercentileWidth = 15 )
+
+# faire une TS en faisant la climatologie mensuelle en spm moins la moyenne mensuelle en spm et voir comment ça rend par rapport à 0
+
+sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>% 
+  mutate(year = year(date), 
+         month = month(date), 
+         month_year = paste(month, year, sep = "-"))
+
+# sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>% 
+#   mutate(month_year = as.Date(month_year, form"%m%Y"))
+
+mean_spm_by_year_month <- sextant_2015_2025_SPM %>%
+  group_by(year, month, year_month) %>%
+  summarise(mean_spm_year_month = mean(mean_spm, na.rm = TRUE))
+
+sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>%
+  left_join(mean_spm_by_year_month, by = c("year", "month", "year_month"))
+
+# i want to put a new column on the sextant_2015_2025_SPM data frame that is the 
+# column spm mean of the sextant_2015_2025_SPM_climatology_month data frame group by the column year_motnh of the sextant_2015_2025_SPM data frame
+
+sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>%
+  mutate(month = month(date)) %>%
+  left_join(, by = "month")
+
+sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>%
+  left_join(sextant_2015_2025_SPM_climatology_month, by = "month")
+
+sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>% 
+  mutate(spm_anomaly = mean_spm_year_month - spm_mean)
+
 # plotting ----------------------------------------------------------------
+
+## climatology -------------------------------------------------------------
+
+# create a line plot of the annual climatology of spm
+ggplot(sextant_2015_2025_SPM_climatology_year, aes(x = year, y = spm_mean)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie annuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+       x = "Année",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the monthly climatology of spm
+ggplot(sextant_2015_2025_SPM_climatology_month, aes(x = month, y = spm_mean)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie mensuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the monthly climatology of spm
+ggplot(sextant_2015_2025_SPM_climatology_day, aes(x = doy, y = spm_mean)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the daily climatology of spm
+ggplot(sextant_spm_climatology_doy, aes(x = doy, y = seas)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a plot that shows the anomaly of spm of 10 years of data view by Sextant
+ggplot(sextant_2015_2025_SPM, aes(x = year_month, y = spm_anomaly)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black")
+labs(title = "Anomalie mensuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+     x = "Mois",
+     y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 ## SPM ----------------------------------------------------------------
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
