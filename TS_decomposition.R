@@ -77,46 +77,33 @@ rhone_panache <- read_csv("data/grand_rhone_plume.csv") |>
 ggplot(rhone_panache, aes(x = date, y = area)) + geom_line()
 
 
+# fpp3::us_employment
+
 # tsibble -----------------------------------------------------------------
 
 # The following models require that the time series be 'tsibble' objects
 # This also requires that there are no NA values, which was addressed above
 
 # For STL these may be left as daily objects
-
-# For the STL analysis it is required that the time series be converted to 'tsibble'
-# And that there are no missing dates or NA values
-rhone_debit_ts <- tsibble(date = rhone_debit$date, value = rhone_debit$debit)
-rhone_panache_ts <- tsibble(date = rhone_panache$date, value = rhone_panache$area)
-
-# The older way to do this
-# rhone_debit_ts <- ts(zoo::na.approx(rhone_debit$debit), frequency = 365.25, start = c(1998, 1))
-# rhone_panache_ts <- ts(zoo::na.approx(rhone_panache$area), frequency = 365.25, start = c(1998, 1))
+rhone_debit_ts <- rhone_debit |> tsibble(index = date)
+rhone_panache_ts <- rhone_panache |> tsibble(index = date)
 
 # For X11 this requires that they be monthly data
-
-rhone_monthly_ts <- rhone_debit_ts %>%
-  # Convert the index to monthly periods
-  index_by(month = as_period(index(rhone_debit_ts), "month")) %>%
-  # Group by the new monthly index
-  group_by(month) %>%
-  # Compute the mean for each month
-  summarise(monthly_avg = mean(debit, na.rm = TRUE), .groups = "drop")
-
+rhone_debit_monthly <- rhone_debit |> 
+  mutate(month = yearmonth(date)) |> 
+  summarise(debit = mean(debit, na.rm = TRUE), .by = "month")
+rhone_debit_monthly_ts <- rhone_debit_monthly |> tsibble(index = month)
+rhone_panache_monthly <- rhone_panache |> 
+  mutate(month = yearmonth(date)) |> 
+  summarise(area = mean(area, na.rm = TRUE), .by = "month")
+rhone_panache_monthly_ts <- rhone_panache_monthly |> tsibble(index = month)
 
 
 # STL ---------------------------------------------------------------------
 
-
 # Run the STL analysis
-rhone_debit_stl <- rhone_debit_ts |> model(stl = STL(value))
-rhone_panache_stl <- rhone_panache_ts |> model(stl = STL(value))
-
-# This is the oldschool way to do this
-# NB: One can experiment with the values given for the arguments to find better fits to the data
-# rhone_debit_stl <- stl(rhone_debit_ts, s.window = "periodic")#, t.window = 11, inner = 5, outer = 0)
-# rhone_panache_stl <- stl(rhone_panache_ts, s.window = "periodic")#, t.window = 11, inner = 5, outer = 0)
-
+rhone_debit_stl <- rhone_debit_ts |> model(stl = STL(debit))
+rhone_panache_stl <- rhone_panache_ts |> model(stl = STL(area))
 
 # Basic plot of output
 components(rhone_debit_stl) |> autoplot()
@@ -236,10 +223,87 @@ left_join(rhone_debit_wide |> select(date, STL_inter), rhone_panache_wide |> sel
 # X11 ---------------------------------------------------------------------
 
 # Perform X11 on the 'tsibble' objects
-rhone_debit_x11 <- rhone_debit_ts |>
-  model(x11 = X_13ARIMA_SEATS(value ~ x11()))
+rhone_debit_x11 <- rhone_debit_monthly_ts |>
+  model(x11 = X_13ARIMA_SEATS(debit ~ x11()))
+rhone_panache_x11 <- rhone_panache_monthly_ts |>
+  model(x11 = X_13ARIMA_SEATS(area ~ x11()))
 
-rhone_debit_x11 <- seas(rhone_debit_ts, x11="")
-rhone_panache_x11 <- seas(rhone_panache_ts, x11="")
-rhone_panache_ts %>% seas(x11="") -> fit
-seasonal::easter
+# Basic plot
+components(rhone_debit_x11) |> autoplot()
+components(rhone_panache_x11) |> autoplot()
+
+# Extract components for comparison/plotting
+rhone_debit_monthly_wide <- rhone_debit_monthly |> 
+  mutate(X11_seas = rhone_debit_x11[[1]][[1]][["fit"]][["fit"]][["data"]][,2],
+         X11_inter = rhone_debit_x11[[1]][[1]][["fit"]][["fit"]][["data"]][,4])
+rhone_panache_monthly_wide <- rhone_panache_monthly |> 
+  mutate(X11_seas = rhone_panache_x11[[1]][[1]][["fit"]][["fit"]][["data"]][,2],
+         X11_inter = rhone_panache_x11[[1]][[1]][["fit"]][["fit"]][["data"]][,4])
+
+# Calculate linear models and prepare labels for plotting
+rhone_debit_trend_X11 <- rhone_debit_monthly_wide |> 
+  summarise(slope = coef(lm(X11_inter ~ month))["month"] * 365.25) |>
+  # NB: These are the x and y coordinates at which the label will be plotted
+  mutate(x = as.Date("2015-01-01"), y = 1300)
+rhone_panache_trend_X11 <- rhone_panache_monthly_wide |> 
+  summarise(slope = coef(lm(X11_inter ~ month))["month"] * 365.25) |> 
+  # NB: These are the x and y coordinates at which the label will be plotted
+  mutate(x = as.Date("1998-01-01"), y = 1300)
+
+# Scale the columns for better plotting
+rhone_X11_seas_scaling_factor <- sec_axis_adjustement_factors(var_to_scale = rhone_debit_monthly_wide$X11_seas, 
+                                                              var_ref = rhone_panache_monthly_wide$X11_seas)
+rhone_X11_inter_scaling_factor <- sec_axis_adjustement_factors(var_to_scale = rhone_debit_monthly_wide$X11_inter, 
+                                                               var_ref = rhone_panache_monthly_wide$X11_inter)
+
+# Make the conversion
+rhone_debit_monthly_wide <- rhone_debit_monthly_wide |> 
+  mutate(X11_inter_scaled = X11_inter * rhone_X11_inter_scaling_factor$diff + rhone_X11_inter_scaling_factor$adjust,
+         X11_seas_scaled = X11_seas * rhone_X11_seas_scaling_factor$diff + rhone_X11_seas_scaling_factor$adjust)
+
+# Time series comparison plot
+ggplot() + 
+  
+  # Dot and line plot for Panache
+  # NB: Switch STL_seas to STL_trend to see the different variables
+  geom_point(data = rhone_panache_monthly_wide, aes(x = month, y = X11_inter), color = "brown", alpha = 0.7) + 
+  geom_path(data = rhone_panache_monthly_wide, aes(x = month, y = X11_inter), color = "brown", alpha = 0.7) + 
+  
+  # Dot and line plot for débit
+  # NB: Switch STL_seas_scaled to STL_trend_scaled to see the different variables
+  geom_point(data = rhone_debit_monthly_wide, aes(x = month, y = X11_inter_scaled), color = "blue", alpha = 0.7) + 
+  geom_path(data = rhone_debit_monthly_wide, aes(x = month, y = X11_inter_scaled), color = "blue", alpha = 0.7) + 
+  
+  # Labels for linear model stats
+  geom_label(data = rhone_panache_trend_X11,  show.legend = FALSE, colour = "brown", size = 6, hjust = 0,
+             aes(x = x, y = y, label = paste0("Panache area trend = ",round(slope, 2), " km-2 yr-1", sep = ""))) +
+  geom_label(data = rhone_debit_trend_X11,  show.legend = FALSE, colour = "blue", size = 6, hjust = 0,
+             aes(x = x, y = y, label = paste0("River flow trend = ",round(slope, 2), " m-3 s-1 yr-1", sep = ""))) +
+  
+  scale_y_continuous(name = "Plume area (km²)",
+                     sec.axis = sec_axis(transform = ~ {. - rhone_X11_inter_scaling_factor$adjust} / rhone_X11_inter_scaling_factor$diff, 
+                                         name = "River flow (m³/s)")) +
+  
+  labs(title = "Interannual STL decomposition of Rhône plume size (Y1; left) and river flow (Y2; right)") +
+  
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title = element_text(size = 30, colour = "black"),
+        text = element_text(size = 25, colour = "black"),
+        axis.text = element_text(size = 20, colour = "black"),
+        axis.title = element_text(size = 30, colour = "black")) +
+  
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.y.left = element_text(color = "brown"), 
+        axis.ticks.y.left = element_line(color = "brown"),
+        axis.line.y.left = element_line(color = "brown"),
+        axis.title.y.left = element_text(color = "brown", margin = unit(c(0, 7.5, 0, 0), "mm")),
+        
+        axis.text.y.right = element_text(color = "blue"), 
+        axis.ticks.y.right = element_line(color = "blue"),
+        axis.line.y.right = element_line(color = "blue"),
+        axis.title.y.right = element_text(color = "blue", margin = unit(c(0, 0, 0, 7.5), "mm")),
+        
+        panel.border = element_rect(linetype = "solid", fill = NA))
+
