@@ -50,9 +50,10 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("data/sextant_2015_2025_SPM.RData")
-load("~/Downloads/SEXTANT/CHL/sextant_2015_2025_CHL.Rdata")
-load("data/Y6442010_Hydro.Rdata")
+load("data/SEXTANT/sextant_2015_2025_SPM.Rdata")
+load("data/SEXTANT/all_spm_propre_sextant_2024.RData")
+load("data/sextant_2015_2025_CHL.Rdata")
+load("data/Hydro France/Y6442010_Hydro.Rdata")
 
 # climatology -------------------------------------------------------------
 
@@ -138,7 +139,7 @@ ggplot(sextant_2015_2025_SPM_climatology_month, aes(x = month, y = spm_month_cli
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal()
 
-# create a line plot of the monthly climatology of spm
+# create a line plot of the daily climatology of spm
 ggplot(sextant_2015_2025_SPM_climatology_day, aes(x = doy, y = spm_doy_clim)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
@@ -151,7 +152,7 @@ ggplot(sextant_2015_2025_SPM_climatology_day, aes(x = doy, y = spm_doy_clim)) +
 ggplot(sextant_spm_climatology_doy, aes(x = doy, y = seas)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
-  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant et lissé sur une fenêtre de 7 jours",
        x = "Mois",
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal()
@@ -219,7 +220,41 @@ ggplot() +
     date_labels = "%Y"       
   )
 
+# on fait un zoom sur 2024
+# faire un data frame sur l'année 2024 pour le débit
 
+
+Y6442010_Hydro_2024 <- Y6442010_Hydro_complete |> 
+  dplyr::filter(Date >= as.Date("2024-01-01"), Date <= as.Date("2024-12-31"))
+
+adjust_factors <- sec_axis_adjustement_factors(all_spm_propre_sextant_2024$mean_spm, Y6442010_Hydro_2024$débit)
+
+all_spm_propre_sextant_2024$scaled_mean_spm <- all_spm_propre_sextant_2024$mean_spm * adjust_factors$diff + adjust_factors$adjust
+
+
+ggplot() +
+  geom_line(
+    data = Y6442010_Hydro_2024,
+    aes(x = Date, y = débit, color = "Débit")
+  ) +
+  geom_line(
+    data = all_spm_propre_sextant_2024,
+    aes(x = date, y = scaled_mean_spm, color = "SPM")
+  ) +
+  scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
+  ) +
+  labs(
+    title = "Débit du Var au pont Napoléon et concentration en matière en suspension en 2024 avec le produit Sextant",
+    x = "Date"
+  ) +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
 
 
 ## CHL ----------------------------------------------------------------

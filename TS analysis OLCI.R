@@ -50,16 +50,13 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("~/Downloads/OLCI/SPM/OLCI_A_2016_2024_SPM.Rdata")
-load("~/Downloads/OLCI/SPM/OLCI_B_2018_2024_SPM.Rdata")
-load("~/Downloads/OLCI/SPM/OLCI_A_B_2016_2024_SPM.Rdata")
-load("~/Downloads/OLCI/SPM/all_spm_propre_OLCI_A_2024.Rdata")
+load("~/Satellite_analysis/data/OLCI/SPM/OLCI_A_2016_2024_SPM.Rdata")
+load("~/Satellite_analysis/data/OLCI/SPM/OLCI_B_2018_2024_SPM.Rdata")
+load("~/Satellite_analysis/data/OLCI/SPM/OLCI_A_B_2016_2024_SPM.Rdata")
 
-load("~/Downloads/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
-load("~/Downloads/OLCI/CHL/OLCI_B_2018_2024_CHL.Rdata")
-load("~/Downloads/OLCI/CHL/OLCI_A_B_2016_2024_CHL.Rdata")
+load("~/Satellite_analysis/data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
 
-load("~/Documents/Alice/Hydro France/Y6442010_Hydro.Rdata")
+load("~/Satellite_analysis/data/Hydro France/Y6442010_Hydro.Rdata")
 
 # plotting ----------------------------------------------------------------
 ## SPM ----------------------------------------------------------------
@@ -195,25 +192,25 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-# zoom sur une année, ex : 2024
+# zoom sur une année, ex : 2023
 
-OLCI_A_B_2024_SPM <- OLCI_A_B_2016_2024_SPM %>%
-  dplyr::filter(date >= as.Date("2024-01-01"), date <= as.Date("2024-12-31"))
+OLCI_A_B_2023_SPM <- OLCI_A_B_2016_2024_SPM %>%
+  dplyr::filter(date >= as.Date("2023-01-01"), date <= as.Date("2023-12-31"))
 
-Y6442010_Hydro_complete_2024 <- Y6442010_Hydro_complete %>% 
-  dplyr::filter(Date >= as.Date("2024-01-01"), Date <= as.Date("2024-12-31"))
+Y6442010_Hydro_complete_2023 <- Y6442010_Hydro_complete %>% 
+  dplyr::filter(Date >= as.Date("2023-01-01"), Date <= as.Date("2023-12-31"))
 
-adjust_factors <- sec_axis_adjustement_factors(OLCI_A_B_2024_SPM$mean_spm, Y6442010_Hydro_complete_2024$débit)
+adjust_factors <- sec_axis_adjustement_factors(OLCI_A_B_2023_SPM$mean_spm, Y6442010_Hydro_complete_2023$débit)
 
-OLCI_A_B_2024_SPM$scaled_mean_spm <- OLCI_A_B_2024_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
+OLCI_A_B_2023_SPM$scaled_mean_spm <- OLCI_A_B_2023_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_line(
-    data = Y6442010_Hydro_complete_2024,
+    data = Y6442010_Hydro_complete_2023,
     aes(x = Date, y = débit, color = "Débit")
   ) +
   geom_line(
-    data = OLCI_A_B_2024_SPM,
+    data = OLCI_A_B_2023_SPM,
     aes(x = date, y = scaled_mean_spm, color = "SPM")
   ) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
@@ -222,7 +219,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en matière en suspension en 2024 avec le produit OLCI issu de ODATIS MR",
+    title = "Débit du Var au pont Napoléon et concentration en matière en suspension en 2023 avec le produit OLCI issu de ODATIS MR",
     x = "Date"
   ) +
   theme_minimal() +

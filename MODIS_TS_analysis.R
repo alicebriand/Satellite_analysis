@@ -17,7 +17,8 @@
 library(tidyverse)
 library(tidync)
 library(gganimate)
-library(doParallel); registerDoParallel(cores = 14)
+library(heatwaveR)
+library(doParallel); registerDoParallel(cores = detectCores()-2)
 
 # functions -----------------------------------------------------------------
 
@@ -50,11 +51,100 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("~/Downloads/MODIS/SPM/MODIS_2015_2023_SPM.Rdata")
-load("~/Downloads/MODIS/CHL/MODIS_2015_2023_CHL.Rdata")
-load("~/Documents/Alice/Hydro France/Y6442010_Hydro.Rdata")
+load("data/MODIS/SPM/MODIS_2015_2024_SPM.Rdata")
+# load("data/MODIS/CHL/")
+load("data/Hydro France/Y6442010_Hydro.Rdata")
+
+# climatology -------------------------------------------------------------
+
+# MODIS_2015_2025_SPM_TS <- MODIS_2015_2024_SPM |> 
+#   filter(analysed_spim >= 0) |> # There appear to be some erroneuos negative values in the data
+#   summarise(mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date") |> 
+#   mutate(year = year(date), 
+#          month = month(date), 
+#          doy = yday(date))
+
+MODIS_2015_2024_SPM <- MODIS_2015_2024_SPM %>% 
+  mutate(year = year(date), 
+         month = month(date),
+         doy = yday(date))
+
+MODIS_2016_2024_SPM_climatology <- MODIS_2015_2024_SPM %>% 
+  dplyr::filter(date >= as.Date("2016-01-01"))
+
+MODIS_2016_2024_SPM_climatology_year <- MODIS_2016_2024_SPM_climatology %>% 
+  summarise(spm_year_clim = mean(mean_spm, na.rm = TRUE), .by = "year")
+
+MODIS_2016_2024_SPM_climatology_month <- MODIS_2016_2024_SPM_climatology %>% 
+  summarise(spm_month_clim = mean(mean_spm, na.rm = TRUE), .by = "month")
+
+MODIS_2016_2024_SPM_climatology_day <- MODIS_2016_2024_SPM_climatology %>% 
+  summarise(spm_doy_clim = mean(mean_spm, na.rm = TRUE), .by = "doy")
+
+MODIS_spm_climatology_doy <- ts2clm(data = MODIS_2016_2024_SPM_climatology, x = date, 
+                                      y = mean_spm, climatologyPeriod = c("2016-01-01", "2024-12-24"), 
+                                      windowHalfWidth = 3, smoothPercentileWidth = 15 )
+MODIS_2016_2024_SPM_monthly_anom <- MODIS_2016_2024_SPM_climatology |> 
+  # This rounds all dates to the first day of the month
+  # That way we can calculate monthly averages, but still have the full
+  # date values (e.g. 2024-11-14) that ggplot2 needs to plot the values correctly
+  mutate(date = floor_date(date, "month")) |> 
+  summarise(mean_spm = mean(mean_spm, na.rm = TRUE), .by = c("date", "year", "month")) |> 
+  left_join(MODIS_2016_2024_SPM_climatology_month, by = c("month")) |> 
+  mutate(spm_month_anomaly = mean_spm - spm_month_clim)
+
 
 # plotting ----------------------------------------------------------------
+
+## climatology -------------------------------------------------------------
+
+# create a line plot of the annual climatology of spm
+ggplot(MODIS_2016_2024_SPM_climatology_year, aes(x = year, y = spm_year_clim)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie annuelle de la concentration en matière particulaire en suspension entre 2016 et 2024 avec le produit MODIS",
+       x = "Année",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the monthly climatology of spm
+ggplot(MODIS_2016_2024_SPM_climatology_month, aes(x = month, y = spm_month_clim)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie mensuelle de la concentration en matière particulaire en suspension entre 2016 et 2024 avec le produit MODIS",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the daily climatology of spm
+ggplot(MODIS_2016_2024_SPM_climatology_day, aes(x = doy, y = spm_doy_clim)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2016 et 2024 avec le produit MODIS",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a line plot of the daily climatology of spm
+ggplot(MODIS_spm_climatology_doy, aes(x = doy, y = seas)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2016 et 2024 avec le produit MODIS et lissé sur une fenêtre de 7 jours",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal()
+
+# create a plot that shows the anomaly of spm of 10 years of data view by Sextant
+ggplot(MODIS_2016_2024_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red3") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  labs(title = "Anomalie mensuelle de la concentration en matière particulaire en suspension entre 2016 et 2024 avec le produit MODIS",
+       x = "Mois",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 ## SPM ----------------------------------------------------------------
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
