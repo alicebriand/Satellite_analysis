@@ -1,7 +1,6 @@
 # MODIS L2 NASA analysis
 
 # 16/03/2026
-
 # pathway : "~/Satellite_analysis/MODIS L2 NASA analysis.R
 
 

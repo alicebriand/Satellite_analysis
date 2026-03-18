@@ -51,7 +51,9 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
+load("data/MODIS/SPM/")
 load("data/MODIS/SPM/MODIS_2015_2024_SPM.Rdata")
+load("data/MODIS/SPM/all_spm_propre_MODIS_2023.RData")
 # load("data/MODIS/CHL/")
 load("data/Hydro France/Y6442010_Hydro.Rdata")
 
@@ -82,8 +84,8 @@ MODIS_2016_2024_SPM_climatology_day <- MODIS_2016_2024_SPM_climatology %>%
   summarise(spm_doy_clim = mean(mean_spm, na.rm = TRUE), .by = "doy")
 
 MODIS_spm_climatology_doy <- ts2clm(data = MODIS_2016_2024_SPM_climatology, x = date, 
-                                      y = mean_spm, climatologyPeriod = c("2016-01-01", "2024-12-24"), 
-                                      windowHalfWidth = 3, smoothPercentileWidth = 15 )
+                                    y = mean_spm, climatologyPeriod = c("2016-01-01", "2024-12-24"), 
+                                    windowHalfWidth = 3, smoothPercentileWidth = 15 )
 MODIS_2016_2024_SPM_monthly_anom <- MODIS_2016_2024_SPM_climatology |> 
   # This rounds all dates to the first day of the month
   # That way we can calculate monthly averages, but still have the full
@@ -149,7 +151,8 @@ ggplot(MODIS_2016_2024_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly)) +
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
 # 2015 et 2025 avec MODIS
-ggplot(data = MODIS_2015_2023_SPM, aes(x = date, y = mean_spm)) +
+
+ggplot(data = MODIS_2015_2024_SPM, aes(x = date, y = mean_spm)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
@@ -162,6 +165,21 @@ ggplot(data = MODIS_2015_2023_SPM, aes(x = date, y = mean_spm)) +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+ggplot(data = all_spm_propre_MODIS_2023, aes(x = date, y = mean_spm)) +
+  # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
+  #                 alpha = 0.2, fill = "blue")) +
+  geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
+  geom_line(color = "red3") +
+  labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne en 2023 avec le produit MODIS issu de ODATIS MR",
+       x = "Date",
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
 
 # on plotte la série temporelle de la concentration moyenne en SPM entre
 # 2015 et 2025 avec MODIS contre le débit liquide du Var 

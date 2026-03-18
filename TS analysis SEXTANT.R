@@ -18,6 +18,7 @@ library(tidync)
 library(gganimate)
 library(doParallel); registerDoParallel(cores = detectCores()-2) # Detects cores automagically
 library(heatwaveR)
+library(ggpmisc)
 
 # functions -----------------------------------------------------------------
 
@@ -50,16 +51,17 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("data/SEXTANT/sextant_2015_2025_SPM.Rdata")
+load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
 load("data/SEXTANT/all_spm_propre_sextant_2024.RData")
-load("data/sextant_2015_2025_CHL.Rdata")
-load("data/Hydro France/Y6442010_Hydro.Rdata")
+# load("data/sextant_2015_2025_CHL.Rdata")
+
+load("P:/Stage/River_runoff_analysis/data/Hydro France/Y6442010_depuis_2000.Rdata")
 
 # climatology -------------------------------------------------------------
 
-sextant_2015_2025_spm_TS <- sextant_2015_2025_spm |> 
-  filter(analysed_spim >= 0) |> # There appear to be some erroneuos negative values in the data
-  summarise(mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date") |> 
+sextant_2015_2025_spm_TS <- sextant_2015_2025_SPM |> 
+  # filter(analysed_spim >= 0) |> # There appear to be some erroneuos negative values in the data
+  # summarise(mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date") |> 
   mutate(year = year(date), 
          month = month(date), 
          doy = yday(date))
@@ -70,8 +72,12 @@ sextant_2015_2025_SPM_climatology <- sextant_2015_2025_spm_TS %>%
 sextant_2015_2025_SPM_climatology_year <- sextant_2015_2025_SPM_climatology %>% 
   summarise(spm_year_clim = mean(mean_spm, na.rm = TRUE), .by = "year")
 
-sextant_2015_2025_SPM_climatology_month <- sextant_2015_2025_SPM_climatology %>% 
-  summarise(spm_month_clim = mean(mean_spm, na.rm = TRUE), .by = "month")
+sextant_2015_2025_SPM_climatology_month <- sextant_2015_2025_SPM_climatology %>%
+  group_by(month) %>%
+  summarise(
+    spm_month_clim = mean(mean_spm, na.rm = TRUE),
+    spm_month_clim_std = sd(mean_spm, na.rm = TRUE)
+  )
 
 sextant_2015_2025_SPM_climatology_day <- sextant_2015_2025_SPM_climatology %>% 
   summarise(spm_doy_clim = mean(mean_spm, na.rm = TRUE), .by = "doy")
@@ -134,6 +140,12 @@ ggplot(sextant_2015_2025_SPM_climatology_year, aes(x = year, y = spm_year_clim))
 ggplot(sextant_2015_2025_SPM_climatology_month, aes(x = month, y = spm_month_clim)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
+  geom_errorbar(
+    aes(ymin = spm_month_clim - spm_month_clim_std, ymax = spm_month_clim + spm_month_clim_std),
+    width = 0.1,  # Largeur des barres
+    color = "gray50",  # Couleur des barres
+    alpha = 0.7  # Transparence
+  ) +
   labs(title = "Climatologie mensuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
        x = "Mois",
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
@@ -157,27 +169,73 @@ ggplot(sextant_spm_climatology_doy, aes(x = doy, y = seas)) +
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal()
 
-# create a plot that shows the anomaly of spm of 10 years of data view by Sextant
+## monthly anomaly ---------------------------------------------------------
+
+# Extraire le modèle linéaire
+model_sextant_2015 <- lm(spm_month_anomaly ~ date, data = sextant_2015_2025_SPM_monthly_anom)
+p_value_sextant_2015 <- summary(model_sextant_2015)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_2015 <- coef(model_sextant_2015)[1]
+slope_sextant_2015 <- coef(model_sextant_2015)[2]
+
+# Créer le graphique
 ggplot(sextant_2015_2025_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
+  geom_smooth(method = "lm", se = TRUE, color = "red", fill = "pink", alpha = 0.2) +
+  annotate(
+    "text",
+    x = max(sextant_2015_2025_SPM_monthly_anom$date, na.rm = TRUE),
+    y = max(sextant_2015_2025_SPM_monthly_anom$spm_month_anomaly, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_sextant_2015, 3), " + ", round(slope_sextant_2015, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_2015 < 0.001, "< 0.001", format(p_value_sextant_2015, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 4
+  ) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-  labs(title = "Anomalie mensuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
-     x = "Mois",
-     y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+  labs(
+    title = "Anomalie mensuelle de la concentration en matière particulaire en suspension entre 2015 et 2025 avec le produit Sextant",
+    x = "Mois",
+    y = "Concentration moyenne en matière particulaire en suspension (en g/m³)"
+  ) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),  # Taille de la police pour l'axe x
+    axis.text.y = element_text(size = 12)  # Taille de la police pour l'axe y
+  )
 
 ## SPM ----------------------------------------------------------------
 
+# en échelle normale
+
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
-# 2015 et 2025 avec sextant
-ggplot(data = sextant_2015_2025_SPM, aes(x = date, y = mean_spm)) +
+# 1998 et 2025 avec sextant
+
+model_sextant_1998 <- lm(mean_spm ~ date, data = sextant_1998_2025_SPM)
+p_value_sextant_1998 <- summary(model_sextant_1998)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_1998 <- coef(model_sextant_1998)[1]
+slope_sextant_1998 <- coef(model_sextant_1998)[2]
+
+ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = mean_spm)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
-  geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   geom_line(color = "red3") +
-  labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 2015 et 2025 avec le produit Sextant",
+  annotate(
+    "text",
+    x = max(sextant_1998_2025_SPM$date, na.rm = TRUE),
+    y = max(sextant_1998_2025_SPM$mean_spm, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_sextant_1998, 3), " + ", round(slope_sextant_1998, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_1998 < 0.001, "< 0.001", format(p_value_sextant_1998, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 6
+  ) +
+  labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 1998 et 2025 avec le produit Sextant",
        x = "Date",
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal() +
@@ -186,23 +244,86 @@ ggplot(data = sextant_2015_2025_SPM, aes(x = date, y = mean_spm)) +
     date_labels = "%Y"       
   )
 
+# en échelle log
+
+# pour faire notre graph on doit transformer nos données "normales" en échelle log
+# sauf qu'on a des valeurs NA et inférieures à 0
+
+sextant_filtered <- sextant_1998_2025_SPM %>%
+  filter(mean_spm > 0 & !is.na(mean_spm))
+
+model_log_sextant_1998 <- lm(log10(mean_spm) ~ date, data = sextant_filtered)
+p_value_log_sextant_1998 <- summary(model_log_sextant_1998)$coefficients[2, 4]
+
+intercept_log_sextant_1998 <- coef(model_log_sextant_1998)[1]
+slope_log_sextant_1998 <- coef(model_log_sextant_1998)[2]
+p_value_log_sextant_1998 <- summary(model_log_sextant_1998)$coefficients[2, 4]
+
+# Formater l'équation
+equation_text_log <- paste0(
+  "log10(y) = ", round(intercept_log_sextant_1998, 4),
+  ifelse(sign(slope_log_sextant_1998) == 1, " + ", " - "),
+  abs(round(slope_log_sextant_1998, 4)), " * x",
+  "\n",  # Saut de ligne
+  "p-value = ", format.pval(p_value_log_sextant_1998, digits = 3)
+)
+
+
+
+
+# ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = mean_spm)) +
+#   # geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
+#   geom_line(color = "red3") +
+#   labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 1998 et 2025 avec le produit Sextant",
+#        x = "Date",
+#        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+#   theme_minimal() +
+#   scale_x_date(
+#     date_breaks = "1 year",
+#     date_labels = "%Y"
+#   ) +
+#   scale_y_log10()
+
+# Graphique
+ggplot(data = sextant_filtered, aes(x = date, y = mean_spm)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkslateblue") +
+  geom_line(color = "red3") +
+  labs(
+    title = "Evolution de la concentration en matière particulaire en suspension entre 1998 et 2025 (échelle log)",
+    x = "Date",
+    y = "Concentration moyenne (g/m³, échelle log)"
+  ) +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_y_log10() +
+  annotate(
+    "text",
+    x = as.Date("2010-01-01"),
+    y = max(sextant_filtered$mean_spm, na.rm = TRUE) * 0.8,
+    label = equation_text_log,
+    hjust = 0,
+    vjust = 1,
+    size = 5,
+    color = "black"
+  )
 # on plotte la série temporelle de la concentration moyenne en SPM entre
 # 2015 et 2025 avec sextant contre le débit liquide du Var 
 
 # pour cela on a besoin de facteur d'ajustement : 
 
 # adjusting scale
-adjust_factors <- sec_axis_adjustement_factors(sextant_2015_2025_SPM$mean_spm, Y6442010_Hydro_complete$débit)
+adjust_factors <- sec_axis_adjustement_factors(sextant_1998_2025_SPM$mean_spm, Y6442010_depuis_2000$débit)
 
-sextant_2015_2025_SPM$scaled_mean_spm <- sextant_2015_2025_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
+sextant_1998_2025_SPM$scaled_mean_spm <- sextant_1998_2025_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
 
+# en échelle normale
 ggplot() +
   geom_line(
-    data = Y6442010_Hydro_complete,
-    aes(x = Date, y = débit, color = "Débit")
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit")
   ) +
   geom_line(
-    data = sextant_2015_2025_SPM,
+    data = sextant_1998_2025_SPM,
     aes(x = date, y = scaled_mean_spm, color = "SPM")
   ) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
@@ -211,7 +332,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en matière en suspension entre 2015 et 2025 avec le produit Sextant",
+    title = "Débit du Var au pont Napoléon et concentration en matière en suspension entre 1998 et 2025 avec le produit Sextant",
     x = "Date"
   ) +
   theme_minimal() +
@@ -219,6 +340,40 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# en échelle log
+
+ggplot() +
+  geom_line(
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit")
+  ) +
+  geom_line(
+    data = sextant_1998_2025_SPM,
+    aes(x = date, y = scaled_mean_spm, color = "SPM")
+  ) +
+  scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
+  scale_y_log10(
+    name = "Débit (m³/s, log)",
+    breaks = scales::trans_breaks("log10", function(x) 10^x),
+    labels = scales::trans_format("log10", scales::math_format(10^.x)),
+    sec.axis = sec_axis(
+      ~ log10(. - adjust_factors$adjust) / log10(adjust_factors$diff),
+      name = "Matière particulaire en suspension (g/m³, log)",
+      breaks = scales::trans_breaks("log10", function(x) 10^x),
+      labels = scales::trans_format("log10", scales::math_format(10^.x))
+    )
+  ) +
+  labs(
+    title = "Débit du Var et concentration en matière en suspension (1998-2025, échelle log)",
+    x = "Date"
+  ) +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  )
+
 
 # on fait un zoom sur 2024
 # faire un data frame sur l'année 2024 pour le débit
