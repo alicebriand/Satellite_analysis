@@ -14,15 +14,15 @@
 
 # Luna package is used to access large spatial data products
 # NB: It is not available on r-universe not CRAN
-# if (!"luna" %in% installed.packages()) {
-#   install.packages('luna', repos = 'https://rspatial.r-universe.dev')
-# }
+if (!"luna" %in% installed.packages()) {
+  install.packages('luna', repos = 'https://rspatial.r-universe.dev')
+}
 
 # Check for missing libraries and install them if necessary
 # We will use th plyr package, but we will not load it explicitly
-# if (!all(c("maps", "tidyverse", "ncdf4", "terra", "doParallel", "plyr") %in% installed.packages())) {
-#   install.packages(c("maps", "tidyverse", "ncdf4", "terra", "doParallel", "plyr"), repos = "https://cloud.r-project.org/")
-# }
+if (!all(c("maps", "tidyverse", "ncdf4", "terra", "doParallel", "plyr") %in% installed.packages())) {
+  install.packages(c("maps", "tidyverse", "ncdf4", "terra", "doParallel", "plyr"), repos = "https://cloud.r-project.org/")
+}
 
 library(tidyverse)
 library(ncdf4)
@@ -38,7 +38,7 @@ library(doParallel); registerDoParallel(cores = detectCores() - 2)
 # It contains one row of data, which is the username and password for an account on earth data
 # An account can be created here: https://urs.earthdata.nasa.gov/
 # Once you have your account details, create the .csv file shown here and store in a secure location
-earth_up <- read_csv("~/pCloudDrive/Documents/info/earthdata_pswd.csv")
+earth_up <- read_csv("~/pCloudDrive/Stage/password_earth_data_access.csv")
 
 
 # Functions ---------------------------------------------------------------
@@ -136,7 +136,6 @@ load_MODIS_tif <- function(file_name, mask_rast){
   return(study_area_df)
 }
 
-
 # MODIS data --------------------------------------------------------------
 
 # Lists all products that are currently searchable on Earth Data and related servers
@@ -182,7 +181,7 @@ S3_catalogue <- earth_data_catalogue[grepl("OLCI|Sentinel|SENTINEL", earth_data_
 ## 1) Setup ---------------------------------------------------------------
 
 # Chose where you would like to save the files
-dl_dir <- "~/data/MODIS"
+dl_dir <- "~/Downloads/MODIS NASA/L2/"
 
 # Chosen start and end dates for downloading
 start_date <- "2020-10-03"; end_date <- "2020-10-03"
@@ -191,11 +190,11 @@ start_date <- "2020-10-03"; end_date <- "2020-10-03"
 # NB: The processing functions will fail if too much data are loaded at once
 # Here is the area surrounding the Bay of Angels
 study_coords <- matrix(c(
-  6.9, 43.4,  # Bottom-left corner
-  7.7, 43.4, # Bottom-right corner
-  7.7, 43.8, # Top-right corner
-  6.9, 43.8,  # Top-left corner
-  6.9, 43.4   # Close the polygon (same as first point)
+  7.4200000, 43.2136389,  # Bottom-left corner
+  6.8925000, 43.2136389, # Bottom-right corner
+  6.8925000, 43.7300000, # Top-right corner
+  7.4200000, 43.7300000,  # Top-left corner
+  7.4200000, 43.2136389   # Close the polygon (same as first point)
 ), ncol = 2, byrow = TRUE)
 
 # Turn it into the necessary SpatVector object type
@@ -230,12 +229,12 @@ luna::getNASA("MYD09GQ", start_date, end_date, aoi = study_bbox, download = FALS
 # NB: If this doesn't work, then the product ID, even if it is listed, may not be findable by the luna package
 luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox, 
               download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
-              path = dl_dir, username = earth_up$usrname, password = earth_up$psswrd)
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
 
 # To follow the rest of the examples below we also want to download the MODIS mask files
 luna::getNASA(product = "MOD44W", start_date = start_date, end_date = end_date, 
               aoi = study_bbox, download = TRUE, overwrite = FALSE,
-              path = dl_dir, username = earth_up$usrname, password = earth_up$psswrd)
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
 
 
 ## 3) Process files --------------------------------------------------------
@@ -248,7 +247,7 @@ rast_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MYD09GQ\\.", 
 
 # Chose specific files
 mask_files <- mask_files[1,] # Change accordingly
-rast_files <- rast_files[3,] # Change accordingly
+rast_files <- rast_files[1,] # Change accordingly
 
 # Process all of the water mask files
 # IF not, create it or change the directories below as desired
@@ -256,7 +255,7 @@ plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
 
 # Load the desired mask file
-MODIS_mask <- rast("~/data/MODIS/study_area_MOD44W_2020-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/study_area_MOD44W_2020-01-01.tif")
 
 # Check that it looks correct - should show white where land would be
 plot(MODIS_mask)
@@ -266,10 +265,10 @@ maps::map(add = TRUE)
 # NB: This requires that this folder exists: ~/data/MODIS
 # IF not, create it or change the directories below to match 
 plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
-            bbox = study_bbox, out_dir = "~/data/MODIS", layer_num = 2, land_mask = FALSE)
+            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
 
 # Load a file
-MODIS_rast <- rast("~/data/MODIS/study_area_MYD09GQ_2020-10-03.tif")
+MODIS_rast <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
 
 # Check that it looks correct
 plot(MODIS_rast)
@@ -292,9 +291,9 @@ maps::map(add = TRUE)
 
 ## 4) Load data ------------------------------------------------------------
 
-# Load the MOIDS mask first
+# Load the MODIS mask first
 # Change the filename if this is not correct
-MODIS_mask <- rast("~/data/MODIS/study_area_MOD44W_2020-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/masks/study_area_MOD44W_2020-01-01.tif")
 
 # Filter out just the .tif files (i.e. not the HDF files)
 tif_files <- list.files(path = dl_dir, pattern = "\\.tif$", full.names = TRUE)
@@ -303,7 +302,7 @@ tif_files <- list.files(path = dl_dir, pattern = "\\.tif$", full.names = TRUE)
 product_ID_files <- tif_files[grepl(product_ID, tif_files)]
 
 # Select just a subset of files as desired
-product_ID_files <- product_ID_files[2:4]
+product_ID_files <- product_ID_files[1]
 
 # Load all files
 study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
@@ -339,5 +338,4 @@ pl_map <- study_area_df |>
         axis.text = element_text(size = 18))
 
 # Save as desired
-ggsave("~/data/MODIS/fig_MODIS.png", pl_map, height = 9, width = 14)
-
+ggsave("~/Downloads/MODIS NASA/L2/fig_MODIS.png", pl_map, height = 9, width = 14)

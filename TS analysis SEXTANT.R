@@ -52,10 +52,9 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 # loading data ------------------------------------------------------------
 
 load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
-load("data/SEXTANT/all_spm_propre_sextant_2024.RData")
-# load("data/sextant_2015_2025_CHL.Rdata")
+load("data/SEXTANT/CHL/sextant_1998_2025_CHL.Rdata")
 
-load("P:/Stage/River_runoff_analysis/data/Hydro France/Y6442010_depuis_2000.Rdata")
+load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
 # climatology -------------------------------------------------------------
 
@@ -269,21 +268,6 @@ equation_text_log <- paste0(
 )
 
 
-
-
-# ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = mean_spm)) +
-#   # geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
-#   geom_line(color = "red3") +
-#   labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 1998 et 2025 avec le produit Sextant",
-#        x = "Date",
-#        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
-#   theme_minimal() +
-#   scale_x_date(
-#     date_breaks = "1 year",
-#     date_labels = "%Y"
-#   ) +
-#   scale_y_log10()
-
 # Graphique
 ggplot(data = sextant_filtered, aes(x = date, y = mean_spm)) +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkslateblue") +
@@ -306,8 +290,11 @@ ggplot(data = sextant_filtered, aes(x = date, y = mean_spm)) +
     size = 5,
     color = "black"
   )
+
+
+
 # on plotte la série temporelle de la concentration moyenne en SPM entre
-# 2015 et 2025 avec sextant contre le débit liquide du Var 
+# 1998 et 2025 avec sextant contre le débit liquide du Var 
 
 # pour cela on a besoin de facteur d'ajustement : 
 
@@ -412,16 +399,39 @@ ggplot() +
   )
 
 
-## CHL ----------------------------------------------------------------
+
+
+
+# CHL ----------------------------------------------------------------
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
-# 2015 et 2025 avec sextant
-ggplot(data = sextant_2015_2025_CHL, aes(x = date, y = mean_chl)) +
+# 1998 et 2025 avec sextant
+
+    # en échelle normale
+
+model_sextant_1998_chl <- lm(mean_chl ~ date, data = sextant_1998_2025_CHL)
+p_value_sextant_1998_chl <- summary(model_sextant_1998_chl)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_1998_chl <- coef(model_sextant_1998_chl)[1]
+slope_sextant_1998_chl <- coef(model_sextant_1998_chl)[2]
+
+ggplot(data = sextant_1998_2025_CHL, aes(x = date, y = mean_chl)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
+  annotate(
+    "text",
+    x = max(sextant_1998_2025_CHL$date, na.rm = TRUE),
+    y = max(sextant_1998_2025_CHL$mean_chl, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_sextant_1998_chl, 3), " + ", round(slope_sextant_1998_chl, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_1998_chl < 0.001, "< 0.001", format(p_value_sextant_1998_chl, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 6
+  ) +
   geom_line(color = "chartreuse3") +
-  labs(title = "Evolution de la concentration en chlorophylle moyenne entre 2015 et 2025 avec le produit Sextant",
+  labs(title = "Evolution de la concentration en chlorophylle moyenne entre 1998 et 2025 avec le produit Sextant",
        x = "Date",
        y = "Concentration moyenne en chlorophylle (en µg/L)") +
   theme_minimal() +
@@ -430,24 +440,73 @@ ggplot(data = sextant_2015_2025_CHL, aes(x = date, y = mean_chl)) +
     date_labels = "%Y"       
   )
 
+    # en échelle log
+
+# pour faire notre graph on doit transformer nos données "normales" en échelle log
+# sauf qu'on a des valeurs NA et inférieures à 0
+
+sextant_filtered_chl <- sextant_1998_2025_CHL%>%
+  filter(mean_chl > 0 & !is.na(mean_chl))
+
+model_log_sextant_1998_chl <- lm(log10(mean_chl) ~ date, data = sextant_filtered_chl)
+p_value_log_sextant_1998_chl <- summary(model_log_sextant_1998_chl)$coefficients[2, 4]
+
+intercept_log_sextant_1998_chl <- coef(model_log_sextant_1998_chl)[1]
+slope_log_sextant_1998_chl <- coef(model_log_sextant_1998_chl)[2]
+p_value_log_sextant_1998_chl <- summary(model_log_sextant_1998_chl)$coefficients[2, 4]
+
+# Formater l'équation
+equation_text_log <- paste0(
+  "log10(y) = ", round(intercept_log_sextant_1998_chl, 4),
+  ifelse(sign(slope_log_sextant_1998_chl) == 1, " + ", " - "),
+  abs(round(slope_log_sextant_1998_chl, 4)), " * x",
+  "\n",  # Saut de ligne
+  "p-value = ", format.pval(p_value_log_sextant_1998_chl, digits = 3)
+)
+
+# Graph
+ggplot(data = sextant_filtered_chl, aes(x = date, y = mean_chl)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkslateblue") +
+  geom_line(color = "chartreuse3") +
+  labs(
+    title = "Evolution de la concentration en chlorophylle A entre 1998 et 2025 (échelle log)",
+    x = "Date",
+    y = "Concentration moyenne (g/m³, échelle log)"
+  ) +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_y_log10() +
+  annotate(
+    "text",
+    x = as.Date("2010-01-01"),
+    y = max(sextant_filtered_chl$mean_chl, na.rm = TRUE) * 0.8,
+    label = equation_text_log,
+    hjust = 0,
+    vjust = 1,
+    size = 5,
+    color = "black"
+  )
+
+
+
 # on plotte la série temporelle de la concentration moyenne en SPM entre
-# 2015 et 2025 avec sextant contre le débit liquide du Var 
+# 1998 et 2025 avec sextant contre le débit liquide du Var 
 
 # pour cela on a besoin de facteur d'ajustement : 
 
 # adjusting scale
-adjust_factors <- sec_axis_adjustement_factors(sextant_2015_2025_CHL$mean_chl, Y6442010_Hydro_complete$débit)
+adjust_factors <- sec_axis_adjustement_factors(sextant_1998_2025_CHL$mean_chl, Y6442010_depuis_2000$débit)
 
-sextant_2015_2025_CHL$scaled_mean_chl <- sextant_2015_2025_CHL$mean_chl * adjust_factors$diff + adjust_factors$adjust
+sextant_1998_2025_CHL$scaled_mean_chl <- sextant_1998_2025_CHL$mean_chl * adjust_factors$diff + adjust_factors$adjust
 
 
 ggplot() +
   geom_line(
-    data = Y6442010_Hydro_complete,
-    aes(x = Date, y = débit, color = "Débit")
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit")
   ) +
   geom_line(
-    data = sextant_2015_2025_CHL,
+    data = sextant_1998_2025_CHL,
     aes(x = date, y = scaled_mean_chl, color = "CHL")
   ) +
   scale_color_manual(values = c("Débit" = "blue", "CHL" = "chartreuse3")) +
@@ -456,7 +515,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Chlorophylle (en µg/L)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en chlorophylle entre 2015 et 2025 avec le produit Sextant",
+    title = "Débit du Var au pont Napoléon et concentration en chlorophylle entre 1998 et 2025 avec le produit Sextant",
     x = "Date"
   ) +
   theme_minimal() +
