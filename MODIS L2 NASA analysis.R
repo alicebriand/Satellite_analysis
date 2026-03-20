@@ -32,10 +32,42 @@ library(ggpmisc)
 
 # This function will convert reflectance into SPM concentration thanks to ...
 
-# NB: When writing a function it is a good idea (but not necessary) to name your arguments
-# in a way that is not found in your code outside of the function
-# E.g. Here I changed 'study_area_df' to 'df' and 'sur_refl_b01_1' to 'col_name'
-MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562) {
+# Var_Morin <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
+# 
+#   # Vérifier que la colonne de réflectance existe
+#   if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+#     stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+#   }
+# 
+#   # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
+#   study_area_df <- study_area_df %>%
+#     mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 50)
+#     )
+# 
+#   return(study_area_df)
+# }
+
+Var_Morin <- function(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1", A = 80, C = 0.1562, SPM_max = 500) {
+  
+  # Vérifier que la colonne de réflectance existe
+  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+  }
+  
+  # Calculer SPM avec une approche conditionnelle
+  study_area_df <- study_area_df %>%
+    mutate(
+      SPM = case_when(
+        .data[[sur_refl_b01_1]] >= C ~ SPM_max,  # Si ρw >= C, SPM = SPM_max
+        TRUE ~ (A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C)  # Sinon, appliquer la formule
+      )
+    )
+  
+  return(study_area_df)
+}
+
+
+Paillon_Morin <- function(study_area_df, sur_refl_b01_1, A = 39, C = 0.2563) {
   
   # Vérifier que la colonne de réflectance existe
   if (!(col_name %in% names(df))) {
@@ -43,14 +75,37 @@ MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562) {
   }
   
   # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
-  df <- df |> 
-    mutate(SPM = (A * .data[[col_name]]) / (1 - (.data[[col_name]] / C)))
+  study_area_df <- study_area_df %>%
+    mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
+    )
+  
+  return(study_area_df)
+}
+
+
+Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
+  
+  # Vérifier que les colonnes de réflectance existent
+  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+  }
+  if (!(sur_refl_b02_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b02_1, "n'existe pas dans le data frame."))
+  } 
+  
+  # Calculer SPM avec la formule : SPM = 12.996 * exp((R(B2)/R(B1)) / 0.189)
+  study_area_df <- study_area_df %>%
+    mutate(
+      SPM = case_when(
+        .data[[sur_refl_b01_1]] <= 0 ~ NA_real_,  # Évite la division par zéro ou des valeurs négatives
+        TRUE ~ 12.996 * exp((.data[[sur_refl_b02_1]] / .data[[sur_refl_b01_1]]) / 0.189)
+      )
+    )
   
   return(df)
 }
 
 # data analysis -----------------------------------------------------------
-
 
 ## Load data ---------------------------------------------------------------
 
@@ -72,65 +127,32 @@ study_area_df <- load_MODIS_tif(file_name = "~/data/MODIS/study_area_MYD09GQ_202
 #       TRUE ~ (A * .data[[sur_refl_b01_1]]) / pmax(1 - .data[[sur_refl_b01_1]] / C, 0.01)  # Évite la division par zéro
 #     ))
 #   return(study_area_df)
-
-# Apply SDM equation
-# study_area_df <- MODIS_L2_SPM(study_area_df, col_name = "sur_refl_b01_1") 
-
-# Or, because it is a single equation, we can apply it directly to the data.frame with mutate()
-# SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation and values come from? I do not find them in the literature?
-# study_area_df <- study_area_df |> 
-#   mutate(SPM = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)))
-
-# A different algorithm based on Teng et al. 2025
-# https://www.sciencedirect.com/science/article/pii/S003442572500149X
-# SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
-# NB: lambda_RED is taken here to be the MODIS band 1 waveband
-study_area_df <- study_area_df |> 
-  mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
-         SPM = 1992.2 * Rrs_b01_01^1.027)
-# But these values are crazy high...
-
-# So then this paper by Tsapanou et al. 2020
-# http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
-# Though this is for LandSat 8
-# SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
-# A = 289.29 g m−3 , B = 2.10 g m−3 and C = 0.1686
-study_area_df <- study_area_df |> 
-  mutate(SPM = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686)))+2.10)
-# This produces too many negative values...
-
-# So we digress to the Nechad formula of 
-# SPM = ((A * Rrs)/(1-(Rrs/C)))+B
-# A ≈ 200-230, C ≈ 0.15-⁣0.17 B ≈0# Just as a starting guess
-study_area_df <- study_area_df |> 
-  filter(sur_refl_b01_1 >= 0 ) |> 
-  mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
-         SPM = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
-
-# OR we can try
-# SPM[mg l−1]= a + b * ρsurf,645
-# ρsurf,645 = sur_refl_b01_1
-# a=289.29,b=2.1 # For starting
-study_area_df <- study_area_df |> 
-  filter(sur_refl_b01_1 >= 0 ) |> 
-  mutate(SPM = 0 + 2.1 * sur_refl_b01_1)
-
-# We have to filter the data frame because there are some absurd values
-# study_area_df <- study_area_df |> 
-#   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
+# }
 
 # we have to filter the data frame because there are some absurd values
-# study_area_df_filtered <- study_area_df 
-study_area_df_filtered <- study_area_df |>
-  filter(SPM >= 0,
-         SPM <= 6000)
+# study_area_df <- study_area_df %>%
+#   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
+
+study_area_df <- study_area_df |>
+  filter(sur_refl_b01_1 <= 0.6)
+
+C <- 0.1562  # Définis la valeur de C
+study_area_df <- study_area_df %>%
+  mutate(sur_refl_b01_1 = pmin(sur_refl_b01_1, C - 0.01))  # Limite la réflectance à C - 0.01
+
+study_area_df <- Var_Morin(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1")
+
+# we have to filter the data frame because there are some absurd values
+# study_area_df_filtered <- study_area_df %>%
+#   filter(SPM >= 0,
+#          SPM <= 10000)
 
 ## plotting -----------------------------------------------------------
 
-max_spm <- max(study_area_df_filtered$SPM, na.rm = TRUE)
+max_spm <- max(study_area_df$SPM, na.rm = TRUE)
 
 # Créer le graphique
-pl_map <- study_area_df_filtered %>%
+pl_map <- study_area_df %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM)) +
@@ -150,8 +172,8 @@ pl_map <- study_area_df_filtered %>%
     y = "Latitude (°N)",
     fill = "SPM [mg/l]"
   ) +
-  coord_quickmap(xlim = range(study_area_df_filtered$lon, na.rm = TRUE),
-                 ylim = range(study_area_df_filtered$lat, na.rm = TRUE)) +
+  coord_quickmap(xlim = range(study_area_df$lon, na.rm = TRUE),
+                 ylim = range(study_area_df$lat, na.rm = TRUE)) +
   theme(
     panel.border = element_rect(colour = "black", fill = NA),
     legend.position = "top",
@@ -162,42 +184,6 @@ pl_map <- study_area_df_filtered %>%
     axis.text = element_text(size = 18)
   )
 pl_map
-
-# # Map des SPM
-# pl_map <- study_area_df_filtered %>%
-#   # Sélectionner une date
-#   filter(date == "2020-10-03") %>%
-#   # Créer le graphique
-#   ggplot() +
-#   annotation_borders(fill = "grey80") +
-#   geom_tile(aes(x = lon, y = lat, fill = SPM)) +  # Utiliser SPM pour le remplissage
-#   scale_fill_viridis_c(
-#     option = "plasma",
-#     name = "SPM [mg/l]",
-#     limits = c(0, max(study_area_df$SPM, na.rm = TRUE))  # Ajuste dynamiquement les limites
-#   ) +
-#   guides(fill = guide_colorbar(
-#     barwidth = 20,
-#     barheight = 2,
-#     title.position = "top",
-#     title.hjust = 0.5
-#   )) +
-#   labs(
-#     x = "Longitude (°E)",
-#     y = "Latitude (°N)",
-#     fill = "SPM [mg/l]"  # Légende pour les SPM
-#   ) +
-#   coord_quickmap(xlim = range(study_area_df$lon), ylim = range(study_area_df$lat)) +
-#   theme(
-#     panel.border = element_rect(colour = "black", fill = NA),
-#     legend.position = "top",
-#     legend.box = "vertical",
-#     legend.title = element_text(size = 20),
-#     legend.text = element_text(size = 18),
-#     axis.title = element_text(size = 20),
-#     axis.text = element_text(size = 18)
-#   )
-
 
 # Save as desired
 ggsave("~/Downloads/MODIS NASA/L2/fig_MODIS_SPM.png", pl_map, height = 9, width = 14)
