@@ -281,21 +281,50 @@ plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
 
 # Load a file
-MODIS_rast <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
+MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
 
 # Check that it looks correct
-plot(MODIS_rast)
+plot(MODIS_rast_b1)
 maps::map(add = TRUE)
 
 # Project the 250 m mask to the same grid as the 500 m raster data
-MODIS_mask_proj <- project(MODIS_mask, MODIS_rast)
+MODIS_mask_proj <- project(MODIS_mask, MODIS_rast_b1)
 
 # Check that it worked
 plot(MODIS_mask_proj)
 maps::map(add = TRUE)
 
 # Mask the raster data
-MODIS_water <- mask(MODIS_rast, MODIS_mask_proj)
+MODIS_water <- mask(MODIS_rast_b1, MODIS_mask_proj)
+
+# Check to see if it looks correct - should show white where land is
+plot(MODIS_water)
+maps::map(add = TRUE)
+
+    # then do the same for band 2
+
+# Prep one day of MODIS data
+# NB: This requires that this folder exists: ~/data/MODIS
+# IF not, create it or change the directories below to match 
+plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
+
+# Load a file
+MODIS_rast_b2 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
+
+# Check that it looks correct
+plot(MODIS_rast_b2)
+maps::map(add = TRUE)
+
+# Project the 250 m mask to the same grid as the 500 m raster data
+MODIS_mask_proj <- project(MODIS_mask, MODIS_rast_b2)
+
+# Check that it worked
+plot(MODIS_mask_proj)
+maps::map(add = TRUE)
+
+# Mask the raster data
+MODIS_water <- mask(MODIS_rast_b2, MODIS_mask_proj)
 
 # Check to see if it looks correct - should show white where land is
 plot(MODIS_water)
@@ -318,17 +347,18 @@ product_ID_files <- tif_files[grepl(product_ID, tif_files)]
 product_ID_files <- product_ID_files[1]
 
 # Load all files
-study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
+study_area_df_b1 <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
 
 # One can then apply whatever algorithms one wants to this dataframe
 
+study_area_df <- left_join(study_area_df_b1, study_area_df_b2)
 
 ## 5) Plot data ------------------------------------------------------------
 
 # Map
 pl_map <- study_area_df |> 
   # Remove pixels that are too high (i.e. clouds)
-  filter(sur_refl_b01_1 <= 3000) |> 
+  filter(sur_refl_b02_1 <= 3000) |> 
   # Select one date
   filter(date == "2020-10-03") |> 
   # Round all surface reflectance values greater than 0.1 down to 0.1 for better plotting
@@ -336,7 +366,7 @@ pl_map <- study_area_df |>
   #                        Rrs < 0 ~ 0, TRUE ~ Rrs)) |> 
   ggplot() +
   annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b02_1)) +
   scale_fill_viridis_c() +
   guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
   # NB: Change fill label to correctly indicate which band width was used

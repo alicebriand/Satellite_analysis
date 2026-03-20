@@ -24,7 +24,42 @@ library(ggpmisc)
 
 # This function will convert reflectance into SPM concentration thanks to ...
 
-MODIS_L2_SPM <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
+# Var_Morin <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
+# 
+#   # Vérifier que la colonne de réflectance existe
+#   if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+#     stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+#   }
+# 
+#   # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
+#   study_area_df <- study_area_df %>%
+#     mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 50)
+#     )
+# 
+#   return(study_area_df)
+# }
+
+Var_Morin <- function(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1", A = 80, C = 0.1562, SPM_max = 500) {
+  
+  # Vérifier que la colonne de réflectance existe
+  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+  }
+  
+  # Calculer SPM avec une approche conditionnelle
+  study_area_df <- study_area_df %>%
+    mutate(
+      SPM = case_when(
+        .data[[sur_refl_b01_1]] >= C ~ SPM_max,  # Si ρw >= C, SPM = SPM_max
+        TRUE ~ (A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C)  # Sinon, appliquer la formule
+      )
+    )
+  
+  return(study_area_df)
+}
+
+
+Paillon_Morin <- function(study_area_df, sur_refl_b01_1, A = 39, C = 0.2563) {
   
   # Vérifier que la colonne de réflectance existe
   if (!(sur_refl_b01_1 %in% names(study_area_df))) {
@@ -33,7 +68,31 @@ MODIS_L2_SPM <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
   
   # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
   study_area_df <- study_area_df %>%
-    mutate(SPM = (A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C))
+    mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
+    )
+  
+  return(study_area_df)
+}
+
+
+Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
+  
+  # Vérifier que les colonnes de réflectance existent
+  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+  }
+  if (!(sur_refl_b02_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b02_1, "n'existe pas dans le data frame."))
+  } 
+  
+  # Calculer SPM avec la formule : SPM = 12.996 * exp((R(B2)/R(B1)) / 0.189)
+  study_area_df <- study_area_df %>%
+    mutate(
+      SPM = case_when(
+        .data[[sur_refl_b01_1]] <= 0 ~ NA_real_,  # Évite la division par zéro ou des valeurs négatives
+        TRUE ~ 12.996 * exp((.data[[sur_refl_b02_1]] / .data[[sur_refl_b01_1]]) / 0.189)
+      )
+    )
   
   return(study_area_df)
 }
@@ -52,23 +111,30 @@ MODIS_L2_SPM <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
 # }
 
 # we have to filter the data frame because there are some absurd values
+# study_area_df <- study_area_df %>%
+#   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
+
+study_area_df <- study_area_df |>
+  filter(sur_refl_b01_1 <= 0.6)
+
+C <- 0.1562  # Définis la valeur de C
 study_area_df <- study_area_df %>%
-  mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
+  mutate(sur_refl_b01_1 = pmin(sur_refl_b01_1, C - 0.01))  # Limite la réflectance à C - 0.01
 
 
-study_area_df <- MODIS_L2_SPM(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1")
+study_area_df <- Var_Morin(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1")
 
 # we have to filter the data frame because there are some absurd values
-study_area_df_filtered <- study_area_df %>%
-  filter(SPM >= 0,
-         SPM <= 200)
+# study_area_df_filtered <- study_area_df %>%
+#   filter(SPM >= 0,
+#          SPM <= 10000)
 
 ## plotting -----------------------------------------------------------
 
-max_spm <- max(study_area_df_filtered$SPM, na.rm = TRUE)
+max_spm <- max(study_area_df$SPM, na.rm = TRUE)
 
 # Créer le graphique
-pl_map <- study_area_df_filtered %>%
+pl_map <- study_area_df %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM)) +
@@ -88,8 +154,8 @@ pl_map <- study_area_df_filtered %>%
     y = "Latitude (°N)",
     fill = "SPM [mg/l]"
   ) +
-  coord_quickmap(xlim = range(study_area_df_filtered$lon, na.rm = TRUE),
-                 ylim = range(study_area_df_filtered$lat, na.rm = TRUE)) +
+  coord_quickmap(xlim = range(study_area_df$lon, na.rm = TRUE),
+                 ylim = range(study_area_df$lat, na.rm = TRUE)) +
   theme(
     panel.border = element_rect(colour = "black", fill = NA),
     legend.position = "top",
@@ -99,42 +165,6 @@ pl_map <- study_area_df_filtered %>%
     axis.title = element_text(size = 20),
     axis.text = element_text(size = 18)
   )
-
-
-# # Map des SPM
-# pl_map <- study_area_df_filtered %>%
-#   # Sélectionner une date
-#   filter(date == "2020-10-03") %>%
-#   # Créer le graphique
-#   ggplot() +
-#   annotation_borders(fill = "grey80") +
-#   geom_tile(aes(x = lon, y = lat, fill = SPM)) +  # Utiliser SPM pour le remplissage
-#   scale_fill_viridis_c(
-#     option = "plasma",
-#     name = "SPM [mg/l]",
-#     limits = c(0, max(study_area_df$SPM, na.rm = TRUE))  # Ajuste dynamiquement les limites
-#   ) +
-#   guides(fill = guide_colorbar(
-#     barwidth = 20,
-#     barheight = 2,
-#     title.position = "top",
-#     title.hjust = 0.5
-#   )) +
-#   labs(
-#     x = "Longitude (°E)",
-#     y = "Latitude (°N)",
-#     fill = "SPM [mg/l]"  # Légende pour les SPM
-#   ) +
-#   coord_quickmap(xlim = range(study_area_df$lon), ylim = range(study_area_df$lat)) +
-#   theme(
-#     panel.border = element_rect(colour = "black", fill = NA),
-#     legend.position = "top",
-#     legend.box = "vertical",
-#     legend.title = element_text(size = 20),
-#     legend.text = element_text(size = 18),
-#     axis.title = element_text(size = 20),
-#     axis.text = element_text(size = 18)
-#   )
 
 
 # Save as desired
