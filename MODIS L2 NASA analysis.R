@@ -34,7 +34,6 @@ library(ggpmisc)
 
 # This function will convert reflectance into SPM concentration thanks to ...
 
-<<<<<<< HEAD
 # Var_Morin <- function(study_area_df, sur_refl_b01_1, A = 80, C = 0.1562) {
 # 
 #   # Vérifier que la colonne de réflectance existe
@@ -71,12 +70,11 @@ Var_Morin <- function(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1", A = 80, 
 
 
 Paillon_Morin <- function(study_area_df, sur_refl_b01_1, A = 39, C = 0.2563) {
-=======
+
 # NB: When writing a function it is a good idea (but not necessary) to name your arguments
 # in a way that is not found in your code outside of the function
 # E.g. Here I changed 'study_area_df' to 'df' and 'sur_refl_b01_1' to 'col_name'
 MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562) {
->>>>>>> origin/main~
   
   # Vérifier que la colonne de réflectance existe
   if (!(col_name %in% names(df))) {
@@ -84,7 +82,7 @@ MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562) {
   }
   
   # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
-<<<<<<< HEAD
+
   study_area_df <- study_area_df %>%
     mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
     )
@@ -111,16 +109,60 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
         TRUE ~ 12.996 * exp((.data[[sur_refl_b02_1]] / .data[[sur_refl_b01_1]]) / 0.189)
       )
     )
-=======
+
   df <- df |> 
     mutate(SPM = (A * .data[[col_name]]) / (1 - (.data[[col_name]] / C)))
->>>>>>> origin/main~
   
   return(df)
 }
 
 # data analysis -----------------------------------------------------------
 
+# Apply SDM equation
+study_area_df <- MODIS_L2_SPM(study_area_df, col_name = "sur_refl_b01_1") 
+
+# Or, because it is a single equation, we can apply it directly to the data.frame with mutate()
+# SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation and values come from? I do not find them in the literature?
+study_area_df <- study_area_df |>  
+  mutate(SPM = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)))
+
+# A different algorithm based on Teng et al. 2025
+# https://www.sciencedirect.com/science/article/pii/S003442572500149X
+# SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
+# NB: lambda_RED is taken here to be the MODIS band 1 waveband
+study_area_df <- study_area_df |> 
+  mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
+       SPM = 1992.2 * Rrs_b01_01^1.027)
+# But these values are crazy high...
+
+# So then this paper by Tsapanou et al. 2020
+# http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
+# Though this is for LandSat 8
+# SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
+# A = 289.29 g m−3 , B = 2.10 g m−3 and C = 0.1686
+study_area_df <- study_area_df |> 
+  mutate(SPM = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686)))+2.10)
+# This produces too many negative values...
+
+# So we digress to the Nechad formula of 
+# SPM = ((A * Rrs)/(1-(Rrs/C)))+B
+# A ≈ 200-230, C ≈ 0.15-⁣0.17 B ≈0# Just as a starting guess
+study_area_df <- study_area_df |> 
+  filter(sur_refl_b01_1 >= 0 ) |> 
+  mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
+        SPM = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
+
+# OR we can try
+# SPM[mg l−1]= a + b * ρsurf,645
+# ρsurf,645 = sur_refl_b01_1
+# a=289.29,b=2.1 # For starting
+study_area_df <- study_area_df |> 
+  filter(sur_refl_b01_1 >= 0 ) |> 
+  mutate(SPM = 0 + 2.1 * sur_refl_b01_1)
+
+# We have to filter the data frame because there are some absurd values
+study_area_df <- study_area_df |> 
+  mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
 
 ## Load data ---------------------------------------------------------------
 
@@ -190,7 +232,7 @@ study_area_df <- study_area_df |>
 #   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
 
 # we have to filter the data frame because there are some absurd values
-<<<<<<< HEAD
+
 # study_area_df <- study_area_df %>%
 #   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
 
@@ -208,12 +250,11 @@ study_area_df <- Var_Morin(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1")
 # study_area_df_filtered <- study_area_df %>%
 #   filter(SPM >= 0,
 #          SPM <= 10000)
-=======
+
 # study_area_df_filtered <- study_area_df 
 study_area_df_filtered <- study_area_df |>
   filter(SPM >= 0,
          SPM <= 6000)
->>>>>>> origin/main~
 
 ## plotting -----------------------------------------------------------
 
