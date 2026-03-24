@@ -19,6 +19,7 @@ library(gganimate)
 library(doParallel); registerDoParallel(cores = detectCores()-2) # Detects cores automagically
 library(heatwaveR)
 library(ggpmisc)
+library(ggpubr)
 
 # functions -----------------------------------------------------------------
 
@@ -52,6 +53,7 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 # loading data ------------------------------------------------------------
 
 load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
+load("data/SEXTANT/SPM/all_spm_propre_sextant_2024.RData")
 load("data/SEXTANT/CHL/sextant_1998_2025_CHL.Rdata")
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
@@ -208,34 +210,34 @@ ggplot(sextant_2015_2025_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly))
 
 # en échelle normale
 
-# on plotte seulement la série temporelle de la concentration médiane en SPM entre
+# on plotte seulement la série temporelle de la concentration moyenne en SPM entre
 # 1998 et 2025 avec sextant
 
-model_sextant_1998_mediane <- lm(median_spm ~ date, data = sextant_1998_2025_SPM)
-p_value_sextant_1998_mediane <- summary(model_sextant_1998_mediane)$coefficients[2, 4]  # p-value pour la pente
-intercept_sextant_1998_mediane <- coef(model_sextant_1998_mediane)[1]
-slope_sextant_1998_mediane <- coef(model_sextant_1998_mediane)[2]
+model_sextant_1998 <- lm(mean_spm ~ date, data = sextant_1998_2025_SPM)
+p_value_sextant_1998 <- summary(model_sextant_1998)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_1998 <- coef(model_sextant_1998)[1]
+slope_sextant_1998 <- coef(model_sextant_1998)[2]
 
-ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = median_spm)) +
+ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = mean_spm)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
-  geom_line(color = "red3") +
+  geom_point(color = "red3", size = 1) +
   annotate(
     "text",
     x = max(sextant_1998_2025_SPM$date, na.rm = TRUE),
-    y = max(sextant_1998_2025_SPM$median_spm, na.rm = TRUE) * 0.9,
+    y = max(sextant_1998_2025_SPM$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
-      "y = ", round(intercept_sextant_1998_mediane, 3), " + ", round(slope_sextant_1998_mediane, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_mediane < 0.001, "< 0.001", format(p_value_sextant_1998_mediane, digits = 3))
+      "y = ", round(intercept_sextant_1998, 3), " + ", round(slope_sextant_1998, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_1998 < 0.001, "< 0.001", format(p_value_sextant_1998, digits = 3))
     ),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Evolution de la concentration en matière particulaire en suspension médiane entre 1998 et 2025 avec le produit Sextant",
+  labs(title = "Évolution de la concentration en matière particulaire en suspension moyenne entre 1998 et 2025 avec le produit Sextant",
        x = "Date",
-       y = "Concentration médiane en matière particulaire en suspension (en g/m³)") +
+       y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
@@ -248,33 +250,48 @@ ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = median_spm)) +
 # sauf qu'on a des valeurs NA et inférieures à 0
 
 sextant_filtered <- sextant_1998_2025_SPM %>%
-  filter(median_spm > 0 & !is.na(median_spm))
+  filter(mean_spm > 0 & !is.na(mean_spm))
 
-model_log_sextant_1998_median <- lm(log10(median_spm) ~ date, data = sextant_filtered)
-p_value_log_sextant_1998_median <- summary(model_log_sextant_1998_median)$coefficients[2, 4]
+model_log_sextant_1998 <- lm(log10(mean_spm) ~ date, data = sextant_filtered)
+p_value_log_sextant_1998 <- summary(model_log_sextant_1998)$coefficients[2, 4]
 
-intercept_log_sextant_1998_median <- coef(model_log_sextant_1998_median)[1]
-slope_log_sextant_1998_median <- coef(model_log_sextant_1998_median)[2]
-p_value_log_sextant_1998_median <- summary(model_log_sextant_1998_median)$coefficients[2, 4]
+intercept_log_sextant_1998 <- coef(model_log_sextant_1998)[1]
+slope_log_sextant_1998 <- coef(model_log_sextant_1998)[2]
+p_value_log_sextant_1998 <- summary(model_log_sextant_1998)$coefficients[2, 4]
 
 # Formater l'équation
 equation_text_log <- paste0(
-  "log10(y) = ", round(intercept_log_sextant_1998_median, 4),
-  ifelse(sign(slope_log_sextant_1998_median) == 1, " + ", " - "),
-  abs(round(slope_log_sextant_1998_median, 4)), " * x",
+  "log10(y) = ", round(intercept_log_sextant_1998, 4),
+  ifelse(sign(slope_log_sextant_1998) == 1, " + ", " - "),
+  abs(round(slope_log_sextant_1998, 4)), " * x",
   "\n",  # Saut de ligne
-  "p-value = ", format.pval(p_value_log_sextant_1998_median, digits = 3)
+  "p-value = ", format.pval(p_value_log_sextant_1998, digits = 3)
 )
 
 
+
+
+# ggplot(data = sextant_1998_2025_SPM, aes(x = date, y = mean_spm)) +
+#   # geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
+#   geom_line(color = "red3") +
+#   labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 1998 et 2025 avec le produit Sextant",
+#        x = "Date",
+#        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
+#   theme_minimal() +
+#   scale_x_date(
+#     date_breaks = "1 year",
+#     date_labels = "%Y"
+#   ) +
+#   scale_y_log10()
+
 # Graphique
-ggplot(data = sextant_filtered, aes(x = date, y = median_spm)) +
+ggplot(data = sextant_filtered, aes(x = date, y = mean_spm)) +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkslateblue") +
   geom_line(color = "red3") +
   labs(
-    title = "Evolution de la concentration en matière particulaire en suspension médiane entre 1998 et 2025 (échelle log) avec sextant",
+    title = "Evolution de la concentration en matière particulaire en suspension entre 1998 et 2025 (échelle log)",
     x = "Date",
-    y = "Concentration médiane (g/m³, échelle log)"
+    y = "Concentration moyenne (g/m³, échelle log)"
   ) +
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
@@ -282,18 +299,15 @@ ggplot(data = sextant_filtered, aes(x = date, y = median_spm)) +
   annotate(
     "text",
     x = as.Date("2010-01-01"),
-    y = max(sextant_filtered$median_spm, na.rm = TRUE) * 0.8,
+    y = max(sextant_filtered$mean_spm, na.rm = TRUE) * 0.8,
     label = equation_text_log,
     hjust = 0,
     vjust = 1,
     size = 5,
     color = "black"
   )
-
-
-
 # on plotte la série temporelle de la concentration moyenne en SPM entre
-# 1998 et 2025 avec sextant contre le débit liquide du Var 
+# 2015 et 2025 avec sextant contre le débit liquide du Var 
 
 # pour cela on a besoin de facteur d'ajustement : 
 
@@ -304,13 +318,13 @@ sextant_1998_2025_SPM$scaled_mean_spm <- sextant_1998_2025_SPM$mean_spm * adjust
 
 # en échelle normale
 ggplot() +
-  geom_line(
+  geom_point(
     data = Y6442010_depuis_2000,
-    aes(x = date, y = débit, color = "Débit")
+    aes(x = date, y = débit, color = "Débit"), size = 0.5
   ) +
-  geom_line(
+  geom_point(
     data = sextant_1998_2025_SPM,
-    aes(x = date, y = scaled_mean_spm, color = "SPM")
+    aes(x = date, y = scaled_mean_spm, color = "SPM"), size = 0.5
   ) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
   scale_y_continuous(
@@ -398,114 +412,63 @@ ggplot() +
   )
 
 
+# scatter plot ------------------------------------------------------------
 
+ggplot(Var_SEXTANT_SPM, aes(x = débit, y = mean_spm)) +
+  geom_point(alpha = 0.5, color = "steelblue", size = 1) +
+  geom_smooth(method = "lm", se = TRUE, color = "red3", fill = "pink", alpha = 0.2) +
+  stat_cor(method = "spearman", label.x.npc = "left", label.y.npc = "top") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "Relation entre débit et concentration en SPM en échelle log",
+    x = "Débit (m³/s)",
+    y = "Concentration moyenne en SPM (g/m³)"
+  ) +
+  theme_minimal()
 
+# runoff vs SPM concentration correlation ---------------------------------
 
-# CHL ----------------------------------------------------------------
+Var_SEXTANT_SPM <- inner_join(Y6442010_depuis_2000, sextant_1998_2025_SPM, by = "date")
+
+cor.test(Var_SEXTANT_SPM$débit, Var_SEXTANT_SPM$mean_spm, method = "spearman")
+
+## CHL ----------------------------------------------------------------
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
-# 1998 et 2025 avec sextant
-
-    # en échelle normale
-
-model_sextant_1998_chl_median <- lm(median_chl ~ date, data = sextant_1998_2025_CHL)
-p_value_sextant_1998_chl_median <- summary(model_sextant_1998_chl_median)$coefficients[2, 4]  # p-value pour la pente
-intercept_sextant_1998_chl_median <- coef(model_sextant_1998_chl_median)[1]
-slope_sextant_1998_chl_median <- coef(model_sextant_1998_chl_median)[2]
-
-ggplot(data = sextant_1998_2025_CHL, aes(x = date, y = median_chl)) +
+# 2015 et 2025 avec sextant
+ggplot(data = sextant_2015_2025_CHL, aes(x = date, y = mean_chl)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
-  annotate(
-    "text",
-    x = max(sextant_1998_2025_CHL$date, na.rm = TRUE),
-    y = max(sextant_1998_2025_CHL$median_chl, na.rm = TRUE) * 0.9,
-    label = paste0(
-      "y = ", round(intercept_sextant_1998_chl_median, 3), " + ", round(slope_sextant_1998_chl_median, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_chl_median < 0.001, "< 0.001", format(p_value_sextant_1998_chl_median, digits = 3))
-    ),
-    hjust = 1,  # Alignement à droite
-    vjust = 1,  # Alignement en haut
-    size = 6
-  ) +
   geom_line(color = "chartreuse3") +
-  labs(title = "Evolution de la concentration en chlorophylle médiane entre 1998 et 2025 avec le produit Sextant",
+  labs(title = "Evolution de la concentration en chlorophylle moyenne entre 2015 et 2025 avec le produit Sextant",
        x = "Date",
-       y = "Concentration médiane en chlorophylle (en µg/L)") +
+       y = "Concentration moyenne en chlorophylle (en µg/L)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
 
-    # en échelle log
-
-# pour faire notre graph on doit transformer nos données "normales" en échelle log
-# sauf qu'on a des valeurs NA et inférieures à 0
-
-sextant_filtered_chl_median <- sextant_1998_2025_CHL%>%
-  filter(median_chl > 0 & !is.na(median_chl))
-
-model_log_sextant_1998_chl_median <- lm(log10(median_chl) ~ date, data = sextant_filtered_chl_median)
-p_value_log_sextant_1998_chl_median <- summary(model_log_sextant_1998_chl_median)$coefficients[2, 4]
-
-intercept_log_sextant_1998_chl_median <- coef(model_log_sextant_1998_chl_median)[1]
-slope_log_sextant_1998_chl_median <- coef(model_log_sextant_1998_chl_median)[2]
-p_value_log_sextant_1998_chl_median <- summary(model_log_sextant_1998_chl_median)$coefficients[2, 4]
-
-# Formater l'équation
-equation_text_log <- paste0(
-  "log10(y) = ", round(intercept_log_sextant_1998_chl_median, 4),
-  ifelse(sign(slope_log_sextant_1998_chl_median) == 1, " + ", " - "),
-  abs(round(slope_log_sextant_1998_chl_median, 4)), " * x",
-  "\n",  # Saut de ligne
-  "p-value = ", format.pval(p_value_log_sextant_1998_chl_median, digits = 3)
-)
-
-# Graph
-ggplot(data = sextant_filtered_chl_median, aes(x = date, y = median_chl)) +
-  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "darkslateblue") +
-  geom_line(color = "chartreuse3") +
-  labs(
-    title = "Evolution de la concentration en chlorophylle A médiane entre 1998 et 2025 (échelle log)",
-    x = "Date",
-    y = "Concentration médiane (g/m³, échelle log)"
-  ) +
-  theme_minimal() +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  scale_y_log10() +
-  annotate(
-    "text",
-    x = as.Date("2010-01-01"),
-    y = max(sextant_filtered_chl_median$median_chl, na.rm = TRUE) * 0.8,
-    label = equation_text_log,
-    hjust = 0,
-    vjust = 1,
-    size = 5,
-    color = "black"
-  )
-
-
-
 # on plotte la série temporelle de la concentration moyenne en SPM entre
-# 1998 et 2025 avec sextant contre le débit liquide du Var 
+# 2015 et 2025 avec sextant contre le débit liquide du Var 
 
 # pour cela on a besoin de facteur d'ajustement : 
 
 # adjusting scale
-adjust_factors <- sec_axis_adjustement_factors(sextant_1998_2025_CHL$mean_chl, Y6442010_depuis_2000$débit)
+adjust_factors <- sec_axis_adjustement_factors(sextant_2015_2025_CHL$mean_chl, Y6442010_Hydro_complete$débit)
 
-sextant_1998_2025_CHL$scaled_mean_chl <- sextant_1998_2025_CHL$mean_chl * adjust_factors$diff + adjust_factors$adjust
+sextant_2015_2025_CHL$scaled_mean_chl <- sextant_2015_2025_CHL$mean_chl * adjust_factors$diff + adjust_factors$adjust
 
 
 ggplot() +
   geom_line(
-    data = Y6442010_depuis_2000,
-    aes(x = date, y = débit, color = "Débit")
+    data = Y6442010_Hydro_complete,
+    aes(x = Date, y = débit, color = "Débit")
   ) +
   geom_line(
-    data = sextant_1998_2025_CHL,
+    data = sextant_2015_2025_CHL,
     aes(x = date, y = scaled_mean_chl, color = "CHL")
   ) +
   scale_color_manual(values = c("Débit" = "blue", "CHL" = "chartreuse3")) +
@@ -514,7 +477,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Chlorophylle (en µg/L)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en chlorophylle entre 1998 et 2025 avec le produit Sextant",
+    title = "Débit du Var au pont Napoléon et concentration en chlorophylle entre 2015 et 2025 avec le produit Sextant",
     x = "Date"
   ) +
   theme_minimal() +

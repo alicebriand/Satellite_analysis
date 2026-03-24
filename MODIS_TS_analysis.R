@@ -51,11 +51,16 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("data/MODIS/SPM/")
 load("data/MODIS/SPM/MODIS_2015_2024_SPM.Rdata")
-load("data/MODIS/SPM/all_spm_propre_MODIS_2023.RData")
+load("data/MODIS/SPM/all_spm_propre_MODIS_2023.Rdata")
 # load("data/MODIS/CHL/")
 load("data/Hydro France/Y6442010_Hydro.Rdata")
+load("data/Hydro France/Y6442010_2015_2024.Rdata")
+
+# Y6442010_2015_2024 <- Y6442010_depuis_2000 |> 
+#   filter(date >= as.Date("2015-01-01"), date <= as.Date("2024-12-28"))
+# 
+# save(Y6442010_2015_2024, file = "data/Hydro France/Y6442010_2015_2024.Rdata")
 
 # climatology -------------------------------------------------------------
 
@@ -156,8 +161,8 @@ ggplot(data = MODIS_2015_2024_SPM, aes(x = date, y = mean_spm)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
-  geom_line(color = "red3") +
-  labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 2015 et 2023 avec le produit MODIS issu de ODATIS MR",
+  geom_point(color = "red3", size = 0.5) +
+  labs(title = "Évolution de la concentration en matière particulaire en suspension moyenne entre 2015 et 2023 avec le produit MODIS issu de ODATIS MR",
        x = "Date",
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal() +
@@ -187,17 +192,17 @@ ggplot(data = all_spm_propre_MODIS_2023, aes(x = date, y = mean_spm)) +
 # pour cela on a besoin de facteur d'ajustement : 
 
 # adjusting scale
-adjust_factors <- sec_axis_adjustement_factors(MODIS_2015_2023_SPM$mean_spm, Y6442010_Hydro_complete$débit)
+adjust_factors <- sec_axis_adjustement_factors(MODIS_2015_2024_SPM$mean_spm, Y6442010_2015_2024$débit)
 
-MODIS_2015_2023_SPM$scaled_mean_spm <- MODIS_2015_2023_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
+MODIS_2015_2024_SPM$scaled_mean_spm <- MODIS_2015_2024_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
-  geom_line(
-    data = Y6442010_Hydro_complete,
-    aes(x = Date, y = débit, color = "Débit")
+  geom_point(
+    data = Y6442010_2015_2024,
+    aes(x = date, y = débit, color = "Débit")
   ) +
-  geom_line(
-    data = MODIS_2015_2023_SPM,
+  geom_point(
+    data = MODIS_2015_2024_SPM,
     aes(x = date, y = scaled_mean_spm, color = "SPM")
   ) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
@@ -206,7 +211,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en matière en suspension entre 2015 et 2023 avec le produit Sextant",
+    title = "Débit du Var au pont Napoléon et concentration en matière en suspension entre 2015 et 2024 avec le produit MODIS",
     x = "Date"
   ) +
   theme_minimal() +
@@ -215,7 +220,26 @@ ggplot() +
     date_labels = "%Y"       
   )
 
+# scatter plot ------------------------------------------------------------
 
+ggplot(Var_MODIS_SPM, aes(x = débit, y = mean_spm)) +
+  geom_point(alpha = 0.5, color = "steelblue", size = 1) +
+  geom_smooth(method = "lm", se = TRUE, color = "red3", fill = "pink", alpha = 0.2) +
+  stat_cor(method = "spearman", label.x.npc = "left", label.y.npc = "top") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "Relation entre débit et concentration en SPM en échelle log",
+    x = "Débit (m³/s)",
+    y = "Concentration moyenne en SPM (g/m³)"
+  ) +
+  theme_minimal()
+
+# runoff vs SPM concentration correlation ---------------------------------
+
+Var_MODIS_SPM <- inner_join(Y6442010_2015_2024, MODIS_2015_2024_SPM, by = "date")
+
+cor.test(Var_MODIS_SPM$débit, Var_MODIS_SPM$mean_spm, method = "spearman")
 
 
 ## CHL ----------------------------------------------------------------

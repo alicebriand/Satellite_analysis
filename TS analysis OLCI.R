@@ -50,13 +50,13 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 # loading data ------------------------------------------------------------
 
-load("~/Satellite_analysis/data/OLCI/SPM/OLCI_A_2016_2024_SPM.Rdata")
-load("~/Satellite_analysis/data/OLCI/SPM/OLCI_B_2018_2024_SPM.Rdata")
-load("~/Satellite_analysis/data/OLCI/SPM/OLCI_A_B_2016_2024_SPM.Rdata")
+load("data/OLCI/SPM/OLCI_A_2016_2024_SPM.Rdata")
+load("data/OLCI/SPM/OLCI_B_2018_2024_SPM.Rdata")
+load("data/OLCI/SPM/OLCI_A_B_2016_2024_SPM.Rdata")
 
-load("~/Satellite_analysis/data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
+load("data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
 
-load("~/Satellite_analysis/data/Hydro France/Y6442010_Hydro.Rdata")
+load("data/Hydro France/Y6442010_2016_2024.Rdata")
 
 # plotting ----------------------------------------------------------------
 ## SPM ----------------------------------------------------------------
@@ -140,7 +140,7 @@ ggplot(data = OLCI_A_B_2016_2024_SPM, aes(x = date, y = mean_spm)) +
   # geom_ribbon(aes(ymin = mean_spm - std_spm, ymax = mean_spm + std_spm,
   #                 alpha = 0.2, fill = "blue")) +
   geom_smooth(method = "lm", se = FALSE, color = "darkslateblue") +
-  geom_line(color = "red3") +
+  geom_point(color = "red3", size = 0.5) +
   geom_vline(
     xintercept = dates_mois_OLCI_A_B_spm,
     color = "gray80",
@@ -148,7 +148,7 @@ ggplot(data = OLCI_A_B_2016_2024_SPM, aes(x = date, y = mean_spm)) +
     linetype = "dashed",
     size = 0.2
   ) +
-  labs(title = "Evolution de la concentration en matière particulaire en suspension moyenne entre 2016 et 2024 avec le produit OLCI issu de ODATIS MR",
+  labs(title = "Évolution de la concentration en matière particulaire en suspension moyenne entre 2016 et 2024 avec le produit OLCI issu de ODATIS MR",
        x = "Date",
        y = "Concentration moyenne en matière particulaire en suspension (en g/m³)") +
   theme_minimal() +
@@ -164,18 +164,18 @@ ggplot(data = OLCI_A_B_2016_2024_SPM, aes(x = date, y = mean_spm)) +
 # pour cela on a besoin de facteur d'ajustement : 
 
 # adjusting scale
-adjust_factors <- sec_axis_adjustement_factors(OLCI_A_B_2016_2024_SPM$mean_spm, Y6442010_Hydro_complete$débit)
+adjust_factors <- sec_axis_adjustement_factors(OLCI_A_B_2016_2024_SPM$mean_spm, Y6442010_2016_2024$débit)
 
 OLCI_A_B_2016_2024_SPM$scaled_mean_spm <- OLCI_A_B_2016_2024_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
-  geom_line(
-    data = Y6442010_Hydro_complete,
-    aes(x = Date, y = débit, color = "Débit")
+  geom_point(
+    data = Y6442010_2016_2024,
+    aes(x = date, y = débit, color = "Débit"), size = 0.5
   ) +
-  geom_line(
+  geom_point(
     data = OLCI_A_B_2016_2024_SPM,
-    aes(x = date, y = scaled_mean_spm, color = "SPM")
+    aes(x = date, y = scaled_mean_spm, color = "SPM"), size = 0.5
   ) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "red3")) +
   scale_y_continuous(
@@ -227,6 +227,28 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# scatter plot ------------------------------------------------------------
+
+ggplot(Var_OLCI_SPM, aes(x = débit, y = mean_spm)) +
+  geom_point(alpha = 0.5, color = "steelblue", size = 1) +
+  geom_smooth(method = "lm", se = TRUE, color = "red3", fill = "pink", alpha = 0.2) +
+  stat_cor(method = "spearman", label.x.npc = "left", label.y.npc = "top") +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "Relation entre débit et concentration en SPM en échelle log",
+    x = "Débit (m³/s)",
+    y = "Concentration moyenne en SPM (g/m³)"
+  ) +
+  theme_minimal()
+
+
+# runoff vs SPM concentration correlation ---------------------------------
+
+Var_OLCI_SPM <- inner_join(Y6442010_2016_2024, OLCI_A_B_2016_2024_SPM, by = "date")
+
+cor.test(Var_OLCI_SPM$débit, Var_OLCI_SPM$mean_spm, method = "spearman")
 
 
 ## CHL ----------------------------------------------------------------

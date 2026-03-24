@@ -181,10 +181,10 @@ S3_catalogue <- earth_data_catalogue[grepl("OLCI|Sentinel|SENTINEL", earth_data_
 ## 1) Setup ---------------------------------------------------------------
 
 # Chose where you would like to save the files
-dl_dir <- "~/Downloads/MODIS NASA/L2/"
+dl_dir <- "~/Downloads/MODIS NASA/L2/2006-08-19/"
 
 # Chosen start and end dates for downloading
-start_date <- "2020-10-03"; end_date <- "2020-10-03"
+start_date <- "2006-08-19"; end_date <- "2006-08-19"
 
 # Determine what you want your bounding box to be
 # NB: The processing functions will fail if too much data are loaded at once
@@ -268,7 +268,7 @@ plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
 
 # Load the desired mask file
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/study_area_MOD44W_2020-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MOD44W_2006-01-01.tif")
 
 # Check that it looks correct - should show white where land would be
 plot(MODIS_mask)
@@ -278,10 +278,10 @@ maps::map(add = TRUE)
 # NB: This requires that this folder exists: ~/data/MODIS
 # IF not, create it or change the directories below to match 
 plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
-            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
+            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/2006-08-19/", layer_num = 2, land_mask = FALSE)
 
 # Load a file
-MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
+MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MYD09GQ_2006-08-19.tif")
 
 # Check that it looks correct
 plot(MODIS_rast_b1)
@@ -301,41 +301,41 @@ MODIS_water <- mask(MODIS_rast_b1, MODIS_mask_proj)
 plot(MODIS_water)
 maps::map(add = TRUE)
 
-    # then do the same for band 2
-
-# Prep one day of MODIS data
-# NB: This requires that this folder exists: ~/data/MODIS
-# IF not, create it or change the directories below to match 
-plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
-            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
-
-# Load a file
-MODIS_rast_b2 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
-
-# Check that it looks correct
-plot(MODIS_rast_b2)
-maps::map(add = TRUE)
-
-# Project the 250 m mask to the same grid as the 500 m raster data
-MODIS_mask_proj <- project(MODIS_mask, MODIS_rast_b2)
-
-# Check that it worked
-plot(MODIS_mask_proj)
-maps::map(add = TRUE)
-
-# Mask the raster data
-MODIS_water <- mask(MODIS_rast_b2, MODIS_mask_proj)
-
-# Check to see if it looks correct - should show white where land is
-plot(MODIS_water)
-maps::map(add = TRUE)
+#     # then do the same for band 2
+# 
+# # Prep one day of MODIS data
+# # NB: This requires that this folder exists: ~/data/MODIS
+# # IF not, create it or change the directories below to match 
+# plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+#             bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
+# 
+# # Load a file
+# MODIS_rast_b2 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
+# 
+# # Check that it looks correct
+# plot(MODIS_rast_b2)
+# maps::map(add = TRUE)
+# 
+# # Project the 250 m mask to the same grid as the 500 m raster data
+# MODIS_mask_proj <- project(MODIS_mask, MODIS_rast_b2)
+# 
+# # Check that it worked
+# plot(MODIS_mask_proj)
+# maps::map(add = TRUE)
+# 
+# # Mask the raster data
+# MODIS_water <- mask(MODIS_rast_b2, MODIS_mask_proj)
+# 
+# # Check to see if it looks correct - should show white where land is
+# plot(MODIS_water)
+# maps::map(add = TRUE)
 
 
 ## 4) Load data ------------------------------------------------------------
 
 # Load the MODIS mask first
 # Change the filename if this is not correct
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/masks/study_area_MOD44W_2020-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MOD44W_2006-01-01.tif")
 
 # Filter out just the .tif files (i.e. not the HDF files)
 tif_files <- list.files(path = dl_dir, pattern = "\\.tif$", full.names = TRUE)
@@ -347,26 +347,26 @@ product_ID_files <- tif_files[grepl(product_ID, tif_files)]
 product_ID_files <- product_ID_files[1]
 
 # Load all files
-study_area_df_b1 <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
+study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
 
 # One can then apply whatever algorithms one wants to this dataframe
-
-study_area_df <- left_join(study_area_df_b1, study_area_df_b2)
+# 
+# study_area_df <- left_join(study_area_df_b1, study_area_df_b2)
 
 ## 5) Plot data ------------------------------------------------------------
 
 # Map
-pl_map <- study_area_df |> 
+pl_map <- study_area_df_b1 |> 
   # Remove pixels that are too high (i.e. clouds)
-  filter(sur_refl_b02_1 <= 3000) |> 
+  filter(sur_refl_b01_1 <= 3000) |> 
   # Select one date
-  filter(date == "2020-10-03") |> 
+  filter(date == "2006-08-19") |> 
   # Round all surface reflectance values greater than 0.1 down to 0.1 for better plotting
   # mutate(Rrs = case_when(Rrs > 0.1 ~ 0.1, 
   #                        Rrs < 0 ~ 0, TRUE ~ Rrs)) |> 
   ggplot() +
   annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b02_1)) +
+  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
   scale_fill_viridis_c() +
   guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
   # NB: Change fill label to correctly indicate which band width was used
@@ -381,4 +381,30 @@ pl_map <- study_area_df |>
         axis.text = element_text(size = 18))
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2/fig_MODIS.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2/2006-08-19/fig_MODIS_2006-08-19.png", pl_map, height = 9, width = 14)
+
+
+# create new repertories for each date ------------------------------------
+
+# Répertoire de base où créer les dossiers
+repertoire_base <- "~/Downloads/MODIS NASA/L2/"
+
+# Extraire les dates uniques où débit > 200
+# dates_filtrees <-  %>%
+#   filter(debit > 200) %>%
+#   pull(date) %>%
+#   unique()
+
+load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+
+# on extrait la colonne date
+
+Var_crues <- unique(as.character(Var_crues$date))
+
+# Créer un dossier pour chaque date
+for (date in Var_crues) {
+  chemin_dossier <- file.path(repertoire_base, as.character(date))
+  if (!dir.exists(chemin_dossier)) {
+    dir.create(chemin_dossier, recursive = TRUE)
+  }
+}

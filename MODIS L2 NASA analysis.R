@@ -12,6 +12,8 @@
 
 source("~/Satellite_analysis/earth_data_access.R")
 
+load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+
 # Load necessary libraries
 library(tidyverse)
 library(tidync)
@@ -169,4 +171,3 @@ pl_map <- study_area_df %>%
 
 # Save as desired
 ggsave("~/Downloads/MODIS NASA/L2/fig_MODIS_SPM.png", pl_map, height = 9, width = 14)
-
