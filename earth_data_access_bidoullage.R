@@ -181,10 +181,10 @@ S3_catalogue <- earth_data_catalogue[grepl("OLCI|Sentinel|SENTINEL", earth_data_
 ## 1) Setup ---------------------------------------------------------------
 
 # Chose where you would like to save the files
-dl_dir <- "~/Downloads/MODIS NASA/L2/2006-08-19/"
+dl_dir <- "~/Downloads/MODIS NASA/L2/2008-12-18/"
 
 # Chosen start and end dates for downloading
-start_date <- "2006-08-19"; end_date <- "2006-08-19"
+start_date <- "2008-12-18"; end_date <- "2008-12-18"
 
 # Determine what you want your bounding box to be
 # NB: The processing functions will fail if too much data are loaded at once
@@ -268,7 +268,7 @@ plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
 
 # Load the desired mask file
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MOD44W_2006-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MOD44W_2008-01-01.tif")
 
 # Check that it looks correct - should show white where land would be
 plot(MODIS_mask)
@@ -278,10 +278,10 @@ maps::map(add = TRUE)
 # NB: This requires that this folder exists: ~/data/MODIS
 # IF not, create it or change the directories below to match 
 plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
-            bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/2006-08-19/", layer_num = 2, land_mask = FALSE)
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = FALSE)
 
 # Load a file
-MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MYD09GQ_2006-08-19.tif")
+MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MYD09GQ_2008-12-18.tif")
 
 # Check that it looks correct
 plot(MODIS_rast_b1)
@@ -335,7 +335,7 @@ maps::map(add = TRUE)
 
 # Load the MODIS mask first
 # Change the filename if this is not correct
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2006-08-19/study_area_MOD44W_2006-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MOD44W_2008-01-01.tif")
 
 # Filter out just the .tif files (i.e. not the HDF files)
 tif_files <- list.files(path = dl_dir, pattern = "\\.tif$", full.names = TRUE)
@@ -356,11 +356,11 @@ study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
 ## 5) Plot data ------------------------------------------------------------
 
 # Map
-pl_map <- study_area_df_b1 |> 
+pl_map <- study_area_df |> 
   # Remove pixels that are too high (i.e. clouds)
   filter(sur_refl_b01_1 <= 3000) |> 
   # Select one date
-  filter(date == "2006-08-19") |> 
+  filter(date == "2008-12-18") |> 
   # Round all surface reflectance values greater than 0.1 down to 0.1 for better plotting
   # mutate(Rrs = case_when(Rrs > 0.1 ~ 0.1, 
   #                        Rrs < 0 ~ 0, TRUE ~ Rrs)) |> 
@@ -381,30 +381,32 @@ pl_map <- study_area_df_b1 |>
         axis.text = element_text(size = 18))
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2/2006-08-19/fig_MODIS_2006-08-19.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2/2008-12-18/fig_MODIS_2008-12-18.png", pl_map, height = 9, width = 14)
+
+
 
 
 # create new repertories for each date ------------------------------------
 
-# Répertoire de base où créer les dossiers
-repertoire_base <- "~/Downloads/MODIS NASA/L2/"
-
-# Extraire les dates uniques où débit > 200
-# dates_filtrees <-  %>%
-#   filter(debit > 200) %>%
-#   pull(date) %>%
-#   unique()
-
-load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
-
-# on extrait la colonne date
-
-Var_crues <- unique(as.character(Var_crues$date))
-
-# Créer un dossier pour chaque date
-for (date in Var_crues) {
-  chemin_dossier <- file.path(repertoire_base, as.character(date))
-  if (!dir.exists(chemin_dossier)) {
-    dir.create(chemin_dossier, recursive = TRUE)
-  }
-}
+# # Répertoire de base où créer les dossiers
+# repertoire_base <- "~/Downloads/MODIS NASA/L2/"
+# 
+# # Extraire les dates uniques où débit > 200
+# # dates_filtrees <-  %>%
+# #   filter(debit > 200) %>%
+# #   pull(date) %>%
+# #   unique()
+# 
+# load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+# 
+# # on extrait la colonne date
+# 
+# Var_crues <- unique(as.character(Var_crues$date))
+# 
+# # Créer un dossier pour chaque date
+# for (date in Var_crues) {
+#   chemin_dossier <- file.path(repertoire_base, as.character(date))
+#   if (!dir.exists(chemin_dossier)) {
+#     dir.create(chemin_dossier, recursive = TRUE)
+#   }
+# }
