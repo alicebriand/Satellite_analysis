@@ -92,8 +92,8 @@ flow_comp <- function(mouth_info){
   # Plot river flow and panache size correlation
   flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = débit, y = aire_panache_km2)) + 
     geom_point(alpha = 0.7) +
-    geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "red") +
-    geom_smooth(method = "lm",  se = FALSE, colour = "black", linewidth = 2) +
+    geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black") +
+    geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 2) +
     labs(y = "Aire du panache (km²)", x = "Débit du Var (m^3 s-1)") +
     theme(panel.border = element_rect(fill = NA, colour = "black"),
           legend.position = "bottom")
@@ -101,7 +101,7 @@ flow_comp <- function(mouth_info){
   # Plot lag results
   flow_plume_cor_lag_plot <- ggplot(flow_plume_lag_cor, aes(x = lag, y = cor)) +
     geom_point() +
-    labs(x = "décalage du pic après le débit de la rivière (en jours)", y = "Corrélation (r)") +
+    labs(x = "Décalage du pic de SPM après le pic de débit fluvial (en jours)", y = "Corrélation (r)") +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # flow_plume_cor_lag_plot
   

@@ -57,48 +57,7 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
 
 ## loading function -----------------------------------------------------------
 
-file_name <- "~/Downloads/OLCI/CHL_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2016_CHL/2016/L3m_20160426__FRANCE_03_OLA_CHL-G-PO_DAY_00.nc"
-
-basename(file_name)
-
-# load_OLCI_spm <- function(file_name, lon_range, lat_range){ 
-#   file_caracter <- substr(basename(file_name), start = 5, stop = 12)
-#   file_date <- as.Date(file_caracter, format = "%Y%m%d")
-#   
-#   df_chl <- tidync(file_name) %>% 
-#     hyper_filter(lon = lon >= lon_range[1] & lon <= lon_range[2],
-#                  lat = lat >= lat_range[1] & lat <= lat_range[2]) |> 
-#     hyper_tibble() %>% 
-#     mutate(lon = as.numeric(lon), 
-#            lat = as.numeric(lat),
-#            date = file_date) %>% 
-#     summarise(
-#       mean_spm = mean(`CHL-G-PO_mean`, na.rm = TRUE), 
-#       min_spm = min(`CHL-G-PO_mean`, na.rm = TRUE),
-#       max_spm = max(`CHL-G-PO_mean`, na.rm = TRUE),
-#       std_spm = sd(`CHL-G-PO_mean`, na.rm = TRUE),
-#       .by = "date"
-#     )
-# }
-
-# load_OLCI_spm <- function(file_name, lon_range, lat_range){
-#   
-#   # Find the date
-#   OLCI_one_date <- as.Date(tidync(file_name)[["attribute"]][["value"]][["start_date"]])
-#   
-#   # The necessary code
-#   OLCI_one <- tidync(file_name) |> 
-#     hyper_filter(lon = lon >= lon_range[1] & lon <= lon_range[2],
-#                  lat = lat >= lat_range[1] & lat <= lat_range[2]) |> 
-#     hyper_tibble() |> 
-#     mutate(lon = as.numeric(lon),
-#            lat = as.numeric(lat),
-#            date = OLCI_one_date) |> 
-#     dplyr::select(lon, lat, date, mask, `CHL-G-PO_mean`)
-#   
-#   # Exit
-#   return(OLCI_one)
-# }
+filename <- "~/Downloads/OLCI/SPM/2016/OLCI_A_ODATIS_MR_2016_SPM/L3m_20160426__FRANCE_03_OLA_SPM-G-PO_DAY_00.nc"
 
 load_OLCI_spm <- function(file_name, lon_range, lat_range) {
   file_caracter <- substr(basename(file_name), start = 5, stop = 12)
@@ -115,9 +74,11 @@ load_OLCI_spm <- function(file_name, lon_range, lat_range) {
       lat = as.numeric(lat),
       date = file_date
     ) %>%
-    # Filtrer les pixels où le masque est valide (ex. mask == 1)
-    filter(`SPM-G-PO_flags` == 1) %>%  # ou l2_flags == 0, selon le fichier
-    select(lon, lat, date, `SPM-G-PO_mean`)
+    dplyr::select(lon, lat, date,`SPM-G-PO_mean`) |> 
+    filter(`SPM-G-PO_mean` >= 1.2) |> 
+    summarise(pixel_count = n(),
+              mean_spm = mean(`SPM-G-PO_mean`, na.rm = TRUE), .by = "date")
+  
   return(OLCI_one)
 }
 
@@ -138,9 +99,11 @@ load_OLCI_chl <- function(file_name, lon_range, lat_range) {
       lat = as.numeric(lat),
       date = file_date
     ) %>%
-    # Filtrer les pixels où le masque est valide (ex. mask == 1)
-    filter(`CHL-G-PO_flags` == 1) %>%  # ou l2_flags == 0, selon le fichier
-    select(lon, lat, date, `CHL-G-PO_mean`)
+    dplyr::select(lon, lat, date,`CHL-G-PO_flags`) |> 
+    filter(`CHL-G-PO_flags` >= 1.2) |> 
+    summarise(pixel_count = n(),
+              mean_chl = mean(`CHL-G-PO_flags`, na.rm = TRUE), .by = "date")
+  
   return(OLCI_one)
 }
 
@@ -170,15 +133,15 @@ load("~/Documents/Alice/Hydro France/Y6442010_Hydro.Rdata")
 
 # All of the OLCI files SPM from 2015 to 2025
 # you can add former data that you downloaded
-OLCI_2016_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2016_SPM/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2017_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2017_SPM/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2018_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2018_SPM/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2019_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2019_SPM/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2020_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2020_SPM/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2021_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2021_SPM/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2022_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2022_SPM/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2023_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2023_SPM/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-OLCI_2024_dir <- dir("~/Downloads/OLCI/SPM_sans_vrai_bounding_box/OLCI_A_B_ODATIS_MR_2024_SPM/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2016_dir <- dir("~/Downloads/OLCI/SPM/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2017_dir <- dir("~/Downloads/OLCI/SPM/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2018_dir <- dir("~/Downloads/OLCI/SPM/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2019_dir <- dir("~/Downloads/OLCI/SPM/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2020_dir <- dir("~/Downloads/OLCI/SPM/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2021_dir <- dir("~/Downloads/OLCI/SPM/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2022_dir <- dir("~/Downloads/OLCI/SPM/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2023_dir <- dir("~/Downloads/OLCI/SPM/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2024_dir <- dir("~/Downloads/OLCI/SPM/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
 # Load and combine
 
@@ -193,32 +156,84 @@ OLCI_2023_spm <- plyr::ldply(OLCI_2023_dir, load_OLCI_spm, .parallel = TRUE, lon
 OLCI_2024_spm <- plyr::ldply(OLCI_2024_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 
 # Combine and save
-OLCI_2016_2024_spm <- rbind(OLCI_2015_spm, OLCI_2016_spm, OLCI_2017_spm,
-                               OLCI_2015_spm, OLCI_2019_spm, OLCI_2020_spm,
-                               OLCI_2021_spm, OLCI_2022_spm, OLCI_2023_spm,
-                               OLCI_2024_spm)
+OLCI_2016_2024_spm_spatial <- rbind(OLCI_2016_spm, OLCI_2017_spm, OLCI_2019_spm, 
+                                    OLCI_2020_spm, OLCI_2021_spm, OLCI_2022_spm, 
+                                    OLCI_2023_spm, OLCI_2024_spm)
 
-save(OLCI_2016_2024_spm, file = "OLCI_2016_2024_SPM_spatial.RData")
+save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_SPM_spatial.Rdata")
 
-load("OLCI_2016_2024_SPM.RData")
+load("data/OLCI/SPM/OLCI_2016_2024_SPM_spatial.Rdata")
 
 
 ### CHL ---------------------------------------------------------------------
 
-# for temporal analysis we have already prepared our data frames
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2016.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2017.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2018.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2019.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2020.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2021.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2022.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2023.Rdata")
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/all_chl_propre_OLCI_2024.Rdata")
+# you can add former data that you downloaded
+OLCI_2016_dir <- dir("~/Downloads/OLCI/CHL/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2017_dir <- dir("~/Downloads/OLCI/CHL/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2018_dir <- dir("~/Downloads/OLCI/CHL/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2019_dir <- dir("~/Downloads/OLCI/CHL/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2020_dir <- dir("~/Downloads/OLCI/CHL/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2021_dir <- dir("~/Downloads/OLCI/CHL/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2022_dir <- dir("~/Downloads/OLCI/CHL/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2023_dir <- dir("~/Downloads/OLCI/CHL/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_2024_dir <- dir("~/Downloads/OLCI/CHL/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
-# for temporal analysis
-load("~/Downloads/OLCI/CHL_sans_vrai_bounding_box/OLCI_CHL_2016_2024.Rdata")
+# Load and combine
 
+OLCI_2016_chl <- plyr::ldply(OLCI_2016_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2017_chl <- plyr::ldply(OLCI_2017_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2018_chl <- plyr::ldply(OLCI_2018_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2019_chl <- plyr::ldply(OLCI_2019_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2020_chl <- plyr::ldply(OLCI_2020_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2021_chl <- plyr::ldply(OLCI_2021_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2022_chl <- plyr::ldply(OLCI_2022_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2023_chl <- plyr::ldply(OLCI_2023_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_2024_chl <- plyr::ldply(OLCI_2024_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+
+# Combine and save
+OLCI_2016_2024_chl_spatial <- rbind(OLCI_2015_chl, OLCI_2016_chl, OLCI_2017_chl,
+                                    OLCI_2015_chl, OLCI_2019_chl, OLCI_2020_chl,
+                                    OLCI_2021_chl, OLCI_2022_chl, OLCI_2023_chl,
+                                    OLCI_2024_chl)
+
+save(OLCI_2016_2024_chl_spatial, file = "data/OLCI/CHL/OLCI_2016_2024_CHL_spatial.Rdata")
+
+load("OLCI_2016_2024_chl_spatial.Rdata")
+
+### TUR ---------------------------------------------------------------------
+
+# you can add former data that you downloaded
+# OLCI_tur_2016_dir <- dir("~/Downloads/OLCI/TUR/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2017_dir <- dir("~/Downloads/OLCI/CHL/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2018_dir <- dir("~/Downloads/OLCI/CHL/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2019_dir <- dir("~/Downloads/OLCI/CHL/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2020_dir <- dir("~/Downloads/OLCI/CHL/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2021_dir <- dir("~/Downloads/OLCI/CHL/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2022_dir <- dir("~/Downloads/OLCI/CHL/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2023_dir <- dir("~/Downloads/OLCI/CHL/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# OLCI_tur_2024_dir <- dir("~/Downloads/OLCI/CHL/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# 
+# # Load and combine
+# 
+# OLCI_2016_chl <- plyr::ldply(OLCI_2016_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2017_chl <- plyr::ldply(OLCI_2017_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2018_chl <- plyr::ldply(OLCI_2018_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2019_chl <- plyr::ldply(OLCI_2019_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2020_chl <- plyr::ldply(OLCI_2020_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2021_chl <- plyr::ldply(OLCI_2021_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2022_chl <- plyr::ldply(OLCI_2022_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2023_chl <- plyr::ldply(OLCI_2023_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2024_chl <- plyr::ldply(OLCI_2024_dir, load_OLCI_chl, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# 
+# # Combine and save
+# OLCI_2016_2024_chl_spatial <- rbind(OLCI_2015_chl, OLCI_2016_chl, OLCI_2017_chl,
+#                                     OLCI_2015_chl, OLCI_2019_chl, OLCI_2020_chl,
+#                                     OLCI_2021_chl, OLCI_2022_chl, OLCI_2023_chl,
+#                                     OLCI_2024_chl)
+# 
+# save(OLCI_2016_2024_chl_spatial, file = "data/OLCI/CHL/OLCI_2016_2024_CHL_spatial.Rdata")
+# 
+# load("OLCI_2016_2024_chl_spatial.Rdata")
 
 # Spatial analysis --------------------------------------------------------
 
@@ -474,3 +489,93 @@ ggplot(data = OLCI_2017_spm_monthly, aes(x = lon, y = lat)) +
   coord_quickmap(xlim = lon, ylim = lat) +
   facet_wrap(~year)
 # facet_grid(year~month)
+
+
+
+
+
+# pixel area --------------------------------------------------------------
+
+## extraction des valeurs en degré -----------------------------------------
+
+# Ou inspecter les coordonnées lon/lat directement
+nc <- tidync("~/Downloads/OLCI/SPM/2016/OLCI_A_ODATIS_MR_2016_SPM/L3m_20160426__FRANCE_03_OLA_SPM-G-PO_DAY_00.nc")
+
+# Vérifier d'abord le type des colonnes
+test <- hyper_tibble(nc)
+str(test)
+
+coords <- hyper_tibble(nc) |> 
+  mutate(lon = as.numeric(lon),
+         lat = as.numeric(lat)) |> 
+  summarise(
+    res_lon = abs(mean(diff(sort(unique(lon))))),
+    res_lat = abs(mean(diff(sort(unique(lat)))))
+  )
+
+print(coords)
+
+tmp <- hyper_tibble(nc) |> 
+  mutate(lon = as.numeric(lon),
+         lat = as.numeric(lat))
+
+res_lon <- diff(sort(unique(tmp$lon)))[1]  # prend juste le premier écart
+res_lat <- diff(sort(unique(tmp$lat)))[1]
+
+cat("Résolution lon :", res_lon, "°\n")
+cat("Résolution lat :", res_lat, "°\n")
+
+## calcul de l'aire --------------------------------------------------------
+
+# Conversion en km (pour ~43°N, zone Méditerranée/Atlantique Sud de France)
+lat_ref <- 43  
+
+res_lon_km <- res_lon * 111 * cos(lat_ref * pi / 180)
+res_lat_km <- res_lat * 111
+
+cat("Résolution lon :", round(res_lon_km, 3), "km\n")
+cat("Résolution lat :", round(res_lat_km, 3), "km\n")
+
+# Aire d'un pixel
+aire_pixel_km2 <- res_lon_km * res_lat_km
+cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
+
+# Ajouter l'aire du panache dans ton df
+OLCI_2016_2024_spm_spatial <- OLCI_2016_2024_spm_spatial |> 
+  mutate(aire_panache_km2 = pixel_count * aire_pixel_km2)
+
+
+# plotting ----------------------------------------------------------------
+
+model_OLCI_2016_spatial <- lm(aire_panache_km2 ~ date, data = OLCI_2016_2024_spm_spatial)
+p_value_OLCI_2016_spatial <- summary(model_OLCI_2016_spatial)$coefficients[2, 4]  # p-value pour la pente
+intercept_OLCI_2016_spatial <- coef(model_OLCI_2016_spatial)[1]
+slope_OLCI_2016_spatial <- coef(model_OLCI_2016_spatial)[2]
+
+ggplot() +
+  geom_point(data = OLCI_2016_2024_spm_spatial, aes(x = date, y = aire_panache_km2), color = "deepskyblue", size = 0.5) +
+  # geom_point(data = OLCI_2016_2024_spm_spatial, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  # annotate(
+  #   "text",
+  #   x = max(OLCI_2016_2024_spm_spatial$date, na.rm = TRUE),
+  #   y = max(OLCI_2016_2024_spm_spatial$aire_panache_km2, na.rm = TRUE) * 0.9,
+  #   label = paste0(
+  #     "y = ", round(intercept_OLCI_2016_spatial, 3), " + ", round(slope_OLCI_2016_spatial, 7), " * x",
+  #     "\n", "p = ", ifelse(p_value_OLCI_2016_spatial < 0.001, "< 0.001", format(p_value_OLCI_2016_spatial, digits = 3))
+  #   ),
+  #   hjust = 1,  # Alignement à droite
+  #   vjust = 1,  # Alignement en haut
+  #   size = 6
+  # ) +
+  labs(title = "Évolution de l'aire des panaches de la baie des Anges en fonction du temps vu par le produit OLCI entre 2016 et 2024",
+       x = "Date",
+       y = "Aire du panache (en km²)") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
+load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
