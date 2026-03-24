@@ -30,7 +30,29 @@ lat_range <- c(43.2136389, 43.7300000)
 # file_name <- "~/pCloudDrive/data/SEXTANT/SPM/merged/Standard/DAILY/1998/01/01/19980101-EUR-L4-SPIM-ATL-v01-fv01-OI.nc"
 # lon_range <- c(1, 4)
 
-load_SEXTANT_spm <- function(file_name, lon_range, lat_range){
+# load_SEXTANT_spm <- function(file_name, lon_range, lat_range){
+#   
+#   # Find the date
+#   sextant_one_date <- as.Date(tidync(file_name)[["attribute"]][["value"]][["start_date"]])
+#   
+#   # The necessary code
+#   sextant_one <- tidync(file_name) |> 
+#     hyper_filter(lon = lon >= lon_range[1] & lon <= lon_range[2],
+#                  lat = lat >= lat_range[1] & lat <= lat_range[2]) |> 
+#     hyper_tibble() |> 
+#     mutate(lon = as.numeric(lon),
+#            lat = as.numeric(lat),
+#            date = sextant_one_date) |> 
+#     dplyr::select(lon, lat, date, mask, analysed_spim) |> 
+#   filter(analysed_spim >= 1.2) |> 
+#   summarise(pixel_count = n(),
+#             mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date")
+#   
+#   # Exit
+#   return(sextant_one)
+# }
+
+load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
   
   # Find the date
   sextant_one_date <- as.Date(tidync(file_name)[["attribute"]][["value"]][["start_date"]])
@@ -43,28 +65,11 @@ load_SEXTANT_spm <- function(file_name, lon_range, lat_range){
     mutate(lon = as.numeric(lon),
            lat = as.numeric(lat),
            date = sextant_one_date) |> 
-    dplyr::select(lon, lat, date, mask, analysed_spim) |> 
-  filter(analysed_spim >= 1.2) |> 
-  summarise(pixel_count = n(),
-            mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date")
+    dplyr::select(lon, lat, date, analysed_spim)  # tous les pixels, sans filtre
   
   # Exit
   return(sextant_one)
 }
-
-
-# Download data -----------------------------------------------------------
-
-# NB: Uncomment and run the following lines to download data
-
-# A few days of SEXTANT data
-# download_nc(
-#   dl_var = "SPM",
-#   dl_dates = c("2024-09-01", "2024-09-05"),
-#   output_dir = "~/Downloads/SEXTANT", # Change as desired/required
-#   overwrite = FALSE # Change to TRUE to force downloads
-# )
-
 
 # Load data ---------------------------------------------------------------
 
@@ -118,6 +123,9 @@ SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2
 SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
+
+### threshold of 1.2 --------------------------------------------------------
+
 # Load and combine
 
 SEXTANT_1998_spm <- plyr::ldply(SEXTANT_1998_dir, load_SEXTANT_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
@@ -165,6 +173,57 @@ SEXTANT_1998_2025_spm_spatial <- rbind(SEXTANT_1998_spm, SEXTANT_1999_spm, SEXTA
 save(SEXTANT_1998_2025_spm_spatial, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
+
+### no threshold --------------------------------------------------------
+
+# Load and combine
+
+SEXTANT_1998_spm_pixels <- plyr::ldply(SEXTANT_1998_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_1999_spm_pixels <- plyr::ldply(SEXTANT_1999_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2000_spm_pixels <- plyr::ldply(SEXTANT_2000_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2001_spm_pixels <- plyr::ldply(SEXTANT_2001_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2002_spm_pixels <- plyr::ldply(SEXTANT_2002_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2003_spm_pixels <- plyr::ldply(SEXTANT_2003_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2004_spm_pixels <- plyr::ldply(SEXTANT_2004_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2005_spm_pixels <- plyr::ldply(SEXTANT_2005_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2006_spm_pixels <- plyr::ldply(SEXTANT_2006_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2007_spm_pixels <- plyr::ldply(SEXTANT_2007_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2008_spm_pixels <- plyr::ldply(SEXTANT_2008_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2009_spm_pixels <- plyr::ldply(SEXTANT_2009_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2010_spm_pixels <- plyr::ldply(SEXTANT_2010_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2011_spm_pixels <- plyr::ldply(SEXTANT_2011_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2012_spm_pixels <- plyr::ldply(SEXTANT_2012_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2013_spm_pixels <- plyr::ldply(SEXTANT_2013_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2014_spm_pixels <- plyr::ldply(SEXTANT_2014_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2015_spm_pixels <- plyr::ldply(SEXTANT_2015_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2016_spm_pixels <- plyr::ldply(SEXTANT_2016_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2017_spm_pixels <- plyr::ldply(SEXTANT_2017_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2018_spm_pixels <- plyr::ldply(SEXTANT_2018_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2019_spm_pixels <- plyr::ldply(SEXTANT_2019_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2020_spm_pixels <- plyr::ldply(SEXTANT_2020_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2021_spm_pixels <- plyr::ldply(SEXTANT_2021_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2022_spm_pixels <- plyr::ldply(SEXTANT_2022_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2023_spm_pixels <- plyr::ldply(SEXTANT_2023_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2024_spm_pixels <- plyr::ldply(SEXTANT_2024_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2025_spm_pixels <- plyr::ldply(SEXTANT_2025_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+
+
+# Combine and save
+SEXTANT_1998_2025_spm_pixels <- rbind(SEXTANT_1998_spm_pixels, SEXTANT_1999_spm_pixels, SEXTANT_2000_spm_pixels, 
+                                       SEXTANT_2001_spm_pixels, SEXTANT_2002_spm_pixels, SEXTANT_2003_spm_pixels,
+                                       SEXTANT_2004_spm_pixels, SEXTANT_2005_spm_pixels, SEXTANT_2006_spm_pixels,
+                                       SEXTANT_2007_spm_pixels, SEXTANT_2008_spm_pixels, SEXTANT_2009_spm_pixels,
+                                       SEXTANT_2010_spm_pixels, SEXTANT_2011_spm_pixels, SEXTANT_2012_spm_pixels,
+                                       SEXTANT_2013_spm_pixels, SEXTANT_2014_spm_pixels, SEXTANT_2015_spm_pixels,
+                                       SEXTANT_2016_spm_pixels, SEXTANT_2017_spm_pixels, SEXTANT_2018_spm_pixels, 
+                                       SEXTANT_2019_spm_pixels, SEXTANT_2020_spm_pixels, SEXTANT_2021_spm_pixels, 
+                                       SEXTANT_2022_spm_pixels, SEXTANT_2023_spm_pixels,SEXTANT_2024_spm_pixels, 
+                                       SEXTANT_2025_spm_pixels)
+
+save(SEXTANT_1998_2025_spm_pixels, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")
+
 
 
 # Spatial analysis --------------------------------------------------------
