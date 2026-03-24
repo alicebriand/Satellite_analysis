@@ -38,12 +38,12 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/Y6442010_depuis_2000.Rdata")  # charge ton objet débit
-  flow_df <- Y6442010_depuis_2000  # adapte le nom de l'objet si besoin
+  load("data/Hydro France/Y6442010_2016_2024.Rdata")  # charge ton objet débit
+  flow_df <- Y6442010_2016_2024  # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")  # charge ton objet SPM
-  plume_daily <- SEXTANT_1998_2025_spm_spatial |>  
+  load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")  # charge ton objet SPM
+  plume_daily <- OLCI_2016_2024_spm_spatial |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -101,7 +101,7 @@ flow_comp <- function(mouth_info){
   # Plot lag results
   flow_plume_cor_lag_plot <- ggplot(flow_plume_lag_cor, aes(x = lag, y = cor)) +
     geom_point() +
-    labs(x = "Décalage du pic de SPM après le pic de débit fluvial (en jours)", y = "Corrélation (r)") +
+    labs(x = "Décalage entre la taille du panache et le pic de débit fluvial (en jours)", y = "Corrélation (r)") +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # flow_plume_cor_lag_plot
   
@@ -111,7 +111,7 @@ flow_comp <- function(mouth_info){
   cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/SEXTANT/cor_plot_flow_plume_Var_sextant.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/OLCI/cor_plot_flow_plume_Var_OLCI.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size

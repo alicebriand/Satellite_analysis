@@ -156,13 +156,13 @@ OLCI_2023_spm <- plyr::ldply(OLCI_2023_dir, load_OLCI_spm, .parallel = TRUE, lon
 OLCI_2024_spm <- plyr::ldply(OLCI_2024_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 
 # Combine and save
-OLCI_2016_2024_spm_spatial <- rbind(OLCI_2016_spm, OLCI_2017_spm, OLCI_2019_spm, 
-                                    OLCI_2020_spm, OLCI_2021_spm, OLCI_2022_spm, 
-                                    OLCI_2023_spm, OLCI_2024_spm)
+OLCI_2016_2024_spm_spatial <- rbind(OLCI_2016_spm, OLCI_2017_spm, OLCI_2018_spm, 
+                                    OLCI_2019_spm, OLCI_2020_spm, OLCI_2021_spm, 
+                                    OLCI_2022_spm, OLCI_2023_spm, OLCI_2024_spm)
 
-save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_SPM_spatial.Rdata")
+save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
 
-load("data/OLCI/SPM/OLCI_2016_2024_SPM_spatial.Rdata")
+load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
 
 
 ### CHL ---------------------------------------------------------------------
@@ -544,38 +544,42 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 OLCI_2016_2024_spm_spatial <- OLCI_2016_2024_spm_spatial |> 
   mutate(aire_panache_km2 = pixel_count * aire_pixel_km2)
 
+save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
+
+load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
+
+OLCI_2016_2024_spm_spatial <- OLCI_2016_2024_spm_spatial |> 
+  filter(mean_spm <= 1000)
 
 # plotting ----------------------------------------------------------------
 
-model_OLCI_2016_spatial <- lm(aire_panache_km2 ~ date, data = OLCI_2016_2024_spm_spatial)
+model_OLCI_2016_spatial <- lm(mean_spm ~ date, data = OLCI_2016_2024_spm_spatial)
 p_value_OLCI_2016_spatial <- summary(model_OLCI_2016_spatial)$coefficients[2, 4]  # p-value pour la pente
 intercept_OLCI_2016_spatial <- coef(model_OLCI_2016_spatial)[1]
 slope_OLCI_2016_spatial <- coef(model_OLCI_2016_spatial)[2]
 
-ggplot() +
-  geom_point(data = OLCI_2016_2024_spm_spatial, aes(x = date, y = aire_panache_km2), color = "deepskyblue", size = 0.5) +
+ggplot(data = OLCI_2016_2024_spm_spatial, aes(x = date, y = mean_spm)) +
+  geom_point(color = "deepskyblue", size = 0.5) +
   # geom_point(data = OLCI_2016_2024_spm_spatial, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
-  # annotate(
-  #   "text",
-  #   x = max(OLCI_2016_2024_spm_spatial$date, na.rm = TRUE),
-  #   y = max(OLCI_2016_2024_spm_spatial$aire_panache_km2, na.rm = TRUE) * 0.9,
-  #   label = paste0(
-  #     "y = ", round(intercept_OLCI_2016_spatial, 3), " + ", round(slope_OLCI_2016_spatial, 7), " * x",
-  #     "\n", "p = ", ifelse(p_value_OLCI_2016_spatial < 0.001, "< 0.001", format(p_value_OLCI_2016_spatial, digits = 3))
-  #   ),
-  #   hjust = 1,  # Alignement à droite
-  #   vjust = 1,  # Alignement en haut
-  #   size = 6
-  # ) +
-  labs(title = "Évolution de l'aire des panaches de la baie des Anges en fonction du temps vu par le produit OLCI entre 2016 et 2024",
+  annotate(
+    "text",
+    x = max(OLCI_2016_2024_spm_spatial$date, na.rm = TRUE),
+    y = max(OLCI_2016_2024_spm_spatial$mean_spm, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_OLCI_2016_spatial, 3), " + ", round(slope_OLCI_2016_spatial, 7), " * x",
+      "\n", "p = ", ifelse(p_value_OLCI_2016_spatial < 0.001, "< 0.001", format(p_value_OLCI_2016_spatial, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 6
+  ) +
+  labs(title = "Évolution de la concentration en SPM dans les panaches de la baie des Anges en fonction du temps vu par le produit OLCI entre 2016 et 2024",
        x = "Date",
-       y = "Aire du panache (en km²)") +
+       y = "Concentration moyenne en SPM dans les panaches (g/m3)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
 
-save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
-load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")

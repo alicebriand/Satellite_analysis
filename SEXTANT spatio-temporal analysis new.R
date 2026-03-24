@@ -301,19 +301,19 @@ SEXTANT_1998_2025_spm_spatial <- SEXTANT_1998_2025_spm_spatial |>
 
 # plotting ----------------------------------------------------------------
 
-model_sextant_1998_spatial <- lm(aire_panache_km2 ~ date, data = SEXTANT_1998_2025_spm_spatial)
+model_sextant_1998_spatial <- lm(mean_spm ~ date, data = SEXTANT_1998_2025_spm_spatial)
 p_value_sextant_1998_spatial <- summary(model_sextant_1998_spatial)$coefficients[2, 4]  # p-value pour la pente
 intercept_sextant_1998_spatial <- coef(model_sextant_1998_spatial)[1]
 slope_sextant_1998_spatial <- coef(model_sextant_1998_spatial)[2]
 
-ggplot() +
-  geom_point(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = aire_panache_km2), color = "deepskyblue", size = 0.5) +
-  geom_point(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+ggplot(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm)) +
+  geom_point(color = "deepskyblue", size = 0.5) +
+  # geom_point(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
     x = max(SEXTANT_1998_2025_spm_spatial$date, na.rm = TRUE),
-    y = max(SEXTANT_1998_2025_spm_spatial$aire_panache_km2, na.rm = TRUE) * 0.9,
+    y = max(SEXTANT_1998_2025_spm_spatial$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "y = ", round(intercept_sextant_1998_spatial, 3), " + ", round(slope_sextant_1998_spatial, 7), " * x",
       "\n", "p = ", ifelse(p_value_sextant_1998_spatial < 0.001, "< 0.001", format(p_value_sextant_1998_spatial, digits = 3))
@@ -322,7 +322,7 @@ ggplot() +
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de l'aire des panaches de la baie des Anges en fonction du temps vu par le produit SEXTANT entre 1998 et 2025",
+  labs(title = "Évolution de la concentration moyenne en SPM dans les panaches de la baie des Anges en fonction du temps vu par le produit SEXTANT entre 1998 et 2025",
        x = "Date",
        y = "Aire du panache (en km²)") +
   theme_minimal() +
