@@ -73,23 +73,6 @@ load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
 
 # Load data ---------------------------------------------------------------
 
-# All of the SEXTANT 1998 files
-# sextant_1998_dir <- dir("~/pCloudDrive/data/SEXTANT/SPM/merged/Standard/DAILY/1998", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# sextant_1999_dir <- dir("~/pCloudDrive/data/SEXTANT/SPM/merged/Standard/DAILY/1999", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-
-# Load and combine
-# system.time(
-# sextant_1998 <- plyr::ldply(sextant_1998_dir, load_sextant, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-# )
-# sextant_1999 <- plyr::ldply(sextant_1999_dir, load_sextant, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-
-# Combine and save
-# sextant_1998_1999 <- rbind(sextant_1998, sextant_1999)
-# save(sextant_1998, file = "data/SEXTANT/sextant_1998.RData")
-
-# Load the data
-# load("data/SEXTANT/SPM/all_spm_propre_sextant_1998.RData")
-
 ## SPM ---------------------------------------------------------------------
 
 SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
@@ -174,7 +157,7 @@ save(SEXTANT_1998_2025_spm_spatial, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_S
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
 
-### no threshold --------------------------------------------------------
+### to define threshold with percentile 95 --------------------------------------------------------
 
 # Load and combine
 
@@ -222,7 +205,7 @@ SEXTANT_1998_2025_spm_pixels <- rbind(SEXTANT_1998_spm_pixels, SEXTANT_1999_spm_
 
 save(SEXTANT_1998_2025_spm_pixels, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
 
 
@@ -354,34 +337,34 @@ aire_pixel_km2 <- res_lon_km * res_lat_km
 cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 
 # Ajouter l'aire du panache dans ton df
-SEXTANT_1998_2025_spm_spatial <- SEXTANT_1998_2025_spm_spatial |> 
+SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_spatial |> 
   mutate(aire_panache_km2 = pixel_count * aire_pixel_km2)
 
 
 # plotting ----------------------------------------------------------------
 
-model_sextant_1998_spatial <- lm(mean_spm ~ date, data = SEXTANT_1998_2025_spm_spatial)
-p_value_sextant_1998_spatial <- summary(model_sextant_1998_spatial)$coefficients[2, 4]  # p-value pour la pente
-intercept_sextant_1998_spatial <- coef(model_sextant_1998_spatial)[1]
-slope_sextant_1998_spatial <- coef(model_sextant_1998_spatial)[2]
+model_sextant_1998_95 <- lm(mean_spm ~ date, data = SEXTANT_1998_2025_spm_95)
+p_value_sextant_1998_95 <- summary(model_sextant_1998_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_1998_95 <- coef(model_sextant_1998_95)[1]
+slope_sextant_1998_95 <- coef(model_sextant_1998_95)[2]
 
-ggplot(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm)) +
+ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm)) +
   geom_point(color = "deepskyblue", size = 0.5) +
-  # geom_point(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+  # geom_point(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
-    x = max(SEXTANT_1998_2025_spm_spatial$date, na.rm = TRUE),
-    y = max(SEXTANT_1998_2025_spm_spatial$mean_spm, na.rm = TRUE) * 0.9,
+    x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
+    y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
-      "y = ", round(intercept_sextant_1998_spatial, 3), " + ", round(slope_sextant_1998_spatial, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_spatial < 0.001, "< 0.001", format(p_value_sextant_1998_spatial, digits = 3))
+      "y = ", round(intercept_sextant_1998_95, 3), " + ", round(slope_sextant_1998_95, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
     ),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la concentration moyenne en SPM dans les panaches de la baie des Anges en fonction du temps vu par le produit SEXTANT entre 1998 et 2025",
+  labs(title = "Évolution de la concentration moyenne en SPM dans les panaches de la baie des Anges en fonction du temps vu par le produit SEXTANT",
        x = "Date",
        y = "Aire du panache (en km²)") +
   theme_minimal() +
@@ -392,3 +375,79 @@ ggplot(data = SEXTANT_1998_2025_spm_spatial, aes(x = date, y = mean_spm)) +
 
 save(SEXTANT_1998_2025_spm_spatial, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")
+
+
+# define 95ème percentile -------------------------------------------------
+
+# Calculer le 95ème percentile
+seuil_95 <- quantile(SEXTANT_1998_2025_spm_pixels$analysed_spim, 0.95, na.rm = TRUE)
+cat("Seuil 95ème percentile :", seuil_95, "g/m³\n")
+
+# Stats du panache par jour
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(analysed_spim >= seuil_95, na.rm = TRUE),
+    mean_spm = mean(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+  )
+
+save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
+
+
+
+
+# différence pixels count SEXTANT vs OLCI ---------------------------------
+
+# Fusionner par date
+df_comparison <- inner_join(
+  SEXTANT_1998_2025_spm_spatial |> dplyr::select(date, pixel_count, aire_panache_km2) |> 
+    rename(pixel_count_sextant = pixel_count, aire_sextant = aire_panache_km2),
+  OLCI_2016_2024_spm_spatial |> dplyr::select(date, pixel_count, aire_panache_km2) |> 
+    rename(pixel_count_olci = pixel_count, aire_olci = aire_panache_km2),
+  by = "date"  # seulement les dates communes aux deux produits
+)
+
+df_comparison |> 
+  summarise(
+    mean_sextant = mean(pixel_count_sextant, na.rm = TRUE),
+    mean_olci = mean(pixel_count_olci, na.rm = TRUE),
+    median_sextant = median(pixel_count_sextant, na.rm = TRUE),
+    median_olci = median(pixel_count_olci, na.rm = TRUE),
+    cor = cor(pixel_count_sextant, pixel_count_olci, use = "complete.obs")
+  )
+
+df_comparison |> 
+  summarise(
+    cor_pearson  = cor(pixel_count_sextant, pixel_count_olci, 
+                       use = "complete.obs", method = "pearson"),
+    cor_spearman = cor(pixel_count_sextant, pixel_count_olci, 
+                       use = "complete.obs", method = "spearman")
+  )
+
+# Scatter plot de comparaison
+ggplot(df_comparison, aes(x = pixel_count_sextant, y = pixel_count_olci)) +
+  geom_point(alpha = 0.5, size = 0.8) +
+  geom_smooth(method = "lm", color = "red3") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  stat_cor(method = "spearman") +
+  labs(x = "Pixel count SEXTANT", y = "Pixel count OLCI",
+       title = "Comparaison du nombre de pixels panache entre SEXTANT et OLCI") +
+  theme_minimal()
+
+# Séries temporelles superposées
+ggplot(df_comparison, aes(x = date)) +
+  geom_line(aes(y = pixel_count_sextant, color = "SEXTANT"), alpha = 0.7) +
+  geom_line(aes(y = pixel_count_olci, color = "OLCI"), alpha = 0.7) +
+  scale_color_manual(values = c("SEXTANT" = "steelblue", "OLCI" = "orange")) +
+  labs(x = "Date", y = "Nombre de pixels panache", color = "Produit",
+       title = "Comparaison temporelle SEXTANT vs OLCI") +
+  theme_minimal()
+
+# Vérifier la normalité visuellement
+ggplot(df_comparison) +
+  geom_histogram(aes(x = pixel_count_sextant), fill = "steelblue", alpha = 0.6, bins = 50) +
+  geom_histogram(aes(x = pixel_count_olci), fill = "orange", alpha = 0.6, bins = 50) +
+  theme_minimal()
+
+# distribution asymétrique donc on peut utiliser spearman

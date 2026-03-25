@@ -242,6 +242,11 @@ Var_MODIS_SPM <- inner_join(Y6442010_2015_2024, MODIS_2015_2024_SPM, by = "date"
 cor.test(Var_MODIS_SPM$débit, Var_MODIS_SPM$mean_spm, method = "spearman")
 
 
+
+
+
+
+
 ## CHL ----------------------------------------------------------------
 
 # on plotte seulement la série temporelle de la concentration moyenne en SPM entre
