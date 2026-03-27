@@ -19,8 +19,46 @@ library(dplyr)
 library(stars)
 library(tidync)
 library(gganimate)
-library(heatwaveR)
 library(doParallel); registerDoParallel(cores = 14)
+
+
+# problème cluster --------------------------------------------------------
+
+
+# apparement problème de worker
+cl <- makeCluster(detectCores() - 2)
+registerDoParallel(cl)
+
+clusterExport(cl, varlist = c("lon_range", "lat_range", "load_MODIS_spm_pixels"))
+
+clusterEvalQ(cl, {
+  library(tidyverse)
+  library(tidync)
+})
+
+# Stopper l'ancien cluster s'il existe
+if (exists("cl")) stopCluster(cl)
+
+# Fonction qui gère son propre cluster
+load_year <- function(year_dirs, lon_range, lat_range) {
+  cl <- makeCluster(detectCores() - 2)
+  registerDoParallel(cl)
+  
+  clusterExport(cl, varlist = c("lon_range", "lat_range", "load_MODIS_spm_pixels"),
+                envir = environment())
+  clusterEvalQ(cl, { library(tidyverse); library(tidync) })
+  
+  result <- plyr::ldply(year_dirs, load_MODIS_spm_pixels,
+                        .parallel = TRUE,
+                        lon_range = lon_range,
+                        lat_range = lat_range)
+  stopCluster(cl)
+  return(result)
+}
+
+# setup -------------------------------------------------------------------
+
+
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -83,6 +121,12 @@ load_MODIS_spm_pixels <- function(file_name, lon_range, lat_range){
   return(MODIS_one)
 }
 
+# load data ---------------------------------------------------------------
+## Hydro France data ---------------------------------------------------------------------
+
+load("data/Hydro France/Y6442010_depuis_2002.Rdata")
+
+load("data/MODIS/SPM/MODIS_2002_2024_spm_95.Rdata")
 
 # loading data ------------------------------------------------------------
 ## SPM ---------------------------------------------------------------------
@@ -114,7 +158,6 @@ MODIS_2024_spm_dir <- dir("~/Downloads/MODIS ODATIS MR/SPM/MODIS_ODATIS_MR_2024_
 ### to define threshold with percentile 95 --------------------------------------------------------
 
 # Load and combine
-
 MODIS_2002_spm_pixels <- plyr::ldply(MODIS_2002_spm_dir, load_MODIS_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 MODIS_2003_spm_pixels <- plyr::ldply(MODIS_2003_spm_dir, load_MODIS_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 MODIS_2004_spm_pixels <- plyr::ldply(MODIS_2004_spm_dir, load_MODIS_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
@@ -139,6 +182,46 @@ MODIS_2022_spm_pixels <- plyr::ldply(MODIS_2022_spm_dir, load_MODIS_spm_pixels, 
 MODIS_2023_spm_pixels <- plyr::ldply(MODIS_2023_spm_dir, load_MODIS_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 MODIS_2024_spm_pixels <- plyr::ldply(MODIS_2024_spm_dir, load_MODIS_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 
+# tout charger en un seul objet
+
+# Créer une liste nommée de tous les répertoires
+all_dirs <- list(
+  "2002" = MODIS_2002_spm_dir,
+  "2003" = MODIS_2003_spm_dir,
+  "2004" = MODIS_2004_spm_dir,
+  "2005" = MODIS_2005_spm_dir,
+  "2006" = MODIS_2006_spm_dir,
+  "2007" = MODIS_2007_spm_dir,
+  "2008" = MODIS_2008_spm_dir,
+  "2009" = MODIS_2009_spm_dir,
+  "2010" = MODIS_2010_spm_dir,
+  "2011" = MODIS_2011_spm_dir,
+  "2012" = MODIS_2012_spm_dir,
+  "2013" = MODIS_2013_spm_dir,
+  "2014" = MODIS_2014_spm_dir,
+  "2015" = MODIS_2015_spm_dir,
+  "2016" = MODIS_2016_spm_dir,
+  "2017" = MODIS_2017_spm_dir,
+  "2018" = MODIS_2018_spm_dir,
+  "2019" = MODIS_2019_spm_dir,
+  "2020" = MODIS_2020_spm_dir,
+  "2021" = MODIS_2021_spm_dir,
+  "2022" = MODIS_2022_spm_dir,
+  "2023" = MODIS_2023_spm_dir,
+  "2024" = MODIS_2024_spm_dir
+)
+
+# Tout charger en un seul objet
+MODIS_2002_2024_spm_pixels <- purrr::map_dfr(all_dirs, ~ plyr::ldply(.x, load_MODIS_spm_pixels,
+                                                               .parallel = TRUE,
+                                                               lon_range = lon_range,
+                                                               lat_range = lat_range))
+
+# Appliquer sur toutes les années
+MODIS_2002_2024_spm_pixels <- purrr::map_dfr(all_dirs, load_year,
+                                             lon_range = lon_range,
+                                             lat_range = lat_range)
+
 # Combine and save
 MODIS_2002_2024_spm_pixels <- rbind(MODIS_2002_spm_pixels, MODIS_2003_spm_pixels, MODIS_2004_spm_pixels,
                                     MODIS_2005_spm_pixels, MODIS_2006_spm_pixels, MODIS_2007_spm_pixels,
@@ -151,14 +234,11 @@ MODIS_2002_2024_spm_pixels <- rbind(MODIS_2002_spm_pixels, MODIS_2003_spm_pixels
 
 save(MODIS_2002_2024_spm_pixels, file = "data/MODIS/SPM/MODIS_2002_2024_spm_pixels.RData")
 
-load("data/MODIS/SPM/MODIS_2015_2024_spm_pixels.RData")
+load("data/MODIS/SPM/MODIS_2002_2024_spm_pixels.RData")
 
 # pixel area --------------------------------------------------------------
 
 ## extraction des valeurs en degré -----------------------------------------
-
-# Lire les attributs du fichier pour trouver la résolution
-tidync("~/Downloads/MODIS ODATIS MR/SPM/MODIS_ODATIS_MR_2015_SPM/L3m_20150101__FRANCE_03_MOD_SPM-G-NS_DAY_00.nc")[["attribute"]]
 
 # Ou inspecter les coordonnées lon/lat directement
 nc <- tidync("~/Downloads/MODIS ODATIS MR/SPM/MODIS_ODATIS_MR_2015_SPM/L3m_20150101__FRANCE_03_MOD_SPM-G-NS_DAY_00.nc")
@@ -205,13 +285,13 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 ## define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
-seuil_95 <- quantile(MODIS_2015_2024_spm_pixels$`SPM-G-NS_mean`, 0.95, na.rm = TRUE)
+seuil_95 <- quantile(MODIS_2002_2024_spm_pixels$`SPM-G-NS_mean`, 0.95, na.rm = TRUE)
 cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
 
-# Seuil 95ème percentile : 0.5511131 mg/m³
+# Seuil 95ème percentile : 0.576409 mg/m³
 
 # Stats du panache par jour
-MODIS_2015_2024_spm_95 <- MODIS_2015_2024_spm_pixels |> 
+MODIS_2002_2024_spm_95 <- MODIS_2002_2024_spm_pixels |> 
   group_by(date) |> 
   summarise(
     pixel_count = sum(`SPM-G-NS_mean` >= seuil_95, na.rm = TRUE),
@@ -219,4 +299,140 @@ MODIS_2015_2024_spm_95 <- MODIS_2015_2024_spm_pixels |>
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
-save(MODIS_2015_2024_spm_95, file = "data/MODIS/SPM/MODIS_2015_2024_spm_95.Rdata")
+save(MODIS_2002_2024_spm_95, file = "data/MODIS/SPM/MODIS_2002_2024_spm_95.Rdata")
+
+# plotting ----------------------------------------------------------------
+
+# mean spm or panache area plot
+
+# en échelle normale
+
+# model_MODIS_2002_95 <- lm(aire_panache_km2 ~ date, data = MODIS_2002_2024_spm_95)
+model_MODIS_2002_95 <- lm(mean_spm ~ date, data = MODIS_2002_2024_spm_95)
+p_value_MODIS_2002_95 <- summary(model_MODIS_2002_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_2002_95 <- coef(model_MODIS_2002_95)[1]
+slope_MODIS_2002_95 <- coef(model_MODIS_2002_95)[2]
+
+# ggplot(data = MODIS_2002_2024_spm_95, aes(x = date, y = aire_panache_km2)) +
+#   geom_point(color = "darkcyan", size = 0.5) +
+#   # geom_point(data = MODIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+#   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+#   annotate(
+#     "text",
+#     x = max(MODIS_2002_2024_spm_95$date, na.rm = TRUE),
+#     y = max(MODIS_2002_2024_spm_95$aire_panache_km2, na.rm = TRUE) * 0.9,
+#     label = paste0(
+#       "y = ", round(intercept_MODIS_2002_95, 3), " + ", round(slope_MODIS_2002_95, 7), " * x",
+#       "\n", "p = ", ifelse(p_value_MODIS_2002_95 < 0.001, "< 0.001", format(p_value_MODIS_2002_95, digits = 3))
+#     ),
+#     hjust = 1,  # Alignement à droite
+#     vjust = 1,  # Alignement en haut
+#     size = 6
+#   ) +
+#   labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR)",
+#        x = "Date",
+#        y = "Aire des panaches (en km²)") +
+#   theme_minimal() +
+#   scale_x_date(
+#     date_breaks = "1 year",  
+#     date_labels = "%Y"       
+#   )
+
+ggplot(data = MODIS_2002_2024_spm_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.5) +
+  # geom_point(data = MODIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  annotate(
+    "text",
+    x = max(MODIS_2002_2024_spm_95$date, na.rm = TRUE),
+    y = max(MODIS_2002_2024_spm_95$mean_spm, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_MODIS_2002_95, 3), " + ", round(slope_MODIS_2002_95, 7), " * x",
+      "\n", "p = ", ifelse(p_value_MODIS_2002_95 < 0.001, "< 0.001", format(p_value_MODIS_2002_95, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 6
+  ) +
+  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR)",
+       x = "Date",
+       y = "Concentration moyenne en SPM (en mg/m³)") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+
+# en échelle log
+
+data_log_spm <- MODIS_2002_2024_spm_95 |> 
+  filter(mean_spm > 0)
+
+# data_log_spm <- MODIS_2002_2024_spm_95 |> 
+#   filter(aire_panache_km2 > 0)
+
+# model_MODIS_2002_95_log <- lm(log10(mean_spm) ~ date, data = data_log_spm)
+model_MODIS_2002_95_log <- lm(log10(aire_panache_km2) ~ date, data = data_log_spm)
+p_value_MODIS_2002_95_log <- summary(model_MODIS_2002_95_log)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[1]
+slope_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[2]
+
+# ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_spm
+#   geom_point(color = "red3", size = 0.5) +
+#   geom_smooth(method = "lm", se = TRUE, 
+#               formula = y ~ x,
+#               color = "darkslateblue", fill = "pink", alpha = 0.2) +
+#   scale_y_log10(labels = scales::label_comma()) +  # force l'échelle log sur smooth aussi
+#   annotate(
+#     "text",
+#     x = max(data_log_spm$date, na.rm = TRUE),
+#     y = max(data_log_spm$mean_spm, na.rm = TRUE) * 0.9,
+#     label = paste0(
+#       "log(y) = ", round(intercept_MODIS_2002_95_log, 3), " + ", 
+#       round(slope_MODIS_2002_95_log, 7), " * x",
+#       "\n", "p = ", ifelse(p_value_MODIS_2002_95_log < 0.001, "< 0.001", 
+#                            format(p_value_MODIS_2002_95_log, digits = 3))
+#     ),
+#     hjust = 1, vjust = 1, size = 6
+#   ) +
+#   labs(title = "Évolution de la concentration en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
+#        x = "Date",
+#        y = "Concentration moyenne en MES (en mg/m³)") +
+#   theme_minimal() +
+#   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise data_log_spm
+  geom_point(color = "darkcyan", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, 
+              formula = y ~ x,
+              color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  scale_y_log10(labels = scales::label_comma()) +  # force l'échelle log sur smooth aussi
+  annotate(
+    "text",
+    x = max(data_log_spm$date, na.rm = TRUE),
+    y = max(data_log_spm$aire_panache_km2, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "log(y) = ", round(intercept_MODIS_2002_95_log, 3), " + ", 
+      round(slope_MODIS_2002_95_log, 7), " * x",
+      "\n", "p = ", ifelse(p_value_MODIS_2002_95_log < 0.001, "< 0.001", 
+                           format(p_value_MODIS_2002_95_log, digits = 3))
+    ),
+    hjust = 1, vjust = 1, size = 6
+  ) +
+  labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
+       x = "Date",
+       y = "Aire des panaches (en km²)") +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+
+
+
+
+Y6442010_depuis_2002 <- Y6442010_depuis_2000 |>
+  filter(date >= as.Date("2002-07-04"))
+
+save(Y6442010_depuis_2002, file = "data/Hydro France/Y6442010_depuis_2002.Rdata")
+
+  

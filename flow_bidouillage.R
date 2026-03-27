@@ -6,6 +6,7 @@
 
 source("func/util.R")
 library(tidyverse)
+library(ggpmisc)
 library(tidync)
 library(seasonal)
 library(sandwich) # For HAC covariance tests
@@ -38,12 +39,12 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/Y6442010_depuis_2000.Rdata")  # charge ton objet débit
-  flow_df <- Y6442010_depuis_2000  # adapte le nom de l'objet si besoin
+  load("data/Hydro France/Y6442010_2002_2012.Rdata")  # charge ton objet débit
+  flow_df <- Y6442010_2002_2012  # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/")  # charge ton objet SPM
-  plume_daily <- SEXTANT_1998_2025_spm_95 |>  
+  load("data/MERIS/MERIS_2002_2012_spm_95.Rdata")  # charge ton objet SPM
+  plume_daily <- MERIS_2002_2012_spm_95 |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -83,18 +84,35 @@ flow_comp <- function(mouth_info){
   
   # Panache size
   panache_plot <- ggplot(flow_plume_df, aes(x = date, y = aire_panache_km2)) +
-    geom_line( color = "deepskyblue") +
+    geom_line( color = "darkcyan") +
     labs(y = "Aire du panache (km²)", x = NULL) +
     scale_x_date(expand = 0) +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # panache_plot
   
   # Plot river flow and panache size correlation
+  # flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = débit, y = aire_panache_km2)) + 
+  #   geom_point(alpha = 0.7) +
+  #   # geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black") +
+  #   geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 1) +
+  #   labs(y = "Aire du panache (km²)", x = "Débit du Var (m^3 s-1)") +
+  #   theme(panel.border = element_rect(fill = NA, colour = "black"),
+  #         legend.position = "bottom")
   flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = débit, y = aire_panache_km2)) + 
-    geom_point(alpha = 0.7) +
-    geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black") +
-    geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 2) +
+    geom_bin2d(bins = 100) +
+    scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
+    geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 1) +
+    stat_poly_eq(
+      aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+      formula = y ~ x,
+      parse = TRUE,
+      colour = "red",
+      size = 4,
+      label.x = 0.05,  # position horizontale (0 = gauche, 1 = droite)
+      label.y = 0.95   # position verticale (0 = bas, 1 = haut)
+    ) +
     labs(y = "Aire du panache (km²)", x = "Débit du Var (m^3 s-1)") +
+    theme_bw() +
     theme(panel.border = element_rect(fill = NA, colour = "black"),
           legend.position = "bottom")
 
@@ -111,7 +129,7 @@ flow_comp <- function(mouth_info){
   cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/SEXTANT/cor_plot_flow_plume_Var_SEXTANT_95.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/MERIS/cor_plot_flow_plume_Var_MERIS_95.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size
