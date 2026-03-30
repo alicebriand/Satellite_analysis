@@ -13,6 +13,8 @@
 library(tidyverse)
 library(tidync)
 library(gganimate)
+library(sf)
+library(rnaturalearth)
 library(ggpmisc)
 library(doParallel); registerDoParallel(cores = 14)
 
@@ -100,7 +102,7 @@ load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
 
 # Load data ---------------------------------------------------------------
 
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_spatial.Rdata")
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 
@@ -254,6 +256,93 @@ ggplot(data = sextant_1998_monthly, aes(x = lon, y = lat)) +
   facet_wrap(~month)
 # facet_grid(year~month)
 
+# on veut faire une carte pour 1 jour en particulier
+# Filtrer pour le jour voulu
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"))
+
+ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+  geom_raster() +  # pour des données grillées (raster)
+  scale_fill_viridis_c(
+    name = "SPM (mg/L)",
+    option = "turbo",   # turbo, magma, plasma selon tes préférences
+    na.value = "transparent"
+  ) +
+  coord_fixed(ratio = 1.2) +  # ratio lat/lon adapté à la Méditerranée
+  labs(
+    title = "Concentration en SPM — 03 octobre 2020",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
+
+
+cotes <- ne_coastline(scale = "medium", returnclass = "sf")  
+
+# ou ne_countries() pour les frontières terrestres
+
+ggplot() +
+  geom_raster(data = df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+  geom_sf(data = cotes, color = "black", linewidth = 0.3) +
+  scale_fill_viridis_c(
+    name = "SPM (mg/L)",
+    option = "turbo",
+    na.value = "transparent"
+  ) +
+  coord_sf(
+    xlim = c(min(df_jour$lon), max(df_jour$lon)),
+    ylim = c(min(df_jour$lat), max(df_jour$lat))
+  ) +
+  labs(
+    title = "Concentration en SPM — 03 octobre 2020",
+    x = "Longitude", y = "Latitude"
+  ) +
+  theme_minimal()
+
+# maintenant, on regarde la carte après avoir appliqué les valeurs de filtre au
+# 95ème percentile
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03")) %>%
+  mutate(analysed_spim = ifelse(analysed_spim > 0.94, analysed_spim, NA))
+
+# ensuite les valeurs au dessus de ce seuil sont moyennées
+
+mean_spm_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94) %>%
+  summarise(mean_spm = mean(analysed_spim, na.rm = TRUE))
+
+
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94)
+
+# Valeur moyenne unique
+mean_val <- mean(df_jour$analysed_spim, na.rm = TRUE)
+
+# Créer un polygone convexe autour des pixels du panache
+panache_sf <- df_jour %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  st_union() %>%
+  st_convex_hull()  # enveloppe convexe du panache
+
+# Plot
+ggplot() +
+  geom_raster(data = df_jour %>% mutate(mean_spm = mean_val),
+              aes(x = lon, y = lat, fill = mean_spm)) +
+  geom_sf(data = panache_sf, fill = NA, color = "red", linewidth = 0.5) +  # contour
+  geom_sf(data = cotes, color = "black", linewidth = 0.3) +
+  scale_fill_viridis_c(name = "SPM moyen (mg/L)", option = "turbo") +
+  coord_sf(
+    xlim = c(min(df_jour$lon), max(df_jour$lon)),
+    ylim = c(min(df_jour$lat), max(df_jour$lat))
+  ) +
+  labs(
+    title = paste0("SPM moyen dans le panache — 03 octobre 2020"),
+    subtitle = paste0("Moyenne = ", round(mean_val, 3), " mg/L | n = ", nrow(df_jour), " pixels"),
+    x = "Longitude", y = "Latitude"
+  ) +
+  theme_minimal()
 
 # Temporal analysis -------------------------------------------------------
 
@@ -383,6 +472,9 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
   summarise(
     pixel_count = sum(analysed_spim >= seuil_95, na.rm = TRUE),
     mean_spm = mean(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE),
+    median_spm = ifelse(
+      pixel_count < 2, NA,
+      mad(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE))
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
@@ -464,21 +556,21 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_s
 
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$mean_spm, Y6442010_depuis_2000$débit)
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
 
-SEXTANT_1998_2025_spm_95$scaled_mean_spm <- SEXTANT_1998_2025_spm_95$mean_spm * adjust_factors$diff + adjust_factors$adjust
+SEXTANT_1998_2025_spm_95$scaled_aire_panache_km2 <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = SEXTANT_1998_2025_spm_95, 
-             aes(x = date, y = scaled_mean_spm, color = "MES"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "MES" = "red3")) +
+             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
-  labs(title = "Évolution de la concentration moyenne en MES et du débit du Var vu par le produit SEXTANT",
+  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit SEXTANT",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -490,20 +582,59 @@ ggplot() +
 
 Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
 
-cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$scaled_mean_spm, method = "spearman")
+cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
 
+
+# échelle log
+
+# Définir les limites log de chaque axe
+log_debit_min <- min(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
+log_debit_max <- max(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
+log_aire_min  <- min(log10(SEXTANT_1998_2025_spm_95$aire_panache_km2[SEXTANT_1998_2025_spm_95$aire_panache_km2 > 0]), na.rm = TRUE)
+log_aire_max  <- max(log10(SEXTANT_1998_2025_spm_95$aire_panache_km2), na.rm = TRUE)
+
+# Fonction pour projeter l'aire sur l'échelle du débit (en log)
+aire_to_debit_scale <- function(x) {
+  (log10(x) - log_aire_min) / (log_aire_max - log_aire_min) *
+    (log_debit_max - log_debit_min) + log_debit_min
+}
+
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 %>%
+  filter(aire_panache_km2 > 0) %>%
+  mutate(aire_scaled = 10^aire_to_debit_scale(aire_panache_km2))
+
+ggplot() +
+  geom_point(data = Y6442010_depuis_2000,
+             aes(x = date, y = débit, color = "Débit"), size = 0.5) +
+  geom_point(data = SEXTANT_1998_2025_spm_95,
+             aes(x = date, y = aire_scaled, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_y_log10(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ 10^((log10(.) - log_debit_min) / (log_debit_max - log_debit_min) *
+              (log_aire_max - log_aire_min) + log_aire_min),
+      name = "Aire des panaches (km²)"
+    )
+  ) +
+  labs(
+    title = "Évolution de l'aire des panaches et du débit du Var vu par SEXTANT en échelle log",
+    x = "Date"
+  ) +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 # scatter plot
 
 # Fusionner les données
 Var_sextant <- Y6442010_depuis_2000 %>% 
   select(date, débit) %>% 
-  left_join(
+  inner_join(
     SEXTANT_1998_2025_spm_95 %>% select(date, aire_panache_km2, mean_spm),
     by = "date"
   )
 
-ggplot(data = Var_sextant_clean, aes(x = débit, y = aire_panache_km2)) +
+ggplot(data = Var_sextant, aes(x = débit, y = aire_panache_km2)) +
   geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
   stat_poly_eq(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
