@@ -13,6 +13,7 @@
 library(tidyverse)
 library(tidync)
 library(gganimate)
+library(ggpmisc)
 library(doParallel); registerDoParallel(cores = 14)
 
 # Get satellite download function
@@ -24,6 +25,32 @@ lat_range <- c(43.2136389, 43.7300000)
 
 
 # Functions ---------------------------------------------------------------
+
+# Scale one value to another for tidier double-y-axis plots
+sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
+  
+  index_to_keep <- which(is.finite(var_ref))
+  var_ref <- var_ref[index_to_keep]
+  
+  index_to_keep <- which(is.finite(var_to_scale))
+  var_to_scale <- var_to_scale[index_to_keep]
+  
+  max_var_to_scale <- max(var_to_scale, na.rm = T) 
+  min_var_to_scale <- min(var_to_scale, na.rm = T) 
+  max_var_ref <- max(var_ref, na.rm = T) 
+  min_var_ref <- min(var_ref, na.rm = T) 
+  
+  diff_to_scale <- max_var_to_scale - min_var_to_scale
+  diff_to_scale <- ifelse(diff_to_scale == 0, 1 , diff_to_scale)
+  diff_ref <- max_var_ref - min_var_ref
+  diff <- diff_ref / diff_to_scale
+  
+  adjust <- (max_var_ref - max_var_to_scale*diff) 
+  
+  return(data.frame(diff = diff, adjust = adjust, operation = "scaled var = (var_to_scale * diff) + adjust",
+                    trans_axis_operation = "var_to_scale = {scaled_var - adjust} / diff)"))
+}
+
 
 # Load and prep one day of data
 # testers...
@@ -72,6 +99,14 @@ load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
 }
 
 # Load data ---------------------------------------------------------------
+
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
+
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
+
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+
+load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
 ## SPM ---------------------------------------------------------------------
 
@@ -155,8 +190,6 @@ SEXTANT_1998_2025_spm_spatial <- rbind(SEXTANT_1998_spm, SEXTANT_1999_spm, SEXTA
 
 save(SEXTANT_1998_2025_spm_spatial, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
 
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_SPM_spatial.RData")
-
 ### to define threshold with percentile 95 --------------------------------------------------------
 
 # Load and combine
@@ -204,10 +237,6 @@ SEXTANT_1998_2025_spm_pixels <- rbind(SEXTANT_1998_spm_pixels, SEXTANT_1999_spm_
                                        SEXTANT_2025_spm_pixels)
 
 save(SEXTANT_1998_2025_spm_pixels, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
-
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
-
-
 
 # Spatial analysis --------------------------------------------------------
 
@@ -340,12 +369,13 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_spatial |> 
   mutate(aire_panache_km2 = pixel_count * aire_pixel_km2)
 
-
 # define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
 seuil_95 <- quantile(SEXTANT_1998_2025_spm_pixels$analysed_spim, 0.95, na.rm = TRUE)
 cat("Seuil 95ème percentile :", seuil_95, "g/m³\n")
+
+# seuil = 0.94 g/m³
 
 # Stats du panache par jour
 SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |> 
@@ -358,7 +388,7 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
 
 save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
+
 
 
 # plotting ----------------------------------------------------------------
@@ -395,7 +425,6 @@ ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm)) +
     date_labels = "%Y"       
   )
 
-
 # en échelle log
 
 data_log_spm <- SEXTANT_1998_2025_spm_95 |> 
@@ -430,29 +459,39 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_s
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
+
+
+
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$mean_spm, Y6442010_depuis_2000$débit)
 
-SEXTANT_1998_2025_spm_95$scaled_aire_panache_km2 <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+SEXTANT_1998_2025_spm_95$scaled_mean_spm <- SEXTANT_1998_2025_spm_95$mean_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = SEXTANT_1998_2025_spm_95, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "Aire panache"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire panache" = "darkcyan")) +
+             aes(x = date, y = scaled_mean_spm, color = "MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "MES" = "red3")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
   ) +
-  labs(title = "Évolution de la taille des panaches et du débit du Var vu par le produit SEXTANT",
+  labs(title = "Évolution de la concentration moyenne en MES et du débit du Var vu par le produit SEXTANT",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# runoff vs SPM concentration correlation ---------------------------------
+
+Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
+
+cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$scaled_mean_spm, method = "spearman")
+
 
 # scatter plot
 
@@ -464,7 +503,7 @@ Var_sextant <- Y6442010_depuis_2000 %>%
     by = "date"
   )
 
-ggplot(data = Var_sextant, aes(x = débit, y = mean_spm)) +
+ggplot(data = Var_sextant_clean, aes(x = débit, y = aire_panache_km2)) +
   geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
   stat_poly_eq(
     aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
@@ -478,8 +517,9 @@ ggplot(data = Var_sextant, aes(x = débit, y = mean_spm)) +
   geom_bin2d(bins = 100) +
   scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
   theme_bw() +
-  labs(x = "Débit (m³/s)", y = "Concentration moyenne en SPM (en mg/m³)", title = "Débit liquide du Var contre la concentration moyenne en SPM dans les panaches vue par SEXTANT") +
+  labs(x = "Débit (m³/s)", y = "Aire du panache (en km²)", title = "Débit liquide du Var contre l'aire des panaches vue par SEXTANT") +
   theme_minimal()
+
 
 
 
@@ -538,3 +578,58 @@ ggplot(df_comparison) +
   theme_minimal()
 
 # distribution asymétrique donc on peut utiliser spearman
+
+
+
+
+
+
+
+# clean data --------------------------------------------------------------
+
+# on trouve des R² très bas lorsqu'on compare les débits avec mean_spm et l'extension
+# du panache, il faut donc enlever les artefacts et nettoyer nos données
+
+seuil_debit_bas <- quantile(Var_sextant$débit, 0.10, na.rm = TRUE)
+seuil_debit_haut <- quantile(Var_sextant$débit, 0.90, na.rm = TRUE)
+seuil_spm_bas <- quantile(Var_sextant$mean_spm, 0.10, na.rm = TRUE)
+seuil_spm_haut <- quantile(Var_sextant$mean_spm, 0.90, na.rm = TRUE)
+seuil_panache_bas <- quantile(Var_sextant$aire_panache_km2, 0.10, na.rm = TRUE)
+seuil_panache_haut <- quantile(Var_sextant$aire_panache_km2, 0.90, na.rm = TRUE)
+
+
+# Var_sextant_clean <- Var_sextant %>%
+#   filter(!is.na(débit), !is.na(aire_panache_km2)) %>%
+#   filter(
+#     # Enlever : débit fort MAIS spm faible (pas de panache malgré crue)
+#     !(débit > seuil_debit_haut & aire_panache_km2 < seuil_panache_bas),
+#     # Enlever : débit faible MAIS spm fort (panache sans crue)
+#     !(débit < seuil_debit_bas & aire_panache_km2 > seuil_panache_haut)
+#   )
+
+Var_sextant_clean <- Var_sextant %>%
+  filter(!is.na(débit), !is.na(mean_spm)) %>%
+  filter(aire_panache_km2 > 0) %>%   # ← enlever les jours sans panache détecté
+  filter(
+    !(débit > seuil_debit_haut & aire_panache_km2 < seuil_panache_bas),
+    !(débit < seuil_debit_bas & aire_panache_km2 > seuil_panache_haut)
+  )
+
+Var_sextant_filtered <- Var_sextant %>%
+  filter(!is.na(débit), !is.na(mean_spm), aire_panache_km2 > 0)
+
+seuil_debit_bas    <- quantile(Var_sextant_filtered$débit, 0.10, na.rm = TRUE)
+seuil_debit_haut   <- quantile(Var_sextant_filtered$débit, 0.90, na.rm = TRUE)
+seuil_panache_bas  <- quantile(Var_sextant_filtered$aire_panache_km2, 0.10, na.rm = TRUE)
+seuil_panache_haut <- quantile(Var_sextant_filtered$aire_panache_km2, 0.90, na.rm = TRUE)
+
+Var_sextant_clean <- Var_sextant_filtered %>%
+  filter(
+    !(débit > seuil_debit_haut & aire_panache_km2 < seuil_panache_bas),
+    !(débit < seuil_debit_bas & aire_panache_km2 > seuil_panache_haut)
+  )
+
+# Vérifier
+nrow(Var_sextant_filtered)  # avant filtrage artefacts
+nrow(Var_sextant_clean)     # après
+

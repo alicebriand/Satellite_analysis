@@ -313,27 +313,42 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_s
 
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2024_spm_95$mean_spm, Y6442010_2002_2024$débit)
+adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2012_spm_95_propre$aire_panache_km2, Y6442010_2002_2012$débit)
 
-MERIS_2002_2024_spm_95$scaled_mean_spm <- MERIS_2002_2024_spm_95$mean_spm * adjust_factors$diff + adjust_factors$adjust
+MERIS_2002_2012_spm_95_propre$scaled_aire_panache_km2 <- MERIS_2002_2012_spm_95_propre$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
-  geom_point(data = Y6442010_2002_2024, 
+  geom_point(data = Y6442010_2002_2012, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
-  geom_point(data = MERIS_2002_2024_spm_95, 
-             aes(x = date, y = scaled_mean_spm, color = "SPM"), size = 0.5) +
+  geom_point(data = MERIS_2002_2012_spm_95_propre, 
+             aes(x = date, y = scaled_aire_panache_km2, color = "SPM"), size = 0.5) +
   scale_color_manual(values = c("Débit" = "blue", "SPM" = "limegreen")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
   ) +
-  labs(title = "Évolution de la concentration en SPM dans les panaches et du débit du Var vu par le produit MERIS ODATIS-MR",
+  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit MERIS (ODATIS-MR)",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# runoff vs SPM concentration correlation ---------------------------------
+
+Var_MERIS <- Y6442010_2002_2012 %>%
+  select(date, débit) %>%
+  inner_join(
+    MERIS_2002_2012_spm_95_propre %>% select(date, mean_spm, aire_panache_km2),
+    by = "date"
+  )
+
+cor.test(Var_MERIS$débit, Var_MERIS$aire_panache_km2, method = "spearman")
+
+
+
+
 
 # scatter plot
 

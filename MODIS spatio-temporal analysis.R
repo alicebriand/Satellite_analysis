@@ -128,6 +128,8 @@ load("data/Hydro France/Y6442010_depuis_2002.Rdata")
 
 load("data/MODIS/SPM/MODIS_2002_2024_spm_95.Rdata")
 
+load("data/MODIS/SPM/MODIS_2002_2024_spm_pixels.RData")
+
 # loading data ------------------------------------------------------------
 ## SPM ---------------------------------------------------------------------
 
@@ -427,12 +429,122 @@ ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise da
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
+# comparison between liquid flow rate and panache extension
+
+adjust_factors <- sec_axis_adjustement_factors(MODIS_2002_2024_spm_95$aire_panache_km2, Y6442010_depuis_2002$débit)
+
+MODIS_2002_2024_spm_95$scaled_aire_panache_km2 <- MODIS_2002_2024_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_point(data = Y6442010_depuis_2002, 
+             aes(x = date, y = débit, color = "Débit"), size = 0.5) +
+  geom_point(data = MODIS_2002_2024_spm_95, 
+             aes(x = date, y = scaled_aire_panache_km2, color = "Aire panache"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Aire panache" = "darkcyan")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
+  ) +
+  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit MODIS (ODATIS-MR)",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+# runoff vs SPM concentration correlation ---------------------------------
+
+Var_MODIS <- Y6442010_depuis_2002 %>%
+  select(date, débit) %>%
+  inner_join(
+    MODIS_2002_2024_spm_95 %>% select(date, mean_spm, aire_panache_km2),
+    by = "date"
+  )
+
+cor.test(Var_MODIS$débit, Var_MODIS$aire_panache_km2, method = "spearman")
 
 
+# scatter plot
 
-Y6442010_depuis_2002 <- Y6442010_depuis_2000 |>
-  filter(date >= as.Date("2002-07-04"))
+# Fusionner les données
+Var_MODIS <- Y6442010_depuis_2002 %>% 
+  select(date, débit) %>% 
+  left_join(
+    MODIS_2002_2024_spm_95 %>% select(date, aire_panache_km2, mean_spm),
+    by = "date"
+  )
 
-save(Y6442010_depuis_2002, file = "data/Hydro France/Y6442010_depuis_2002.Rdata")
+ggplot(data = Var_MODIS_clean, aes(x = débit, y = aire_panache_km2)) +
+  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
+  stat_poly_eq(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    colour = "red",
+    size = 4,
+    label.x = 0.05,  # position horizontale (0 = gauche, 1 = droite)
+    label.y = 0.95   # position verticale (0 = bas, 1 = haut)
+  ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
+  theme_bw() +
+    labs(x = "Débit (m³/s)", y = "Aire du panache (en km²)", title = "Débit liquide du Var contre l'aire des panaches vue par MODIS (ODATIS-MR)") +
+  theme_minimal()
 
+ggplot(data = Var_MODIS_clean, aes(x = débit, y = mean_spm)) +
+  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
+  stat_poly_eq(
+    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    colour = "red",
+    size = 4,
+    label.x = 0.05,  # position horizontale (0 = gauche, 1 = droite)
+    label.y = 0.95   # position verticale (0 = bas, 1 = haut)
+  ) +
+  geom_bin2d(bins = 100) +
+  scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
+  theme_bw() +
+  labs(x = "Débit (m³/s)", y = "Concentration moyenne en MES (en mg/m³)", title = "Débit liquide du Var contre la concentration en MES dans les panaches vue par MODIS (ODATIS-MR)") +
+  theme_minimal()
+
+# clean data --------------------------------------------------------------
+
+# on trouve des R² très bas lorsqu'on compare les débits avec mean_spm et l'extension
+# du panache, il faut donc enlever les artefacts et nettoyer nos données
+
+seuil_debit_bas <- quantile(Var_MODIS$débit, 0.10, na.rm = TRUE)
+seuil_debit_haut <- quantile(Var_MODIS$débit, 0.90, na.rm = TRUE)
+seuil_spm_bas <- quantile(Var_MODIS$mean_spm, 0.10, na.rm = TRUE)
+seuil_spm_haut <- quantile(Var_MODIS$mean_spm, 0.90, na.rm = TRUE)
+seuil_panache_bas <- quantile(Var_MODIS$aire_panache_km2, 0.10, na.rm = TRUE)
+seuil_panache_haut <- quantile(Var_MODIS$aire_panache_km2, 0.90, na.rm = TRUE)
+
+
+Var_MODIS_clean <- Var_MODIS %>%
+  filter(!is.na(débit), !is.na(mean_spm)) %>%
+  filter(aire_panache_km2 > 0) %>%   # ← enlever les jours sans panache détecté
+  filter(
+    !(débit > seuil_debit_haut & aire_panache_km2 < seuil_panache_bas),
+    !(débit < seuil_debit_bas & aire_panache_km2 > seuil_panache_haut)
+  )
+
+Var_MODIS_filtered <- Var_MODIS %>%
+  filter(!is.na(débit), !is.na(mean_spm), aire_panache_km2 > 0)
+
+seuil_debit_bas    <- quantile(Var_MODIS_filtered$débit, 0.10, na.rm = TRUE)
+seuil_debit_haut   <- quantile(Var_MODIS_filtered$débit, 0.90, na.rm = TRUE)
+seuil_panache_bas  <- quantile(Var_MODIS_filtered$aire_panache_km2, 0.10, na.rm = TRUE)
+seuil_panache_haut <- quantile(Var_MODIS_filtered$aire_panache_km2, 0.90, na.rm = TRUE)
+
+Var_MODIS_clean <- Var_MODIS_filtered %>%
+  filter(
+    !(débit > seuil_debit_haut & aire_panache_km2 < seuil_panache_bas),
+    !(débit < seuil_debit_bas & aire_panache_km2 > seuil_panache_haut)
+  )
+
+# Vérifier
+nrow(Var_MODIS_filtered)  # avant filtrage artefacts
+nrow(Var_MODIS_clean)     # après
   
