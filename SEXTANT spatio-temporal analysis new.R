@@ -472,9 +472,7 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
   summarise(
     pixel_count = sum(analysed_spim >= seuil_95, na.rm = TRUE),
     mean_spm = mean(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE),
-    median_spm = ifelse(
-      pixel_count < 2, NA,
-      mad(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE))
+    median_spm = median(analysed_spim[analysed_spim >= seuil_95], na.rm = TRUE),
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
@@ -501,76 +499,108 @@ ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm)) +
     x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
     y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
-      "y = ", round(intercept_sextant_1998_95, 3), " + ", round(slope_sextant_1998_95, 7), " * x",
+      "y = ", round(intercept_sextant_1998_95, 3), " ", round(slope_sextant_1998_95, 7), " * x",
       "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
     ),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la concentration en SPM dans les panaches de la baie des Anges vu par le produit SEXTANT",
+  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit SEXTANT",
        x = "Date",
-       y = "Concentration moyenne en SPM (en mg/m³)") +
+       y = "Concentration moyenne en MES (en mg/m³)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
 
+# plot de la médiane
+
+model_sextant_1998_95 <- lm(median_spm ~ date, data = SEXTANT_1998_2025_spm_95)
+p_value_sextant_1998_95 <- summary(model_sextant_1998_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_1998_95 <- coef(model_sextant_1998_95)[1]
+slope_sextant_1998_95 <- coef(model_sextant_1998_95)[2]
+
+ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = median_spm)) +
+  geom_point(color = "red3", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  annotate(
+    "text",
+    x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
+    y = max(SEXTANT_1998_2025_spm_95$median_spm, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "y = ", round(intercept_sextant_1998_95, 3), " ", round(slope_sextant_1998_95, 7), " * x",
+      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
+    ),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    size = 6
+  ) +
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit SEXTANT",
+       x = "Date",
+       y = "Concentration médiane en MES (en mg/m³)") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+
 # en échelle log
 
 data_log_spm <- SEXTANT_1998_2025_spm_95 |> 
-  filter(mean_spm > 0)
+  filter(mean_spm > 0, median_spm > 0)
 
 model_sextant_1998_95_log <- lm(log10(mean_spm) ~ date, data = data_log_spm)
-p_value_sextant_1998_95_log <- summary(model_sextant_1998_95_log)$coefficients[2, 4]  # p-value pour la pente
+p_value_sextant_1998_95_log <- summary(model_sextant_1998_95_log)$coefficients[2, 4]
 intercept_sextant_1998_95_log <- coef(model_sextant_1998_95_log)[1]
 slope_sextant_1998_95_log <- coef(model_sextant_1998_95_log)[2]
 
-ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_spm
+ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +
   geom_point(color = "red3", size = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, 
+  geom_smooth(method = "lm", se = TRUE,
               formula = y ~ x,
+              aes(y = 10^predict(model_sextant_1998_95_log)),  # droite dans l'espace log
               color = "darkslateblue", fill = "pink", alpha = 0.2) +
-  scale_y_log10(labels = scales::label_comma()) +  # force l'échelle log sur smooth aussi
+  scale_y_log10(labels = scales::label_comma()) +
   annotate(
     "text",
     x = max(data_log_spm$date, na.rm = TRUE),
     y = max(data_log_spm$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
-      "log(y) = ", round(intercept_sextant_1998_95_log, 3), " + ", 
+      "log(y) = ", round(intercept_sextant_1998_95_log, 3), " ",
       round(slope_sextant_1998_95_log, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_95_log < 0.001, "< 0.001", 
+      "\n", "p = ", ifelse(p_value_sextant_1998_95_log < 0.001, "< 0.001",
                            format(p_value_sextant_1998_95_log, digits = 3))
     ),
     hjust = 1, vjust = 1, size = 6
   ) +
-  labs(title = "Évolution de la concentration en SPM dans les panaches de la baie des Anges vu par le produit SEXTANT (échelle log)",
+  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit SEXTANT (échelle log)",
        x = "Date",
-       y = "Concentration moyenne en SPM (en mg/m³)") +
+       y = "Concentration moyenne en MES (en mg/m³)") +
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
 
-
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$median_spm, Y6442010_depuis_2000$débit)
 
-SEXTANT_1998_2025_spm_95$scaled_aire_panache_km2 <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+SEXTANT_1998_2025_spm_95$scaled_median_spm <- SEXTANT_1998_2025_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = SEXTANT_1998_2025_spm_95, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+             aes(x = date, y = scaled_median_spm, color = "MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "MES" = "red3")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration médiane en MES (en mg/m3)")
   ) +
-  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit SEXTANT",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches et du débit du Var vu par le produit SEXTANT",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -582,7 +612,7 @@ ggplot() +
 
 Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
 
-cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
+cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$median_spm, method = "spearman")
 
 
 # échelle log
@@ -590,35 +620,35 @@ cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, metho
 # Définir les limites log de chaque axe
 log_debit_min <- min(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
 log_debit_max <- max(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
-log_aire_min  <- min(log10(SEXTANT_1998_2025_spm_95$aire_panache_km2[SEXTANT_1998_2025_spm_95$aire_panache_km2 > 0]), na.rm = TRUE)
-log_aire_max  <- max(log10(SEXTANT_1998_2025_spm_95$aire_panache_km2), na.rm = TRUE)
+log_mean_min  <- min(log10(SEXTANT_1998_2025_spm_95$mean_spm[SEXTANT_1998_2025_spm_95$mean_spm > 0]), na.rm = TRUE)
+log_mean_max  <- max(log10(SEXTANT_1998_2025_spm_95$mean_spm), na.rm = TRUE)
 
 # Fonction pour projeter l'aire sur l'échelle du débit (en log)
-aire_to_debit_scale <- function(x) {
-  (log10(x) - log_aire_min) / (log_aire_max - log_aire_min) *
+mean_to_debit_scale <- function(x) {
+  (log10(x) - log_mean_min) / (log_mean_max - log_mean_min) *
     (log_debit_max - log_debit_min) + log_debit_min
 }
 
 SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 %>%
-  filter(aire_panache_km2 > 0) %>%
-  mutate(aire_scaled = 10^aire_to_debit_scale(aire_panache_km2))
+  filter(mean_spm > 0) %>%
+  mutate(mean_scaled = 10^mean_to_debit_scale(mean_spm))
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000,
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = SEXTANT_1998_2025_spm_95,
-             aes(x = date, y = aire_scaled, color = "Aire des panaches"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+             aes(x = date, y = mean_scaled, color = "Concentration en MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Concentration en MES" = "red3")) +
   scale_y_log10(
     name = "Débit (m³/s)",
     sec.axis = sec_axis(
       ~ 10^((log10(.) - log_debit_min) / (log_debit_max - log_debit_min) *
-              (log_aire_max - log_aire_min) + log_aire_min),
-      name = "Aire des panaches (km²)"
+              (log_mean_max - log_mean_min) + log_mean_min),
+      name = "Concentration en moyenne en MES (en mg/m3)"
     )
   ) +
   labs(
-    title = "Évolution de l'aire des panaches et du débit du Var vu par SEXTANT en échelle log",
+    title = "Évolution de la concentration moyenne en MES dans les panaches et du débit du Var vu par SEXTANT (échelle log)",
     x = "Date"
   ) +
   theme_minimal() +
