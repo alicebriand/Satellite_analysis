@@ -251,6 +251,7 @@ ggplot(wind_mean, aes(x = date, y = wind_speed)) +
 #     caption  = "Source: CMEMS-MR"
 #   )
 
+
 # 1994 - 2025 wind --------------------------------------------------------
 
 load("~/Vent/data/wind_1994_2007.Rdata")
@@ -444,5 +445,90 @@ ggplot(North_East, aes(x = date, y = wind_speed)) +
     panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
     panel.grid.minor = element_blank(),
     panel.border  = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+# Thomas wind data --------------------------------------------------------
+
+Wind_T <- read.csv("~/Vent/data/Q_06_previous-1950-2024_RR-T-Vent.csv", 
+                   header = TRUE, sep = ";")
+
+Wind_T <- Wind_T |> 
+  filter(NUM_POSTE == "6088001") |> 
+  select("NUM_POSTE", "FFM", "DXY", "HXI", "RR")
+
+Wind_T <- Wind_T |> 
+  mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
+
+Wind_T <- Wind_T |> 
+  filter(date >= "1994-06-01")
+
+## plotting ----------------------------------------------------------------
+
+model_wind <- lm(FFM ~ date, data = Wind_T)
+p_value_wind <- summary(model_wind)$coefficients[2, 4]  # p-value pour la pente
+intercept_wind <- coef(model_wind)[1]
+slope_wind <- coef(model_wind)[2]
+
+ggplot(Wind_T, aes(x = date, y = FFM)) +
+  geom_point(color = "#4A90D9", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE, 
+              color = "#2C3E7A", fill = "#4A90D9", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(Wind_T$date, na.rm = TRUE),
+    y = max(Wind_T$FFM, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_wind, 3), " ", round(slope_wind, 7), " × x",
+      "\np = ", ifelse(p_value_wind < 0.001, "< 0.001", format(p_value_wind, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "#2C3E7A",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title = "Évolution de la vitesse du vent près de Nice (1994–2025)",
+    x = NULL,
+    y = "Vitesse du vent (m s⁻¹)",
+    caption = "Source : Archives Météo France"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title    = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption  = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y  = element_text(size = 11, margin = margin(r = 10)),
+    axis.text     = element_text(size = 10, color = "grey30"),
+    axis.ticks    = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border  = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+
+# rose des vents
+
+speed <- Wind_T$FFM
+direction <- Wind_T$DXY
+
+ggwindrose(
+  speed = speed,
+  direction = direction,
+  n_directions = 8,
+  n_speeds = 5,
+  speed_cuts = NA,
+  col_pal = "GnBu",
+  legend_title = "Vitesse du vent (m/s)",
+  calm_wind = 0,
+  n_col = 1,
+  facet = NULL,
+  plot_title = "Direction et vitesse du vent entre 1994 et 2024 près de Nice",
+  stack_reverse = TRUE) +
+  labs(
+    subtitle = "1994-2024",
+    caption = "Source: Archives Météo France"
   )
 
