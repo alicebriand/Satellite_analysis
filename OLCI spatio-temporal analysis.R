@@ -14,31 +14,36 @@
 library(tidyverse)
 library(tidync)
 library(gganimate)
+library(sf)
+library(rnaturalearth)
+library(ggpmisc)
 library(doParallel); registerDoParallel(cores = 14)
 
-# problème cluster --------------------------------------------------------
-
-# Fonction qui gère son propre cluster
-load_year <- function(year_dirs, lon_range, lat_range) {
-  cl <- makeCluster(detectCores() - 2)
-  registerDoParallel(cl)
-  
-  clusterExport(cl, varlist = c("lon_range", "lat_range", "load_OLCI_spm_pixels"),
-                envir = environment())
-  clusterEvalQ(cl, { library(tidyverse); library(tidync) })
-  
-  result <- plyr::ldply(year_dirs, load_OLCI_spm_pixels,
-                        .parallel = TRUE,
-                        lon_range = lon_range,
-                        lat_range = lat_range)
-  stopCluster(cl)
-  return(result)
-}
+# Get satellite download function
+source("~/sat_access/sat_access_script.R")
 
 # lon lat ranges
 lon_range <- c(6.8925000, 7.4200000)
 lat_range <- c(43.2136389, 43.7300000)
 
+# problème cluster --------------------------------------------------------
+
+# Fonction qui gère son propre cluster
+# load_year <- function(year_dirs, lon_range, lat_range) {
+#   cl <- makeCluster(detectCores() - 2)
+#   registerDoParallel(cl)
+#   
+#   clusterExport(cl, varlist = c("lon_range", "lat_range", "load_OLCI_spm_pixels"),
+#                 envir = environment())
+#   clusterEvalQ(cl, { library(tidyverse); library(tidync) })
+#   
+#   result <- plyr::ldply(year_dirs, load_OLCI_spm_pixels,
+#                         .parallel = TRUE,
+#                         lon_range = lon_range,
+#                         lat_range = lat_range)
+#   stopCluster(cl)
+#   return(result)
+# }
 
 # functions -----------------------------------------------------------------
 
@@ -122,6 +127,8 @@ load("data/Hydro France/Y6442010_2016_2024.Rdata")
 
 load("data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
 
+load("data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
+
 ## SPM ---------------------------------------------------------------------
 ### threshold of 1.2 --------------------------------------------------------
 
@@ -149,24 +156,24 @@ all_dirs <- list(
 
 ### threshold of 1.2 --------------------------------------------------------
 
-OLCI_2016_spm <- plyr::ldply(OLCI_2016_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2017_spm <- plyr::ldply(OLCI_2017_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2018_spm <- plyr::ldply(OLCI_2018_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2019_spm <- plyr::ldply(OLCI_2019_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2020_spm <- plyr::ldply(OLCI_2020_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2021_spm <- plyr::ldply(OLCI_2021_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2022_spm <- plyr::ldply(OLCI_2022_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2023_spm <- plyr::ldply(OLCI_2023_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_2024_spm <- plyr::ldply(OLCI_2024_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-
-# Combine and save
-OLCI_2016_2024_spm_spatial <- rbind(OLCI_2016_spm, OLCI_2017_spm, OLCI_2018_spm,
-                                    OLCI_2019_spm, OLCI_2020_spm, OLCI_2021_spm,
-                                    OLCI_2022_spm, OLCI_2023_spm, OLCI_2024_spm)
-
-save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
-
-load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
+# OLCI_2016_spm <- plyr::ldply(OLCI_2016_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2017_spm <- plyr::ldply(OLCI_2017_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2018_spm <- plyr::ldply(OLCI_2018_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2019_spm <- plyr::ldply(OLCI_2019_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2020_spm <- plyr::ldply(OLCI_2020_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2021_spm <- plyr::ldply(OLCI_2021_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2022_spm <- plyr::ldply(OLCI_2022_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2023_spm <- plyr::ldply(OLCI_2023_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_2024_spm <- plyr::ldply(OLCI_2024_dir, load_OLCI_spm, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# 
+# # Combine and save
+# OLCI_2016_2024_spm_spatial <- rbind(OLCI_2016_spm, OLCI_2017_spm, OLCI_2018_spm,
+#                                     OLCI_2019_spm, OLCI_2020_spm, OLCI_2021_spm,
+#                                     OLCI_2022_spm, OLCI_2023_spm, OLCI_2024_spm)
+# 
+# save(OLCI_2016_2024_spm_spatial, file = "data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
+# 
+# load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
 
 ### define threshold with percentile 95 --------------------------------------------------------
 
@@ -499,6 +506,7 @@ OLCI_2016_2024_spm_95 <- OLCI_2016_2024_spm_pixels |>
   summarise(
     pixel_count = sum(`SPM-G-PO_mean` >= seuil_95, na.rm = TRUE),
     mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
@@ -506,12 +514,12 @@ save(OLCI_2016_2024_spm_95, file = "data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
 
 # plotting ----------------------------------------------------------------
 
-# mean spm or panache area plot
+# mean/median spm or panache area plot
 
 # en échelle normale
 
 # model_OLCI_2016_95 <- lm(aire_panache_km2 ~ date, data = OLCI_2016_2024_spm_95)
-model_OLCI_2016_95 <- lm(mean_spm ~ date, data = OLCI_2016_2024_spm_95)
+model_OLCI_2016_95 <- lm(median_spm ~ date, data = OLCI_2016_2024_spm_95)
 p_value_OLCI_2016_95 <- summary(model_OLCI_2016_95)$coefficients[2, 4]  # p-value pour la pente
 intercept_OLCI_2016_95 <- coef(model_OLCI_2016_95)[1]
 slope_OLCI_2016_95 <- coef(model_OLCI_2016_95)[2]
@@ -541,14 +549,14 @@ slope_OLCI_2016_95 <- coef(model_OLCI_2016_95)[2]
 #     date_labels = "%Y"       
 #   )
 
-ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm)) +
+ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = median_spm)) +
   geom_point(color = "red3", size = 0.5) +
   # geom_point(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
     x = max(OLCI_2016_2024_spm_95$date, na.rm = TRUE),
-    y = max(OLCI_2016_2024_spm_95$mean_spm, na.rm = TRUE) * 0.9,
+    y = max(OLCI_2016_2024_spm_95$median_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "y = ", round(intercept_OLCI_2016_95, 3), " + ", round(slope_OLCI_2016_95, 7), " * x",
       "\n", "p = ", ifelse(p_value_OLCI_2016_95 < 0.001, "< 0.001", format(p_value_OLCI_2016_95, digits = 3))
@@ -557,9 +565,9 @@ ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm)) +
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la concentration en MES dans les panaches de la baie des Anges vu par le produit OLCI (ODATIS-MR)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit OLCI (ODATIS-MR)",
        x = "Date",
-       y = "Concentration moyenne en MES (en mg/m³)") +
+       y = "Concentration médiane en MES (en mg/m³)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
@@ -571,13 +579,13 @@ ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm)) +
 data_log_spm <- OLCI_2016_2024_spm_95 |> 
   filter(aire_panache_km2> 0)
 
-model_OLCI_2016_95_log <- lm(log10(aire_panache_km2) ~ date, data = data_log_spm)
+model_OLCI_2016_95_log <- lm(log10(median_spm) ~ date, data = data_log_spm)
 p_value_OLCI_2016_95_log <- summary(model_OLCI_2016_95_log)$coefficients[2, 4]  # p-value pour la pente
 intercept_OLCI_2016_95_log <- coef(model_OLCI_2016_95_log)[1]
 slope_OLCI_2016_95_log <- coef(model_OLCI_2016_95_log)[2]
 
-ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise data_log_spm
-  geom_point(color = "darkcyan", size = 0.5) +
+ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log_spm
+  geom_point(color = "red3", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, 
               formula = y ~ x,
               color = "darkslateblue", fill = "pink", alpha = 0.2) +
@@ -585,7 +593,7 @@ ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise da
   annotate(
     "text",
     x = max(data_log_spm$date, na.rm = TRUE),
-    y = max(data_log_spm$aire_panache_km2, na.rm = TRUE) * 0.9,
+    y = max(data_log_spm$median_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "log(y) = ", round(intercept_OLCI_2016_95_log, 3), " + ", 
       round(slope_OLCI_2016_95_log, 7), " * x",
@@ -594,9 +602,9 @@ ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise da
     ),
     hjust = 1, vjust = 1, size = 6
   ) +
-  labs(title = "Évolution de l'aire des panaches de la baie des Anges vu par le produit OLCI (ODATIS-Mr)(échelle log)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit OLCI (ODATIS-Mr)(échelle log)",
        x = "Date",
-       y = "Aire du panache (km²)") +
+       y = "Concentration médiane en MES (en mg/m3)") +
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
@@ -609,15 +617,15 @@ OLCI_2016_2024_spm_95$scaled_aire_panache_km2<- OLCI_2016_2024_spm_95$aire_panac
 
 ggplot() +
   geom_point(data = Y6442010_2016_2024, 
-             aes(x = date, y = débit, color = "Débit"), size = 0.5) +
+             aes(x = date, y = débit, color = "Débit du Var"), size = 0.5) +
   geom_point(data = OLCI_2016_2024_spm_95, 
              aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "limegreen")) +
+  scale_color_manual(values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches en (km²)")
   ) +
-  labs(title = "Évolution de la taille des panaches et du débit du Var vu par le produit OLCI ODATIS-MR",
+  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit OLCI (ODATIS-MR)",
   # labs(title = "Évolution de la concentration en MES dans les panaches et du débit du Var vu par le produit OLCI ODATIS-MR",
             
        x = "Date") +
@@ -626,6 +634,45 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# runoff vs plume area ---------------------------------
+
+Var_OLCI_panache <- inner_join(Y6442010_2016_2024, OLCI_2016_2024_spm_95, by = "date")
+
+cor.test(Var_OLCI_panache$débit, Var_OLCI_panache$aire_panache_km2, method = "spearman")
+
+
+# comparison between liquid flow rate and mean SPM concentration
+
+adjust_factors <- sec_axis_adjustement_factors(OLCI_2016_2024_spm_95$median_spm, Y6442010_2016_2024$débit)
+
+OLCI_2016_2024_spm_95$scaled_median_spm <- OLCI_2016_2024_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_point(data = Y6442010_2016_2024, 
+             aes(x = date, y = débit, color = "Débit du Var"), size = 0.5) +
+  geom_point(data = OLCI_2016_2024_spm_95, 
+             aes(x = date, y = scaled_median_spm, color = "Concentration en MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit du Var" = "blue", "Concentration en MES" = "red3")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension moyenne (en g/m³)")
+  ) +
+  labs(title = "Évolution de la concentration médiane en MES et du débit du Var vu par le produit OLCI (ODATIS-MR)",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+# runoff vs mean SPM concentration correlation ---------------------------------
+
+Var_OLCI_panache <- inner_join(Y6442010_2016_2024, OLCI_2016_2024_spm_95, by = "date")
+
+cor.test(Var_OLCI_panache$débit, Var_OLCI_panache$median_spm, method = "spearman")
+
+
 
 # scatter plot
 

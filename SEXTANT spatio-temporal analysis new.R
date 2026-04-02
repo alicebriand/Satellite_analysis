@@ -25,7 +25,6 @@ source("~/sat_access/sat_access_script.R")
 lon_range <- c(6.8925000, 7.4200000)
 lat_range <- c(43.2136389, 43.7300000)
 
-
 # Functions ---------------------------------------------------------------
 
 # Scale one value to another for tidier double-y-axis plots

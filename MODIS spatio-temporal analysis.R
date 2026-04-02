@@ -21,7 +21,6 @@ library(tidync)
 library(gganimate)
 library(doParallel); registerDoParallel(cores = 14)
 
-
 # problème cluster --------------------------------------------------------
 
 
@@ -57,8 +56,6 @@ load_year <- function(year_dirs, lon_range, lat_range) {
 }
 
 # setup -------------------------------------------------------------------
-
-
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -298,6 +295,7 @@ MODIS_2002_2024_spm_95 <- MODIS_2002_2024_spm_pixels |>
   summarise(
     pixel_count = sum(`SPM-G-NS_mean` >= seuil_95, na.rm = TRUE),
     mean_spm = mean(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_95], na.rm = TRUE),
+    median_spm = median(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_95], na.rm = TRUE),
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
@@ -305,12 +303,12 @@ save(MODIS_2002_2024_spm_95, file = "data/MODIS/SPM/MODIS_2002_2024_spm_95.Rdata
 
 # plotting ----------------------------------------------------------------
 
-# mean spm or panache area plot
+# mean / median SPM or panache area plot
 
 # en échelle normale
 
 # model_MODIS_2002_95 <- lm(aire_panache_km2 ~ date, data = MODIS_2002_2024_spm_95)
-model_MODIS_2002_95 <- lm(mean_spm ~ date, data = MODIS_2002_2024_spm_95)
+model_MODIS_2002_95 <- lm(median_spm ~ date, data = MODIS_2002_2024_spm_95)
 p_value_MODIS_2002_95 <- summary(model_MODIS_2002_95)$coefficients[2, 4]  # p-value pour la pente
 intercept_MODIS_2002_95 <- coef(model_MODIS_2002_95)[1]
 slope_MODIS_2002_95 <- coef(model_MODIS_2002_95)[2]
@@ -340,25 +338,25 @@ slope_MODIS_2002_95 <- coef(model_MODIS_2002_95)[2]
 #     date_labels = "%Y"       
 #   )
 
-ggplot(data = MODIS_2002_2024_spm_95, aes(x = date, y = mean_spm)) +
+ggplot(data = MODIS_2002_2024_spm_95, aes(x = date, y = median_spm)) +
   geom_point(color = "red3", size = 0.5) +
   # geom_point(data = MODIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
     x = max(MODIS_2002_2024_spm_95$date, na.rm = TRUE),
-    y = max(MODIS_2002_2024_spm_95$mean_spm, na.rm = TRUE) * 0.9,
+    y = max(MODIS_2002_2024_spm_95$median_spm, na.rm = TRUE) * 0.9,
     label = paste0(
-      "y = ", round(intercept_MODIS_2002_95, 3), " + ", round(slope_MODIS_2002_95, 7), " * x",
+      "y = ", round(intercept_MODIS_2002_95, 3), " ", round(slope_MODIS_2002_95, 7), " * x",
       "\n", "p = ", ifelse(p_value_MODIS_2002_95 < 0.001, "< 0.001", format(p_value_MODIS_2002_95, digits = 3))
     ),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR)",
        x = "Date",
-       y = "Concentration moyenne en SPM (en mg/m³)") +
+       y = "Concentration médiane en SPM (en mg/m³)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
@@ -375,13 +373,37 @@ data_log_spm <- MODIS_2002_2024_spm_95 |>
 #   filter(aire_panache_km2 > 0)
 
 # model_MODIS_2002_95_log <- lm(log10(mean_spm) ~ date, data = data_log_spm)
-model_MODIS_2002_95_log <- lm(log10(aire_panache_km2) ~ date, data = data_log_spm)
+model_MODIS_2002_95_log <- lm(log10(median_spm) ~ date, data = data_log_spm)
 p_value_MODIS_2002_95_log <- summary(model_MODIS_2002_95_log)$coefficients[2, 4]  # p-value pour la pente
 intercept_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[1]
 slope_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[2]
 
-# ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_spm
-#   geom_point(color = "red3", size = 0.5) +
+ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log_spm
+  geom_point(color = "red3", size = 0.5) +
+  geom_smooth(method = "lm", se = TRUE,
+              formula = y ~ x,
+              color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  scale_y_log10(labels = scales::label_comma()) +  # force l'échelle log sur smooth aussi
+  annotate(
+    "text",
+    x = max(data_log_spm$date, na.rm = TRUE),
+    y = max(data_log_spm$median_spm, na.rm = TRUE) * 0.9,
+    label = paste0(
+      "log(y) = ", round(intercept_MODIS_2002_95_log, 3), " + ",
+      round(slope_MODIS_2002_95_log, 7), " * x",
+      "\n", "p = ", ifelse(p_value_MODIS_2002_95_log < 0.001, "< 0.001",
+                           format(p_value_MODIS_2002_95_log, digits = 3))
+    ),
+    hjust = 1, vjust = 1, size = 6
+  ) +
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
+       x = "Date",
+       y = "Concentration médiane en MES (en mg/m³)") +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+
+# ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise data_log_spm
+#   geom_point(color = "darkcyan", size = 0.5) +
 #   geom_smooth(method = "lm", se = TRUE, 
 #               formula = y ~ x,
 #               color = "darkslateblue", fill = "pink", alpha = 0.2) +
@@ -389,7 +411,7 @@ slope_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[2]
 #   annotate(
 #     "text",
 #     x = max(data_log_spm$date, na.rm = TRUE),
-#     y = max(data_log_spm$mean_spm, na.rm = TRUE) * 0.9,
+#     y = max(data_log_spm$aire_panache_km2, na.rm = TRUE) * 0.9,
 #     label = paste0(
 #       "log(y) = ", round(intercept_MODIS_2002_95_log, 3), " + ", 
 #       round(slope_MODIS_2002_95_log, 7), " * x",
@@ -398,35 +420,11 @@ slope_MODIS_2002_95_log <- coef(model_MODIS_2002_95_log)[2]
 #     ),
 #     hjust = 1, vjust = 1, size = 6
 #   ) +
-#   labs(title = "Évolution de la concentration en MES dans les panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
+#   labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
 #        x = "Date",
-#        y = "Concentration moyenne en MES (en mg/m³)") +
+#        y = "Aire des panaches (en km²)") +
 #   theme_minimal() +
 #   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
-
-ggplot(data = data_log_spm, aes(x = date, y = aire_panache_km2)) +  # utilise data_log_spm
-  geom_point(color = "darkcyan", size = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, 
-              formula = y ~ x,
-              color = "darkslateblue", fill = "pink", alpha = 0.2) +
-  scale_y_log10(labels = scales::label_comma()) +  # force l'échelle log sur smooth aussi
-  annotate(
-    "text",
-    x = max(data_log_spm$date, na.rm = TRUE),
-    y = max(data_log_spm$aire_panache_km2, na.rm = TRUE) * 0.9,
-    label = paste0(
-      "log(y) = ", round(intercept_MODIS_2002_95_log, 3), " + ", 
-      round(slope_MODIS_2002_95_log, 7), " * x",
-      "\n", "p = ", ifelse(p_value_MODIS_2002_95_log < 0.001, "< 0.001", 
-                           format(p_value_MODIS_2002_95_log, digits = 3))
-    ),
-    hjust = 1, vjust = 1, size = 6
-  ) +
-  labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MODIS (ODATIS-MR) (échelle log)",
-       x = "Date",
-       y = "Aire des panaches (en km²)") +
-  theme_minimal() +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
 # comparison between liquid flow rate and panache extension
