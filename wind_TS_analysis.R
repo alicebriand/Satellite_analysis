@@ -460,7 +460,57 @@ Wind_T <- Wind_T |>
   mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
 
 Wind_T <- Wind_T |> 
-  filter(date >= "1994-06-01")
+  filter(date >= "1998-06-01")
+
+## separate wind -----------------------------------------------------------
+
+# West
+West <- Wind_T |> 
+  filter(DXY >= 255, DXY <= 285)
+West <- West %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# East
+East <- Wind_T |> 
+  filter(DXY >= 75, DXY <= 105)
+East <- East %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# North
+North <- Wind_T |> 
+  filter(DXY >= 345 | DXY <= 15)
+North <- North %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# Nord Est
+North_East <- Wind_T |> 
+  filter(DXY >= 30, DXY <= 60)
+North_East <- North_East %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# North West
+North_West <- Wind_T |> 
+  filter(DXY >= 300, DXY <= 330)
+North_West <- North_West %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# South
+South <- Wind_T |> 
+  filter(DXY >= 165, DXY <= 195)
+South <- South %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# Sud Ouest
+South_West <- Wind_T |> 
+  filter(DXY >= 210, DXY <= 240)
+South_West <- South_West %>%
+  complete(date = seq(min(date), max(date), by = "day"))
+
+# South East
+South_East <- Wind_T |> 
+  filter(DXY >= 120, DXY <= 150)
+South_East <- South_East %>%
+  complete(date = seq(min(date), max(date), by = "day"))
 
 ## plotting ----------------------------------------------------------------
 
@@ -532,3 +582,126 @@ ggwindrose(
     caption = "Source: Archives Météo France"
   )
 
+
+# Wind vs plume datas -----------------------------------------------------
+
+## wind speed vs plume area ------------------------------------------------
+
+### plotting ---------------------------------
+
+# In Gangloff 2017, they envestigated the relationship between the plume and the
+# wind velocity and wind direction
+
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Wind_T$FFM)
+
+SEXTANT_1998_2025_spm_95$scaled_aire_panache_km2 <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_point(data = Wind_T, 
+             aes(x = date, y = FFM, color = "Vitesse du vent"), size = 0.5) +
+  geom_point(data = SEXTANT_1998_2025_spm_95, 
+             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Vitesse du vent" = "#4A90D9", "Aire des panaches" = "red3")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration médiane en MES (en mg/m3)")
+  ) +
+  labs(title = "Évolution de la vitesse du vent et de l'aire des panaches selon le produit SEXTANT OC5",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### runoff vs SPM concentration correlation ---------------------------------
+
+Vent_SEXTANT_panache <- inner_join(Wind_T, SEXTANT_1998_2025_spm_95, by = "date")
+
+cor.test(Vent_SEXTANT_panache$FFM, Vent_SEXTANT_panache$aire_panache_km2, method = "spearman")
+
+
+## wind direction vs plume area --------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, North_West$DXY)
+
+SEXTANT_1998_2025_spm_95$scaled_aire_panache_km2 <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_point(data = North_West, 
+             aes(x = date, y = DXY, color = "Vent de Nord Ouest"), size = 0.5) +
+  geom_point(data = SEXTANT_1998_2025_spm_95, 
+             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Vent de Nord Ouest" = "#4A90D9", "Aire des panaches" = "red3")) +
+  scale_y_continuous(
+    name = "Vent de Nord Ouest (en °)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Vent de Nord Ouest et aire des panaches selon le produit SEXTANT OC5",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+
+
+# Gangloff et al. 2017 ----------------------------------------------------
+
+# 1. Classifier les vents
+Wind_T <- Wind_T |>
+  mutate(wind_sector = case_when(
+    DXY >= 295 | DXY <= 15  ~ "Offshore", # souffle vers le large
+    DXY >= 80  & DXY <= 160 ~ "Onshore",  # souffle vers la côte
+    TRUE ~ "Autre"
+  ))
+
+# 2. Garder seulement les deux secteurs principaux
+data_filtered <- Wind_T |>
+  filter(wind_sector != "Autre")
+
+# quelle proportion de "offshore" et "onshore"
+prop.table(table(all_data$wind_sector)) * 100
+
+all_data <- data_filtered |>
+  left_join(Y6442010_depuis_2000, by = "date") |>
+  left_join(SEXTANT_1998_2025_spm_95, by = "date")
+
+# 3. Visualiser aire du panache vs débit, coloré par secteur de vent
+ggplot(all_data, aes(x = débit, y = aire_panache_km2, color = wind_sector)) +
+  geom_point(alpha = 0.6) +
+  scale_y_log10() +
+  labs(x = "Débit du Var (m³/s)", 
+       y = "Aire du panache (km²)",
+       color = "Secteur de vent") +
+  theme_bw()
+
+# 4. Vitesse du vent vs aire du panache
+ggplot(all_data, aes(x = FFM, y = aire_panache_km2, color = wind_sector)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Vitesse du vent (m/s)",
+       y = "Aire du panache (km²)",
+       color = "Secteur de vent") +
+  theme_bw()
+
+
+# 5. Comparer statistiquement l'influence des vents sur l'aire du panache
+
+# Test de Shapiro
+shapiro.test(all_data$aire_panache_km2[all_data$wind_sector == "Offshore"])
+# p-value < 2.2e-16 : les données des aires de panache ne sont pas normalement 
+# distribuées
+shapiro.test(all_data$aire_panache_km2[all_data$wind_sector == "Onshore"])
+# p-value < 2.2e-16 : les données  des aires de panache ne sont pas normalement 
+# distribuées
+
+# Données non normales --> test de Wilcoxon non paramétrique
+wilcox.test(aire_panache_km2 ~ wind_sector, data = all_data)
+
+ggplot(all_data, aes(x = wind_sector, y = aire_panache_km2, fill = wind_sector)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(x = "Secteur de vent",
+       y = "Aire du panache (km²)") +
+  theme_bw()

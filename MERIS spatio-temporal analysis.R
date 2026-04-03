@@ -314,21 +314,21 @@ ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log
 
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2012_spm_95_propre$aire_panache_km2, Y6442010_2002_2012$débit)
+adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2012_spm_95_propre$median_spm, Y6442010_2002_2012$débit)
 
-MERIS_2002_2012_spm_95_propre$scaled_aire_panache_km2 <- MERIS_2002_2012_spm_95_propre$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+MERIS_2002_2012_spm_95_propre$scaled_median_spm <- MERIS_2002_2012_spm_95_propre$median_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_2002_2012, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = MERIS_2002_2012_spm_95_propre, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+             aes(x = date, y = scaled_median_spm, color = "Concentration en MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Concentration en MES" = "red3")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
   ) +
-  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit MERIS (ODATIS-MR)",
+  labs(title = "Évolution de la concentration médiane en MES et du débit du Var vu par le produit MERIS (ODATIS-MR)",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -345,7 +345,7 @@ Var_MERIS <- Y6442010_2002_2012 %>%
     by = "date"
   )
 
-cor.test(Var_MERIS$débit, Var_MERIS$aire_panache_km2, method = "spearman")
+cor.test(Var_MERIS$débit, Var_MERIS$median_spm, method = "spearman")
 
 
 
