@@ -427,23 +427,23 @@ ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log
 #   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
-# comparison between liquid flow rate and panache extension
+# comparison between liquid flow rate and panache extension / mean / median SPM
 
-adjust_factors <- sec_axis_adjustement_factors(MODIS_2002_2024_spm_95$aire_panache_km2, Y6442010_depuis_2002$débit)
+adjust_factors <- sec_axis_adjustement_factors(MODIS_2002_2024_spm_95$median_spm, Y6442010_depuis_2002$débit)
 
-MODIS_2002_2024_spm_95$scaled_aire_panache_km2 <- MODIS_2002_2024_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+MODIS_2002_2024_spm_95$scaled_median_spm <- MODIS_2002_2024_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2002, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = MODIS_2002_2024_spm_95, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "Aire panache"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire panache" = "darkcyan")) +
+             aes(x = date, y = scaled_median_spm, color = "Concentration médiane en MES"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Concentration médiane en MES" = "red3")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration médiane en MES (en mg/m³)")
   ) +
-  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit MODIS (ODATIS-MR)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches et du débit du Var vu par le produit MODIS (ODATIS-MR)",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -456,12 +456,11 @@ ggplot() +
 Var_MODIS <- Y6442010_depuis_2002 %>%
   select(date, débit) %>%
   inner_join(
-    MODIS_2002_2024_spm_95 %>% select(date, mean_spm, aire_panache_km2),
+    MODIS_2002_2024_spm_95 %>% select(date, mean_spm, aire_panache_km2, median_spm),
     by = "date"
   )
 
-cor.test(Var_MODIS$débit, Var_MODIS$aire_panache_km2, method = "spearman")
-
+cor.test(Var_MODIS$débit, Var_MODIS$median_spm, method = "spearman")
 
 # scatter plot
 
@@ -506,6 +505,7 @@ ggplot(data = Var_MODIS_clean, aes(x = débit, y = mean_spm)) +
   theme_bw() +
   labs(x = "Débit (m³/s)", y = "Concentration moyenne en MES (en mg/m³)", title = "Débit liquide du Var contre la concentration en MES dans les panaches vue par MODIS (ODATIS-MR)") +
   theme_minimal()
+
 
 # clean data --------------------------------------------------------------
 

@@ -454,7 +454,7 @@ Wind_T <- read.csv("~/Vent/data/Q_06_previous-1950-2024_RR-T-Vent.csv",
 
 Wind_T <- Wind_T |> 
   filter(NUM_POSTE == "6088001") |> 
-  select("NUM_POSTE", "FFM", "DXY", "HXI", "RR")
+  select("LAT", "LON", "NUM_POSTE", "FFM", "DXY", "HXI", "RR")
 
 Wind_T <- Wind_T |> 
   mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))

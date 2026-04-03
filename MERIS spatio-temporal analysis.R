@@ -177,6 +177,7 @@ MERIS_2002_2012_spm_95 <- MERIS_2002_2012_spm_pixels |>
   summarise(
     pixel_count = sum(`SPM-G-PO_mean` >= seuil_95, na.rm = TRUE),
     mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
@@ -191,45 +192,20 @@ MERIS_2002_2012_spm_95_propre <- MERIS_2002_2012_spm_95 |>
 
 # en échelle normale
 
-model_MERIS_2002_95 <- lm(aire_panache_km2 ~ date, data = MERIS_2002_2012_spm_95)
-model_MERIS_2002_95 <- lm(mean_spm ~ date, data = MERIS_2002_2012_spm_95_propre)
+model_MERIS_2002_95 <- lm(median_spm ~ date, data = MERIS_2002_2012_spm_95)
+# model_MERIS_2002_95 <- lm(mean_spm ~ date, data = MERIS_2002_2012_spm_95_propre)
 p_value_MERIS_2002_95 <- summary(model_MERIS_2002_95)$coefficients[2, 4]  # p-value pour la pente
 intercept_MERIS_2002_95 <- coef(model_MERIS_2002_95)[1]
 slope_MERIS_2002_95 <- coef(model_MERIS_2002_95)[2]
 
-# ggplot(data = MERIS_2002_2012_spm_95_propre, aes(x = date, y = mean_spm)) +
-#   geom_point(color = "red3", size = 0.5) +
-#   # geom_point(data = MERIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
-#   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
-#   annotate(
-#     "text",
-#     x = max(MERIS_2002_2012_spm_95_propre$date, na.rm = TRUE),
-#     y = max(MERIS_2002_2012_spm_95_propre$mean_spm, na.rm = TRUE) * 0.9,
-#     label = paste0(
-#       "y = ", round(intercept_MERIS_2002_95, 3), " + ", round(slope_MERIS_2002_95, 7), " * x",
-#       "\n", "p = ", ifelse(p_value_MERIS_2002_95 < 0.001, "< 0.001", format(p_value_MERIS_2002_95, digits = 3))
-#     ),
-#     hjust = 1,  # Alignement à droite
-#     vjust = 1,  # Alignement en haut
-#     size = 6
-#   ) +
-#   labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR)",
-#        x = "Date",
-#        y = "Concentration moyenne en MES (en mg/m³)") +
-#   theme_minimal() +
-#   scale_x_date(
-#     date_breaks = "1 year",
-#     date_labels = "%Y"
-#   )
-
-ggplot(data = MERIS_2002_2012_spm_95, aes(x = date, y = aire_panache_km2)) +
-  geom_point(color = "darkcyan", size = 0.5) +
+ggplot(data = MERIS_2002_2012_spm_95_propre, aes(x = date, y = median_spm)) +
+  geom_point(color = "red3", size = 0.5) +
   # geom_point(data = MERIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
     x = max(MERIS_2002_2012_spm_95_propre$date, na.rm = TRUE),
-    y = max(MERIS_2002_2012_spm_95_propre$aire_panache_km2, na.rm = TRUE) * 0.9,
+    y = max(MERIS_2002_2012_spm_95_propre$median_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "y = ", round(intercept_MERIS_2002_95, 3), " + ", round(slope_MERIS_2002_95, 7), " * x",
       "\n", "p = ", ifelse(p_value_MERIS_2002_95 < 0.001, "< 0.001", format(p_value_MERIS_2002_95, digits = 3))
@@ -238,14 +214,39 @@ ggplot(data = MERIS_2002_2012_spm_95, aes(x = date, y = aire_panache_km2)) +
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR)",
        x = "Date",
-       y = "Aire des panaches (en km²)") +
+       y = "Concentration médiane en MES (en mg/m³)") +
   theme_minimal() +
   scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+    date_breaks = "1 year",
+    date_labels = "%Y"
   )
+
+# ggplot(data = MERIS_2002_2012_spm_95, aes(x = date, y = aire_panache_km2)) +
+#   geom_point(color = "darkcyan", size = 0.5) +
+#   # geom_point(data = MERIS_2002_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
+#   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+#   annotate(
+#     "text",
+#     x = max(MERIS_2002_2012_spm_95_propre$date, na.rm = TRUE),
+#     y = max(MERIS_2002_2012_spm_95_propre$aire_panache_km2, na.rm = TRUE) * 0.9,
+#     label = paste0(
+#       "y = ", round(intercept_MERIS_2002_95, 3), " + ", round(slope_MERIS_2002_95, 7), " * x",
+#       "\n", "p = ", ifelse(p_value_MERIS_2002_95 < 0.001, "< 0.001", format(p_value_MERIS_2002_95, digits = 3))
+#     ),
+#     hjust = 1,  # Alignement à droite
+#     vjust = 1,  # Alignement en haut
+#     size = 6
+#   ) +
+#   labs(title = "Évolution de la taille des panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR)",
+#        x = "Date",
+#        y = "Aire des panaches (en km²)") +
+#   theme_minimal() +
+#   scale_x_date(
+#     date_breaks = "1 year",  
+#     date_labels = "%Y"       
+#   )
 
 # en échelle log
 
@@ -255,7 +256,7 @@ data_log_spm <- MERIS_2002_2012_spm_95 |>
 # data_log_spm <- MERIS_2002_2012_spm_95 |>
 #   filter(aire_panache_km2 > 0)
 
-model_MODIS_2002_95_log <- lm(log10(mean_spm) ~ date, data = data_log_spm)
+model_MERIS_2002_95_log <- lm(log10(median_spm) ~ date, data = data_log_spm)
 # model_MERIS_2002_95_log <- lm(log10(aire_panache_km2) ~ date, data = data_log_spm)
 p_value_MERIS_2002_95_log <- summary(model_MERIS_2002_95_log)$coefficients[2, 4]  # p-value pour la pente
 intercept_MERIS_2002_95_log <- coef(model_MERIS_2002_95_log)[1]
@@ -285,7 +286,7 @@ slope_MERIS_2002_95_log <- coef(model_MERIS_2002_95_log)[2]
 #   theme_minimal() +
 #   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
-ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_spm
+ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log_spm
   geom_point(color = "red3", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE,
               formula = y ~ x,
@@ -294,7 +295,7 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_s
   annotate(
     "text",
     x = max(data_log_spm$date, na.rm = TRUE),
-    y = max(data_log_spm$mean_spm, na.rm = TRUE) * 0.9,
+    y = max(data_log_spm$median_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "log(y) = ", round(intercept_MERIS_2002_95_log, 3), " + ",
       round(slope_MERIS_2002_95_log, 7), " * x",
@@ -303,9 +304,9 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +  # utilise data_log_s
     ),
     hjust = 1, vjust = 1, size = 6
   ) +
-  labs(title = "Évolution de la concentration en MES dans les panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR) (échelle log)",
+  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit MERIS (ODATIS-MR) (échelle log)",
        x = "Date",
-       y = "Concentration moyenne en SPM (en mg/m³)") +
+       y = "Concentration médiane en MES (en mg/m³)") +
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
@@ -321,11 +322,11 @@ ggplot() +
   geom_point(data = Y6442010_2002_2012, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = MERIS_2002_2012_spm_95_propre, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "SPM"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "SPM" = "limegreen")) +
+             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
   labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit MERIS (ODATIS-MR)",
        x = "Date") +
@@ -340,7 +341,7 @@ ggplot() +
 Var_MERIS <- Y6442010_2002_2012 %>%
   select(date, débit) %>%
   inner_join(
-    MERIS_2002_2012_spm_95_propre %>% select(date, mean_spm, aire_panache_km2),
+    MERIS_2002_2012_spm_95_propre %>% select(date, mean_spm, aire_panache_km2, median_spm),
     by = "date"
   )
 
