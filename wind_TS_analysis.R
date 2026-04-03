@@ -447,6 +447,11 @@ ggplot(North_East, aes(x = date, y = wind_speed)) +
     panel.border  = element_rect(color = "grey70", linewidth = 0.5)
   )
 
+
+
+
+
+
 # Thomas wind data --------------------------------------------------------
 
 Wind_T <- read.csv("~/Vent/data/Q_06_previous-1950-2024_RR-T-Vent.csv", 
@@ -603,18 +608,18 @@ ggplot() +
              aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
   scale_color_manual(values = c("Vitesse du vent" = "#4A90D9", "Aire des panaches" = "red3")) +
   scale_y_continuous(
-    name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration médiane en MES (en mg/m3)")
+    name = "Vitesse du vent (m/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
   labs(title = "Évolution de la vitesse du vent et de l'aire des panaches selon le produit SEXTANT OC5",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
-    date_breaks = "1 year",  
+    date_breaks = "5 year",  
     date_labels = "%Y"       
   )
 
-### runoff vs SPM concentration correlation ---------------------------------
+### runoff vs plume area correlation ---------------------------------
 
 Vent_SEXTANT_panache <- inner_join(Wind_T, SEXTANT_1998_2025_spm_95, by = "date")
 
@@ -644,6 +649,116 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+
+# wind climatology --------------------------------------------------------
+
+# vent par mois entre 1994 et 2024
+Wind_month <- Wind_T |>
+  mutate(month = floor_date(date, "month")) |>
+  group_by(month) |>
+  summarise(
+    FFM_mean = mean(FFM, na.rm = TRUE),
+    # Moyenne circulaire pour la direction
+    DXY_mean_circ = atan2(
+      mean(sin(DXY * pi / 180), na.rm = TRUE),  # composante Sud-Nord
+      mean(cos(DXY * pi / 180), na.rm = TRUE)   # composante Ouest-Est
+    ) * 180 / pi,
+    n = n()
+  ) |>
+  # Ramener les valeurs négatives entre 0 et 360°
+  mutate(DXY_mean_circ = (DXY_mean_circ + 360) %% 360)
+ 
+# climatologie du vent 
+Wind_clim <- Wind_T |>
+  mutate(month = as.numeric(format(date, "%m"))) |>  # extraire le numéro du mois
+  group_by(month) |>
+  summarise(
+    FFM_mean = mean(FFM, na.rm = TRUE),
+    FFM_sd = sd(FFM, na.rm = TRUE),
+    DXY_mean_circ = atan2(
+      mean(sin(DXY * pi / 180), na.rm = TRUE),
+      mean(cos(DXY * pi / 180), na.rm = TRUE)
+    ) * 180 / pi,
+    n = n()
+  ) |>
+  mutate(
+    DXY_mean_circ = (DXY_mean_circ + 360) %% 360,
+    month_name = month.abb[month]  # ajouter le nom du mois en abbrégé
+  )
+
+
+
+## plotting ----------------------------------------------------------------
+
+model_wind_month <- lm(FFM_mean ~ month, data = Wind_month)
+p_value_wind_month <- summary(model_wind_month)$coefficients[2, 4]  # p-value pour la pente
+intercept_wind_month <- coef(model_wind_month)[1]
+slope_wind_month <- coef(model_wind_month)[2]
+
+ggplot(Wind_month, aes(x = month, y = FFM_mean)) +
+  geom_line(color = "#4A90D9", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE, 
+              color = "#2C3E7A", fill = "#4A90D9", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(Wind_month$month, na.rm = TRUE),
+    y = max(Wind_month$FFM_mean, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_wind_month, 3), " ", round(slope_wind_month, 7), " × x",
+      "\np = ", ifelse(p_value_wind_month < 0.001, "< 0.001", format(p_value_wind_month, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "#2C3E7A",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title = "Évolution de la vitesse du vent mensuelle près de Nice (1994–2025)",
+    x = NULL,
+    y = "Vitesse du vent (m s⁻¹)",
+    caption = "Source : Archives Météo France"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title    = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption  = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y  = element_text(size = 11, margin = margin(r = 10)),
+    axis.text     = element_text(size = 10, color = "grey30"),
+    axis.ticks    = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border  = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+
+# climatologie
+
+# Vitesse du vent par mois
+ggplot(Wind_clim, aes(x = month, y = FFM_mean)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_errorbar(aes(ymin = FFM_mean - FFM_sd, 
+                    ymax = FFM_mean + FFM_sd), width = 0.3) +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  labs(x = "Mois", y = "Vitesse du vent (m/s)") +
+  theme_bw()
+
+# Direction du vent par mois
+ggplot(Wind_clim, aes(x = month, y = DXY_mean_circ)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_line(color = "steelblue") +
+  scale_x_continuous(breaks = 1:12, labels = month.abb) +
+  scale_y_continuous(limits = c(0, 360), 
+                     breaks = c(0, 90, 180, 270, 360),
+                     labels = c("N", "E", "S", "W", "N")) +
+  labs(x = "Mois", y = "Direction du vent (°)") +
+  theme_bw()
+
+
 
 
 
