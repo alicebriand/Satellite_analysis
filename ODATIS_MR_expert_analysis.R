@@ -708,6 +708,218 @@ ggplot(data = MODIS_SPM_R_PO_sub_95, aes(x = date, y = mean_spm)) +
     panel.border     = element_rect(color = "grey70", linewidth = 0.5)
   )
 
+## OLCIB_SPM_G_AC_sub ------------------------------------------------------
+
+model_OLCIB_SPM_G_AC_sub_95 <- lm(mean_spm ~ date, data = OLCIB_SPM_G_AC_sub_95)
+p_value_OLCIB_SPM_G_AC_sub_95 <- summary(model_OLCIB_SPM_G_AC_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_OLCIB_SPM_G_AC_sub_95 <- coef(model_OLCIB_SPM_G_AC_sub_95)[1]
+slope_OLCIB_SPM_G_AC_sub_95 <- coef(model_OLCIB_SPM_G_AC_sub_95)[2]
+
+ggplot(data = OLCIB_SPM_G_AC_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(OLCIB_SPM_G_AC_sub_95$date, na.rm = TRUE),
+    y = max(OLCIB_SPM_G_AC_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_OLCIB_SPM_G_AC_sub_95, 3), " + ",
+      round(slope_OLCIB_SPM_G_AC_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_OLCIB_SPM_G_AC_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_OLCIB_SPM_G_AC_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — OLCI B (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## OLCI_B_SPM_G_PO_sub ------------------------------------------------------
+
+model_OLCIB_SPM_G_PO_sub_95 <- lm(mean_spm ~ date, data = OLCIB_SPM_G_PO_sub_95)
+p_value_OLCIB_SPM_G_PO_sub_95 <- summary(model_OLCIB_SPM_G_PO_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_OLCIB_SPM_G_PO_sub_95 <- coef(model_OLCIB_SPM_G_PO_sub_95)[1]
+slope_OLCIB_SPM_G_PO_sub_95 <- coef(model_OLCIB_SPM_G_PO_sub_95)[2]
+
+ggplot(data = OLCIB_SPM_G_PO_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(OLCIB_SPM_G_PO_sub_95$date, na.rm = TRUE),
+    y = max(OLCIB_SPM_G_PO_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_OLCIB_SPM_G_PO_sub_95, 3), " ",
+      round(slope_OLCIB_SPM_G_PO_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_OLCIB_SPM_G_PO_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_OLCIB_SPM_G_PO_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — OLCI B (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## OLCI_B_SPM_R_AC_sub ------------------------------------------------------
+
+model_OLCIB_SPM_R_AC_sub_95 <- lm(mean_spm ~ date, data = OLCIB_SPM_R_AC_sub_95)
+p_value_OLCIB_SPM_R_AC_sub_95 <- summary(model_OLCIB_SPM_R_AC_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_OLCIB_SPM_R_AC_sub_95 <- coef(model_OLCIB_SPM_R_AC_sub_95)[1]
+slope_OLCIB_SPM_R_AC_sub_95 <- coef(model_OLCIB_SPM_R_AC_sub_95)[2]
+
+ggplot(data = OLCIB_SPM_R_AC_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(OLCIB_SPM_R_AC_sub_95$date, na.rm = TRUE),
+    y = max(OLCIB_SPM_R_AC_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_OLCIB_SPM_R_AC_sub_95, 3), " + ",
+      round(slope_OLCIB_SPM_R_AC_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_OLCIB_SPM_R_AC_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_OLCIB_SPM_R_AC_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — OLCI B (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## OLCI_B_SPM_R_PO_sub ------------------------------------------------------
+
+model_OLCIB_SPM_R_PO_sub_95 <- lm(mean_spm ~ date, data = OLCIB_SPM_R_PO_sub_95)
+p_value_OLCIB_SPM_R_PO_sub_95 <- summary(model_OLCIB_SPM_R_PO_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_OLCIB_SPM_R_PO_sub_95 <- coef(model_OLCIB_SPM_R_PO_sub_95)[1]
+slope_OLCIB_SPM_R_PO_sub_95 <- coef(model_OLCIB_SPM_R_PO_sub_95)[2]
+
+ggplot(data = OLCIB_SPM_R_PO_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(OLCIB_SPM_R_PO_sub_95$date, na.rm = TRUE),
+    y = max(OLCIB_SPM_R_PO_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_OLCIB_SPM_R_PO_sub_95, 3), " + ",
+      round(slope_OLCIB_SPM_R_PO_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_OLCIB_SPM_R_PO_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_OLCIB_SPM_R_PO_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — OLCI B (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
 
 
 
