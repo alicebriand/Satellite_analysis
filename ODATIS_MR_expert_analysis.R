@@ -163,10 +163,10 @@ MERIS_SPM_R_PO_sub_95 <- MERIS_SPM_R_PO_sub |>
   )
 
 # save
-save(MERIS_SPM_G_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_G_AC_sub_95.Rdata")
-save(MERIS_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_G_PO_sub_95.Rdata")
-save(MERIS_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_R_AC_sub_95.Rdata")
-save(MERIS_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_R_PO_sub_95.Rdata")
+# save(MERIS_SPM_G_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_G_AC_sub_95.Rdata")
+# save(MERIS_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_G_PO_sub_95.Rdata")
+# save(MERIS_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_R_AC_sub_95.Rdata")
+# save(MERIS_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MERIS_SPM_R_PO_sub_95.Rdata")
 
 
 ## MODIS -------------------------------------------------------------------
@@ -267,10 +267,10 @@ MODIS_SPM_R_PO_sub_95 <- MODIS_SPM_R_PO_sub |>
   )
 
 # save
-save(MODIS_SPM_G_NS_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_G_NS_sub_95.Rdata")
-save(MODIS_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_G_PO_sub_95.Rdata")
-save(MODIS_SPM_R_NS_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_R_NS_sub_95.Rdata")
-save(MODIS_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_R_PO_sub_95.Rdata")
+# save(MODIS_SPM_G_NS_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_G_NS_sub_95.Rdata")
+# save(MODIS_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_G_PO_sub_95.Rdata")
+# save(MODIS_SPM_R_NS_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_R_NS_sub_95.Rdata")
+# save(MODIS_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/MODIS_SPM_R_PO_sub_95.Rdata")
 
 
 ## OLCI B -------------------------------------------------------------------
@@ -371,38 +371,343 @@ OLCIB_SPM_R_PO_sub_95 <- OLCIB_SPM_R_PO_sub |>
   )
 
 # save
-save(OLCIB_SPM_G_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_G_AC_sub_95.Rdata")
-save(OLCIB_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_G_PO_sub_95.Rdata")
-save(OLCIB_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_AC_sub_95.Rdata")
-save(OLCIB_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_PO_sub_95.Rdata")
+# save(OLCIB_SPM_G_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_G_AC_sub_95.Rdata")
+# save(OLCIB_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_G_PO_sub_95.Rdata")
+# save(OLCIB_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_AC_sub_95.Rdata")
+# save(OLCIB_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_PO_sub_95.Rdata")
 
 # plotting threshold ------------------------------------------------------
 
-# Tableau récapitulatif des seuils
+# ── 1. Tableau récapitulatif de tous les seuils ────────────────────────────
 seuils_df <- data.frame(
-  dataset  = c("SPM-G-AC", "SPM-G-PO", "SPM-R-AC", "SPM-R-PO"),
-  seuil    = c(seuil_95_OLCIB_SPM_G_AC_sub,
-               seuil_95_OLCIB_SPM_G_PO_sub,
-               seuil_95_OLCIB_SPM_R_AC_sub,
-               seuil_95_OLCIB_SPM_R_PO_sub),
-  algo     = c("G", "G", "R", "R"),
-  correc   = c("AC", "PO", "AC", "PO")
+  capteur  = c(rep("MERIS", 4), rep("MODIS", 4), rep("OLCI-B", 4)),
+  algo     = c("G","G","R","R",  "G","G","R","R",  "G","G","R","R"),
+  correc   = c("AC","PO","AC","PO", "NS","PO","NS","PO", "AC","PO","AC","PO"),
+  seuil    = c(
+    seuil_95_MERIS_SPM_G_AC_sub,  # 4.587
+    seuil_95_MERIS_SPM_G_PO_sub,  # 0.503
+    seuil_95_MERIS_SPM_R_AC_sub,  # 9.404
+    seuil_95_MERIS_SPM_R_PO_sub,  # 1.571
+    seuil_95_MODIS_SPM_G_NS_sub,  # 0.698
+    seuil_95_MODIS_SPM_G_PO_sub,  # 1.058
+    seuil_95_MODIS_SPM_R_NS_sub,  # 2.169
+    seuil_95_MODIS_SPM_R_PO_sub,  # 3.685
+    seuil_95_OLCIB_SPM_G_AC_sub,  # 8.948
+    seuil_95_OLCIB_SPM_G_PO_sub,  # 0.511
+    seuil_95_OLCIB_SPM_R_AC_sub,  # 12.467
+    seuil_95_OLCIB_SPM_R_PO_sub   # 1.680
+  )
+) |>
+  mutate(
+    label    = paste0(algo, "-", correc),
+    label_val = round(seuil, 2)
+  )
+
+# ── 2. Barplot groupé par capteur ─────────────────────────────────────────
+couleurs_algo <- c(
+  "G-AC" = "#1f77b4", "G-PO" = "#aec7e8",
+  "G-NS" = "#6baed6",
+  "R-AC" = "#d62728", "R-PO" = "#f7a8a8",
+  "R-NS" = "#fc8d59"
 )
 
-ggplot(seuils_df, aes(x = dataset, y = seuil, fill = algo)) +
-  geom_col(width = 0.6, color = "white") +
-  geom_text(aes(label = round(seuil, 2)), vjust = -0.5, size = 3.5) +
-  scale_fill_manual(values = c("G" = "#1f77b4", "R" = "#d62728"),
-                    labels = c("G" = "Gordon", "R" = "Roesler")) +
+ggplot(seuils_df, aes(x = capteur, y = seuil, fill = label)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65, color = "white") +
+  geom_text(
+    aes(label = label_val),
+    position = position_dodge(width = 0.75),
+    vjust = -0.4, size = 3, fontface = "bold"
+  ) +
+  scale_fill_manual(values = couleurs_algo, name = "Algo - Correction") +
   labs(
-    title    = "Seuils au 95ème percentile par dataset",
-    subtitle = "AC = correction atmosphérique | PO = port-out",
+    title    = "Seuils au 95ème percentile — comparaison capteurs & algorithmes",
+    subtitle = "G = Gordon | R = Roesler | AC = atm. correction | PO = port-out | NS = no-scattering",
     x        = NULL,
-    y        = "Seuil SPM (g/m³)",
-    fill     = "Algorithme"
+    y        = "Seuil SPM (g/m³)"
   ) +
   theme_minimal(base_size = 13) +
-  theme(plot.title = element_text(face = "bold"))
+  theme(
+    plot.title    = element_text(face = "bold", size = 13),
+    plot.subtitle = element_text(size = 9, color = "grey50"),
+    legend.position = "bottom",
+    panel.grid.major.x = element_blank()
+  )
+
+
+# plotting  ---------------------------------------------------------------
+
+## MERIS_SPM_G_AC_sub ------------------------------------------------------
+
+# en échelle normale
+
+model_MERIS_SPM_G_PO_sub_95 <- lm(mean_spm ~ date, data = MERIS_SPM_G_PO_sub_95)
+p_value_MERIS_SPM_G_PO_sub_95 <- summary(model_MERIS_SPM_G_PO_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MERIS_SPM_G_PO_sub_95 <- coef(model_MERIS_SPM_G_PO_sub_95)[1]
+slope_MERIS_SPM_G_PO_sub_95 <- coef(model_MERIS_SPM_G_PO_sub_95)[2]
+
+ggplot(data = MERIS_SPM_G_PO_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(MERIS_SPM_G_PO_sub_95$date, na.rm = TRUE),
+    y = max(MERIS_SPM_G_PO_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_MERIS_SPM_G_PO_sub_95, 3), " ",
+      round(slope_MERIS_SPM_G_PO_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_MERIS_SPM_G_PO_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_MERIS_SPM_G_PO_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — MERIS (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+
+## MERIS_SPM_G_PO_sub ------------------------------------------------------
+## MERIS_SPM_R_AC_sub ------------------------------------------------------
+## MERIS_SPM_R_PO_sub ------------------------------------------------------
+
+## MODIS_SPM_G_NS_sub ------------------------------------------------------
+
+model_MODIS_SPM_G_NS_sub_95 <- lm(mean_spm ~ date, data = MODIS_SPM_G_NS_sub_95)
+p_value_MODIS_SPM_G_NS_sub_95 <- summary(model_MODIS_SPM_G_NS_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_SPM_G_NS_sub_95 <- coef(model_MODIS_SPM_G_NS_sub_95)[1]
+slope_MODIS_SPM_G_NS_sub_95 <- coef(model_MODIS_SPM_G_NS_sub_95)[2]
+
+ggplot(data = MODIS_SPM_G_NS_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(MODIS_SPM_G_NS_sub_95$date, na.rm = TRUE),
+    y = max(MODIS_SPM_G_NS_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_MODIS_SPM_G_NS_sub_95, 3), " ",
+      round(slope_MODIS_SPM_G_NS_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_MODIS_SPM_G_NS_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_MODIS_SPM_G_NS_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — MODIS (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : NirSwir | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## MODIS_SPM_G_PO_sub ------------------------------------------------------
+
+model_MODIS_SPM_G_PO_sub_95 <- lm(mean_spm ~ date, data = MODIS_SPM_G_PO_sub_95)
+p_value_MODIS_SPM_G_PO_sub_95 <- summary(model_MODIS_SPM_G_PO_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_SPM_G_PO_sub_95 <- coef(model_MODIS_SPM_G_PO_sub_95)[1]
+slope_MODIS_SPM_G_PO_sub_95 <- coef(model_MODIS_SPM_G_PO_sub_95)[2]
+
+ggplot(data = MODIS_SPM_G_PO_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(MODIS_SPM_G_PO_sub_95$date, na.rm = TRUE),
+    y = max(MODIS_SPM_G_PO_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_MODIS_SPM_G_PO_sub_95, 3), " ",
+      round(slope_MODIS_SPM_G_PO_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_MODIS_SPM_G_PO_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_MODIS_SPM_G_PO_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — MODIS (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## MODIS_SPM_R_NS_sub ------------------------------------------------------
+
+model_MODIS_SPM_R_NS_sub_95 <- lm(mean_spm ~ date, data = MODIS_SPM_R_NS_sub_95)
+p_value_MODIS_SPM_R_NS_sub_95 <- summary(model_MODIS_SPM_R_NS_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_SPM_R_NS_sub_95 <- coef(model_MODIS_SPM_R_NS_sub_95)[1]
+slope_MODIS_SPM_R_NS_sub_95 <- coef(model_MODIS_SPM_R_NS_sub_95)[2]
+
+ggplot(data = MODIS_SPM_R_NS_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(MODIS_SPM_R_NS_sub_95$date, na.rm = TRUE),
+    y = max(MODIS_SPM_R_NS_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_MODIS_SPM_R_NS_sub_95, 3), " ",
+      round(slope_MODIS_SPM_R_NS_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_MODIS_SPM_R_NS_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_MODIS_SPM_R_NS_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — MODIS (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : NirSwir | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+## MODIS_SPM_R_PO_sub ------------------------------------------------------
+
+model_MODIS_SPM_R_PO_sub_95 <- lm(mean_spm ~ date, data = MODIS_SPM_R_PO_sub_95)
+p_value_MODIS_SPM_R_PO_sub_95 <- summary(model_MODIS_SPM_R_PO_sub_95)$coefficients[2, 4]  # p-value pour la pente
+intercept_MODIS_SPM_R_PO_sub_95 <- coef(model_MODIS_SPM_R_PO_sub_95)[1]
+slope_MODIS_SPM_R_PO_sub_95 <- coef(model_MODIS_SPM_R_PO_sub_95)[2]
+
+ggplot(data = MODIS_SPM_R_PO_sub_95, aes(x = date, y = mean_spm)) +
+  geom_point(color = "red3", size = 0.8, alpha = 0.4) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "darkslateblue", fill = "red3", alpha = 0.15,
+              linewidth = 0.8) +
+  annotate(
+    "text",
+    x = max(MODIS_SPM_R_PO_sub_95$date, na.rm = TRUE),
+    y = max(MODIS_SPM_R_PO_sub_95$mean_spm, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_MODIS_SPM_R_PO_sub_95, 3), " + ",
+      round(slope_MODIS_SPM_R_PO_sub_95, 7), " × x",
+      "\np = ", ifelse(p_value_MODIS_SPM_R_PO_sub_95 < 0.001, 
+                       "< 0.001", 
+                       format(p_value_MODIS_SPM_R_PO_sub_95, digits = 3))
+    ),
+    hjust = 1, vjust = 1,
+    size = 8,
+    color = "red3",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(
+    title   = "Concentration moyenne en MES dans les panaches de la baie des Anges — MODIS (ODATIS-MR)",
+    x       = NULL,
+    y       = expression("Concentration moyenne en MES (mg m"^{-3}*")"),
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
 
 
 
