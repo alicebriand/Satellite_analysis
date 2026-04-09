@@ -39,12 +39,12 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/Y6442010_2002_2012.Rdata")  # charge ton objet débit
-  flow_df <- Y6442010_2002_2012  # adapte le nom de l'objet si besoin
+  load("data/Hydro France/All_debit_2015.Rdata")  # charge ton objet débit
+  flow_df <- All_debit_2015 # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/MERIS/MERIS_2002_2012_spm_95.Rdata")  # charge ton objet SPM
-  plume_daily <- MERIS_2002_2012_spm_95 |>  
+  load("data/MODIS/8 days/MODIS_month_spm_95")  # charge ton objet SPM
+  plume_daily <- MODIS_month_spm_95 |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -65,7 +65,7 @@ flow_comp <- function(mouth_info){
   
   # Compare panache size against river flow
   flow_plume_stats_all <- flow_plume_df |> 
-    summarise(r = cor(débit, aire_panache_km2, use = "pairwise.complete.obs"))
+    summarise(r = cor(debit_cumule, aire_panache_km2, use = "pairwise.complete.obs"))
   
   # Lagged correlations
   flow_plume_lag_cor <- tibble(
@@ -74,10 +74,10 @@ flow_comp <- function(mouth_info){
   )
   
   # Plot river flow
-  flow_plot <- ggplot(flow_plume_df, aes(x = date, y = débit)) +
+  flow_plot <- ggplot(flow_plume_df, aes(x = date, y = debit_cumule)) +
     # geom_ribbon(aes(ymin = (flow-(flow/2)), ymax = flow+flow/2)) +
-    geom_line(color = "blue") +
-    labs(y = "Débit du Var (m^3 s-1)", x = NULL) +
+    geom_line(color = "darkolivegreen3") +
+    labs(y = "Débit cumulé du Var, du Paillon et du Magnan (m^3 s-1)", x = NULL) +
     scale_x_date(expand = 0) +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # flow_plot
@@ -119,7 +119,7 @@ flow_comp <- function(mouth_info){
   # Plot lag results
   flow_plume_cor_lag_plot <- ggplot(flow_plume_lag_cor, aes(x = lag, y = cor)) +
     geom_point() +
-    labs(x = "Décalage entre la taille du panache et le pic de débit fluvial (en jours)", y = "Corrélation (r)") +
+    labs(x = "Décalage entre la taille du panache et le pic de débit fluvial cumulé (en jours)", y = "Corrélation (r)") +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # flow_plume_cor_lag_plot
   
@@ -129,7 +129,7 @@ flow_comp <- function(mouth_info){
   cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/MERIS/cor_plot_flow_plume_Var_MERIS_95.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/MODIS/8 jours/cor_plot_flow_plume_debit_cumule_MODIS_8_95.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size

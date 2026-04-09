@@ -86,7 +86,8 @@ sextant_spm_climatology_doy <- ts2clm(data = sextant_2015_2025_spm_TS, x = date,
                                       y = mean_spm, climatologyPeriod = c("2016-01-01", "2025-12-31"), 
                                       windowHalfWidth = 3, smoothPercentileWidth = 15 )
 
-# faire une TS en faisant la climatologie mensuelle en spm moins la moyenne mensuelle en spm et voir comment ça rend par rapport à 0
+# faire une TS en faisant la climatologie mensuelle en spm moins la moyenne 
+# mensuelle en spm et voir comment ça rend par rapport à 0
 
 # THis can cause problems when the date is not a full date, e.g. 2022-12-14
 # sextant_2015_2025_SPM <- sextant_2015_2025_SPM %>% 

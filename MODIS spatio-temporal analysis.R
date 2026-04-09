@@ -2,7 +2,7 @@
 
 # 03/03/2026
 
-# pathway : "~/Documents/Alice/Code/MODIS_TS_analysis
+# pathway : "~/Satellite_analysis/"
 
 
 # This script will load MODIS satellite data
