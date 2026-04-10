@@ -545,7 +545,6 @@ ggplot(seuils_df, aes(x = capteur, y = seuil, fill = label)) +
     panel.grid.major.x = element_blank()
   )
 
-
 # plotting  ---------------------------------------------------------------
 
 ## MERIS_SPM_G_AC_sub ------------------------------------------------------

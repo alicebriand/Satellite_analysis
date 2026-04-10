@@ -587,17 +587,17 @@ adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_pan
 SEXTANT_1998_2025_spm_95$scaled_aire_panache <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
-  geom_point(data = Y6442010_depuis_2000, 
-             aes(x = date, y = débit, color = "Débit"), size = 0.5) +
-  geom_point(data = SEXTANT_1998_2025_spm_95, 
-             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"), size = 0.5) +
+  geom_line(data = Y6442010_depuis_2000, 
+             aes(x = date, y = débit, color = "Débit"), size = 0.3) +
+  geom_line(data = SEXTANT_1998_2025_spm_95, 
+             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"), size = 0.3) +
   scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
-    limits = c(0, 250),   # ← min et max de l'axe Y
+    # limits = c(0, 250),   # ← min et max de l'axe Y
     name = "Débit (m³/s)",
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
-  labs(title = "Évolution des panaches et du débit du Var vu par le produit SEXTANT OC5 (limites à 250 km²)",
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit SEXTANT OC5",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -677,6 +677,8 @@ ggplot(data = Var_sextant, aes(x = débit, y = aire_panache_km2)) +
   theme_bw() +
   labs(x = "Débit (m³/s)", y = "Aire du panache (en km²)", title = "Débit liquide du Var contre l'aire des panaches vue par SEXTANT") +
   theme_minimal()
+
+
 
 # aire des panaches / débit en échelle log
 
@@ -846,3 +848,8 @@ Var_sextant_clean <- Var_sextant_filtered %>%
 nrow(Var_sextant_filtered)  # avant filtrage artefacts
 nrow(Var_sextant_clean)     # après
 
+
+# enregistrer des fichiers au format csv ----------------------------------
+
+write_csv(SEXTANT_1998_2025_spm_95, "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.csv")
+write_csv(Y6442010_depuis_2000, "data/Hydro France/Y6442010_depuis_2000.csv")
