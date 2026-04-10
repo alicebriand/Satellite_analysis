@@ -792,6 +792,7 @@ proportions_par_mois <- Wind_1991_2020_climatology %>%
 
 ## plotting ----------------------------------------------------------------
 
+# climatologie mesuelle
 model_wind_month <- lm(wind_month_clim ~ month, data = Wind_1991_2020_climatology_month)
 p_value_wind_month <- summary(model_wind_month)$coefficients[2, 4]  # p-value pour la pente
 intercept_wind_month <- coef(model_wind_month)[1]
@@ -842,34 +843,20 @@ ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim)) +
 # mettre la clonne month en mois
 Wind_1991_2020_climatology_month$month <- factor(Wind_1991_2020_climatology_month$month, levels = 1:12, labels = month.abb)
 
-# ggplot de la vitesse du vent par mois
+# ggplot de la climatologie de la la vitesse du vent par mois
 ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   geom_errorbar(aes(ymin = wind_month_clim - wind_month_clim_std, 
                     ymax = wind_month_clim + wind_month_clim_std), width = 0.3) +
-  scale_x_continuous(breaks = 1:12, labels = month.abb) +
-  labs(title = "Climatologie de la vitesse du vent (1991 - 2020)",
-    x = "Mois", y = "Vitesse du vent (m/s)") +
+  scale_x_discrete() +   # ← discrete car month est un factor
+  labs(
+    title = "Climatologie de la vitesse du vent (1991–2020)",
+    x     = "Mois", 
+    y     = "Vitesse du vent (m/s)"
+  ) +
   theme_bw()
 
 # Boxplot de la vitesse du vent par mois
-# ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim, fill = month)) +
-#   geom_bar(stat = "summary", fun = "mean", width = 0.7) +
-#   geom_errorbar(
-#     aes(ymin = wind_month_clim - wind_month_clim_std,
-#         ymax = wind_month_clim + wind_month_clim_std),
-#     width = 0.3
-#   ) +
-#   labs(
-#     title = "Moyenne et écart-type de la vitesse du vent (1991 - 2020)",
-#     x = "Mois",
-#     y = "Vitesse du vent (m/s)"
-#   ) +
-#   scale_x_discrete(labels = month.abb) +
-#   theme_bw() +
-#   theme(legend.position = "none")
-
-# Crée le boxplot
 ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim, fill = month)) +
   geom_boxplot() +
   labs(
@@ -880,6 +867,29 @@ ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim, fil
   scale_x_discrete(labels = month.abb) +  # Affiche les abréviations des mois
   theme_bw() +
   theme(legend.position = "none")  # Masque la légende si elle n'est pas nécessaire
+
+# ggplot de la climatologie de la de la vitesse du vent par jour
+# Jours correspondant au milieu de chaque mois (année non bissextile)
+mois_breaks <- c(15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349)
+
+ggplot(Wind_1991_2020_climatology_day, aes(x = doy, y = wind_doy_clim)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_errorbar(aes(ymin = wind_doy_clim - wind_doy_clim_std, 
+                    ymax = wind_doy_clim + wind_doy_clim_std), 
+                width = 0.3) +
+  scale_x_continuous(
+    breaks = mois_breaks,
+    labels = month.abb
+  ) +
+  labs(
+    title = "Climatologie de la vitesse du vent moyenne journalière (1991–2020)",
+    x     = NULL,
+    y     = "Vitesse du vent (m/s)"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(size = 13)  # ← augmentez cette valeur
+  )
 
 # Direction du vent par mois
 ggplot(Wind_clim, aes(x = month, y = DXY_mean_circ)) +

@@ -477,9 +477,6 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
 
 save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 
-
-
-
 # plotting ----------------------------------------------------------------
 
 # en échelle normale
@@ -585,21 +582,22 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +
 
 # comparison between liquid flow rate and panache extension
 
-adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$median_spm, Y6442010_depuis_2000$débit)
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
 
-SEXTANT_1998_2025_spm_95$scaled_median_spm <- SEXTANT_1998_2025_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
+SEXTANT_1998_2025_spm_95$scaled_aire_panache <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000, 
              aes(x = date, y = débit, color = "Débit"), size = 0.5) +
   geom_point(data = SEXTANT_1998_2025_spm_95, 
-             aes(x = date, y = scaled_median_spm, color = "MES"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "MES" = "red3")) +
+             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"), size = 0.5) +
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
+    limits = c(0, 250),   # ← min et max de l'axe Y
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration médiane en MES (en mg/m3)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
-  labs(title = "Évolution de la concentration médiane en MES dans les panaches et du débit du Var vu par le produit SEXTANT",
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit SEXTANT OC5 (limites à 250 km²)",
        x = "Date") +
   theme_minimal() +
   scale_x_date(
@@ -611,26 +609,26 @@ ggplot() +
 
 Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
 
-cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$median_spm, method = "spearman")
+cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
 
 
 # échelle log
 
 # Définir les limites log de chaque axe
-log_debit_min <- min(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
-log_debit_max <- max(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
-log_mean_min  <- min(log10(SEXTANT_1998_2025_spm_95$mean_spm[SEXTANT_1998_2025_spm_95$mean_spm > 0]), na.rm = TRUE)
-log_mean_max  <- max(log10(SEXTANT_1998_2025_spm_95$mean_spm), na.rm = TRUE)
-
-# Fonction pour projeter l'aire sur l'échelle du débit (en log)
-mean_to_debit_scale <- function(x) {
-  (log10(x) - log_mean_min) / (log_mean_max - log_mean_min) *
-    (log_debit_max - log_debit_min) + log_debit_min
-}
-
-SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 %>%
-  filter(mean_spm > 0) %>%
-  mutate(mean_scaled = 10^mean_to_debit_scale(mean_spm))
+# log_debit_min <- min(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
+# log_debit_max <- max(log10(Y6442010_depuis_2000$débit), na.rm = TRUE)
+# log_mean_min  <- min(log10(SEXTANT_1998_2025_spm_95$mean_spm[SEXTANT_1998_2025_spm_95$mean_spm > 0]), na.rm = TRUE)
+# log_mean_max  <- max(log10(SEXTANT_1998_2025_spm_95$mean_spm), na.rm = TRUE)
+# 
+# # Fonction pour projeter l'aire sur l'échelle du débit (en log)
+# mean_to_debit_scale <- function(x) {
+#   (log10(x) - log_mean_min) / (log_mean_max - log_mean_min) *
+#     (log_debit_max - log_debit_min) + log_debit_min
+# }
+# 
+# SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 %>%
+#   filter(mean_spm > 0) %>%
+#   mutate(mean_scaled = 10^mean_to_debit_scale(mean_spm))
 
 ggplot() +
   geom_point(data = Y6442010_depuis_2000,
@@ -680,7 +678,62 @@ ggplot(data = Var_sextant, aes(x = débit, y = aire_panache_km2)) +
   labs(x = "Débit (m³/s)", y = "Aire du panache (en km²)", title = "Débit liquide du Var contre l'aire des panaches vue par SEXTANT") +
   theme_minimal()
 
+# aire des panaches / débit en échelle log
 
+# d'abord on supprime les NA
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+  mutate(scaled_aire_panache = ifelse(scaled_aire_panache <= 0, NA, scaled_aire_panache))
+Y6442010_depuis_2000 <- Y6442010_depuis_2000 |> 
+  mutate(débit = ifelse(débit <= 0, NA, débit))
+
+# Recalculer les adjust_factors sur les valeurs log
+adjust_factors_log <- sec_axis_adjustement_factors(
+  log10(SEXTANT_1998_2025_spm_95$aire_panache_km2[SEXTANT_1998_2025_spm_95$aire_panache_km2 > 0]),
+  log10(Y6442010_depuis_2000$débit[Y6442010_depuis_2000$débit > 0])
+)
+
+# Rescaler l'aire en log
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |>
+  mutate(
+    aire_log        = ifelse(aire_panache_km2 > 0, log10(aire_panache_km2), NA),
+    scaled_aire_log = aire_log * adjust_factors_log$diff + adjust_factors_log$adjust
+  )
+
+ggplot() +
+  geom_point(data = Y6442010_depuis_2000,
+             aes(x = date, y = log10(débit), color = "Débit"), size = 0.5, alpha = 0.6) +
+  geom_point(data = SEXTANT_1998_2025_spm_95,
+             aes(x = date, y = scaled_aire_log, color = "Aire des panaches"), size = 0.5, alpha = 0.6) +
+  scale_color_manual(
+    name   = NULL,
+    values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")
+  ) +
+  scale_y_continuous(
+    name   = "Débit (m³ s⁻¹)",
+    breaks = log10(c(0.1, 1, 10, 100, 1000)),
+    labels = c("0.1", "1", "10", "100", "1000"),
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors_log$adjust) / adjust_factors_log$diff,
+      name   = "Aire des panaches (km²)",
+      breaks = log10(c(1, 10, 100, 1000)),
+      labels = c("1", "10", "100", "1000")
+    )
+  ) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(
+    title = "Évolution des panaches et du débit du Var — SEXTANT OC5 (échelle log)",
+    x     = NULL
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold"),
+    axis.text.x      = element_text(angle = 45, hjust = 1, size = 10, color = "grey30"),
+    axis.text.y      = element_text(size = 10, color = "grey30"),
+    legend.position  = "bottom",
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5)
+  )
 
 
 
