@@ -14,6 +14,7 @@ library(climaemet)
 library(heatwaveR)
 library(scales)
 library(RColorBrewer)
+library(ggpubr)
 
 # load --------------------------------------------------------------------
 
@@ -681,7 +682,9 @@ Wind_1991_2020_climatology_month <- Wind_1991_2020_climatology %>%
   )
 
 Wind_1991_2020_climatology_day <- Wind_1991_2020_climatology %>% 
-  summarise(wind_doy_clim = mean(FFM, na.rm = TRUE), .by = "doy")
+  group_by(doy) |> 
+  summarise(wind_doy_clim = mean(FFM, na.rm = TRUE),
+            wind_doy_clim_std = sd(FFM, na.rm = TRUE))
 
 Wind_1991_2020_climatology_doy <- ts2clm(data = Wind_1991_2020_TS, x = date, 
                                       y = FFM, climatologyPeriod = c("1991-01-01", "2020-12-31"), 
@@ -703,6 +706,16 @@ Wind_monthly_anom <- Wind_2015_2024_TS |>
     wind_month_anomaly     = mean_FFM - wind_month_clim,
     wind_month_anomaly_std = wind_month_anomaly / wind_month_clim_std  # anomalie normalisée
   )
+
+# Anomalies journalières
+Wind_daily_anom <- Wind_2015_2024_TS |> 
+  summarise(mean_FFM = mean(FFM, na.rm = TRUE), .by = c("date", "year", "month", "doy")) |> 
+  left_join(Wind_1991_2020_climatology_day, by = "doy") |> 
+  mutate(
+    wind_daily_anomaly     = mean_FFM - wind_doy_clim,
+    wind_daily_anomaly_std = wind_daily_anomaly / wind_doy_clim_std  # anomalie normalisée
+  )
+
   # This rounds all dates to the first day of the month
   # That way we can calculate monthly averages, but still have the full
   # date values (e.g. 2023-11-14) that ggplot2 needs to plot the values correctly
@@ -746,7 +759,6 @@ Wind_monthly_anom <- Wind_2015_2024_TS |>
 #     month_name = month.abb[month]  # ajouter le nom du mois en abbrégé
 #   )
 
-
 ## wind direction climatology ----------------------------------------------
 
 Wind_1991_2020_TS <- Wind_T |> 
@@ -780,20 +792,20 @@ proportions_par_mois <- Wind_1991_2020_climatology %>%
 
 ## plotting ----------------------------------------------------------------
 
-model_wind_month <- lm(FFM_mean ~ month, data = Wind_month)
+model_wind_month <- lm(wind_month_clim ~ month, data = Wind_1991_2020_climatology_month)
 p_value_wind_month <- summary(model_wind_month)$coefficients[2, 4]  # p-value pour la pente
 intercept_wind_month <- coef(model_wind_month)[1]
 slope_wind_month <- coef(model_wind_month)[2]
 
-ggplot(Wind_month, aes(x = month, y = FFM_mean)) +
+ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim)) +
   geom_line(color = "#4A90D9", size = 0.8, alpha = 0.4) +
   geom_smooth(method = "lm", se = TRUE, 
               color = "#2C3E7A", fill = "#4A90D9", alpha = 0.15,
               linewidth = 0.8) +
   annotate(
     "text",
-    x = max(Wind_month$month, na.rm = TRUE),
-    y = max(Wind_month$FFM_mean, na.rm = TRUE) * 0.95,
+    x = max(Wind_1991_2020_climatology_month$month, na.rm = TRUE),
+    y = max(Wind_1991_2020_climatology_month$wind_month_clim, na.rm = TRUE) * 0.95,
     label = paste0(
       "y = ", round(intercept_wind_month, 3), " ", round(slope_wind_month, 7), " × x",
       "\np = ", ifelse(p_value_wind_month < 0.001, "< 0.001", format(p_value_wind_month, digits = 3))
@@ -827,16 +839,47 @@ ggplot(Wind_month, aes(x = month, y = FFM_mean)) +
 
 # plotting climatology -------------------------------------------------------------
 
-# Vitesse du vent par mois
-ggplot(Wind_clim, aes(x = month, y = FFM_mean)) +
+# mettre la clonne month en mois
+Wind_1991_2020_climatology_month$month <- factor(Wind_1991_2020_climatology_month$month, levels = 1:12, labels = month.abb)
+
+# ggplot de la vitesse du vent par mois
+ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim)) +
   geom_bar(stat = "identity", fill = "steelblue") +
-  geom_errorbar(aes(ymin = FFM_mean - FFM_sd, 
-                    ymax = FFM_mean + FFM_sd), width = 0.3) +
+  geom_errorbar(aes(ymin = wind_month_clim - wind_month_clim_std, 
+                    ymax = wind_month_clim + wind_month_clim_std), width = 0.3) +
   scale_x_continuous(breaks = 1:12, labels = month.abb) +
   labs(title = "Climatologie de la vitesse du vent (1991 - 2020)",
     x = "Mois", y = "Vitesse du vent (m/s)") +
   theme_bw()
 
+# Boxplot de la vitesse du vent par mois
+# ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim, fill = month)) +
+#   geom_bar(stat = "summary", fun = "mean", width = 0.7) +
+#   geom_errorbar(
+#     aes(ymin = wind_month_clim - wind_month_clim_std,
+#         ymax = wind_month_clim + wind_month_clim_std),
+#     width = 0.3
+#   ) +
+#   labs(
+#     title = "Moyenne et écart-type de la vitesse du vent (1991 - 2020)",
+#     x = "Mois",
+#     y = "Vitesse du vent (m/s)"
+#   ) +
+#   scale_x_discrete(labels = month.abb) +
+#   theme_bw() +
+#   theme(legend.position = "none")
+
+# Crée le boxplot
+ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim, fill = month)) +
+  geom_boxplot() +
+  labs(
+    title = "Climatologie de la vitesse du vent (1991 - 2020)",
+    x = "Mois",
+    y = "Vitesse du vent (m/s)"
+  ) +
+  scale_x_discrete(labels = month.abb) +  # Affiche les abréviations des mois
+  theme_bw() +
+  theme(legend.position = "none")  # Masque la légende si elle n'est pas nécessaire
 
 # Direction du vent par mois
 ggplot(Wind_clim, aes(x = month, y = DXY_mean_circ)) +
@@ -849,7 +892,7 @@ ggplot(Wind_clim, aes(x = month, y = DXY_mean_circ)) +
   labs(x = "Mois", y = "Direction du vent (°)") +
   theme_bw()
 
-# anomalie de la vitesse du vent sur la période 2015 - 2026
+# anomalie à la climatologie mensuelle de la vitesse du vent sur la période 2015 - 2024
 model_anom <- lm(wind_month_anomaly ~ date, data = Wind_monthly_anom)
 p_value_anom <- summary(model_anom)$coefficients[2, 4]
 slope_anom <- coef(model_anom)[2]
@@ -883,7 +926,7 @@ ggplot(Wind_monthly_anom, aes(x = date, y = wind_month_anomaly, fill = wind_mont
                    "\np = ", ifelse(p_value_anom < 0.001, "< 0.001",
                                     format(p_value_anom, scientific = TRUE, digits = 3))),
     hjust = 0, vjust = 1,
-    size  = 4, color = "grey20", fontface = "italic", family = "serif"
+    size  = 8, color = "grey20", fontface = "italic", family = "serif"
   ) +
   scale_x_date(
     date_breaks       = "1 year",
@@ -893,8 +936,77 @@ ggplot(Wind_monthly_anom, aes(x = date, y = wind_month_anomaly, fill = wind_mont
   ) +
   
   labs(
-    title    = "Anomalie mensuelle de vitesse du vent (2015–2024)",
+    title    = "Anomalie mensuelle à la climatologie de la vitesse du vent (2015–2024)",
     subtitle = "Par rapport à la climatologie 1991–2020",
+    x        = NULL,
+    y        = expression("Anomalie de vent (m s"^-1*")"),
+    caption  = "Source : Météo-France"
+  ) +
+  
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 4)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8,  color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_line(color = "grey96", linewidth = 0.2),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 10),
+    legend.key       = element_blank()
+  )
+
+
+# anomalie à la climatologie mensuelle de la vitesse du vent sur la période 2015 - 2024
+model_anom <- lm(wind_daily_anomaly ~ date, data = Wind_daily_anom)
+p_value_anom <- summary(model_anom)$coefficients[2, 4]
+slope_anom <- coef(model_anom)[2]
+intercept_anom <- coef(model_anom)[1]
+
+ggplot(Wind_daily_anom, aes(x = date, y = wind_daily_anomaly, fill = wind_daily_anomaly > 0)) +
+  
+  geom_col(alpha = 0.8, width = 3) +  # width en jours
+  geom_smooth(
+    aes(x = date, y = wind_daily_anomaly),
+    method    = "lm",
+    se        = TRUE,
+    color     = "grey20",
+    fill      = "grey60",
+    linewidth = 0.8,
+    alpha     = 0.2,
+    inherit.aes = FALSE  # important pour ne pas hériter du fill des barres
+  ) +
+  geom_hline(yintercept = 0, color = "grey30", linewidth = 0.5) +
+  
+  scale_fill_manual(
+    values = c("TRUE" = "#C0392B", "FALSE" = "steelblue4"),
+    labels = c("TRUE" = "Au-dessus de la normale", "FALSE" = "En dessous de la normale"),
+    name   = NULL
+  ) +
+  annotate(
+    "text",
+    x     = min(Wind_daily_anom$date, na.rm = TRUE),
+    y     = max(Wind_daily_anom$wind_daily_anomaly, na.rm = TRUE) * 0.95,
+    label = paste0("y = ", round(intercept_anom, 3), " + ", round(slope_anom, 7), " × x",
+                   "\np = ", ifelse(p_value_anom < 0.001, "< 0.001",
+                                    format(p_value_anom, scientific = TRUE, digits = 3))),
+    hjust = 0, vjust = 1,
+    size  = 8, color = "grey20", fontface = "italic", family = "serif"
+  ) +
+  scale_x_date(
+    date_breaks       = "1 year",
+    date_labels       = "%Y",
+    date_minor_breaks = "6 months",
+    expand            = expansion(mult = 0.01)
+  ) +
+  
+  labs(
+    title    = "Anomalie journalière à la climatologie de vitesse du vent (2015–2024)",
+    subtitle = "Par rapport à la climatologie journalière 1991–2020",
     x        = NULL,
     y        = expression("Anomalie de vent (m s"^-1*")"),
     caption  = "Source : Météo-France"
@@ -1039,7 +1151,9 @@ Temp_1991_2020_climatology_month <- Temp_1991_2020_climatology %>%
   )
 
 Temp_1991_2020_climatology_day <- Temp_1991_2020_climatology %>% 
-  summarise(temp_doy_clim = mean(TM, na.rm = TRUE), .by = "doy")
+  group_by(doy) %>%
+  summarise(temp_doy_clim = mean(TM, na.rm = TRUE),
+            temp_doy_clim_std = sd(TM, na.rm = TRUE))
 
 Wind_1991_2020_climatology_doy <- ts2clm(data = Temp_1991_2020_TS, x = date, 
                                          y = TM, climatologyPeriod = c("1991-01-01", "2020-12-31"), 
@@ -1062,9 +1176,18 @@ Temp_monthly_anom <- Temp_2015_2024_TS |>
     temp_month_anomaly_std = temp_month_anomaly / temp_month_clim_std  # anomalie normalisée
   )
 
+# Anomalies journalières
+Temp_daily_anom <- Temp_2015_2024_TS |> 
+  summarise(mean_TM = mean(TM, na.rm = TRUE), .by = c("date", "year", "month", "doy")) |> 
+  left_join(Temp_1991_2020_climatology_day, by = "doy") |> 
+  mutate(
+    temp_daily_anomaly     = mean_TM - temp_doy_clim,
+    temp_daily_anomaly_std = temp_daily_anomaly / temp_doy_clim_std  # anomalie normalisée
+  )
+
 ## plotting temperature climatology ----------------------------------------
 
-# plotting de la climatologie
+# plotting de la climatologie mensuelle
 ggplot(Temp_1991_2020_climatology_month, aes(x = month, y = temp_month_clim)) +
   geom_bar(stat = "identity", fill = "orangered") +
   geom_errorbar(aes(ymin = temp_month_clim - temp_month_clim_std, 
@@ -1074,7 +1197,30 @@ ggplot(Temp_1991_2020_climatology_month, aes(x = month, y = temp_month_clim)) +
        x = "Mois", y = "Température (en °C)") +
   theme_bw()
 
-# plotting de l'anomalie à la climatologie
+# plotting de la climatologie journalière
+# Jours correspondant au milieu de chaque mois (année non bissextile)
+mois_breaks <- c(15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349)
+
+ggplot(Temp_1991_2020_climatology_day, aes(x = doy, y = temp_doy_clim)) +
+  geom_bar(stat = "identity", fill = "orangered") +
+  geom_errorbar(aes(ymin = temp_doy_clim - temp_doy_clim_std, 
+                    ymax = temp_doy_clim + temp_doy_clim_std), 
+                width = 0.3) +
+  scale_x_continuous(
+    breaks = mois_breaks,
+    labels = month.abb
+  ) +
+  labs(
+    title = "Climatologie de la température moyenne journalière (1991–2020)",
+    x     = NULL,
+    y     = "Température (°C)"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(size = 13)  # ← augmentez cette valeur
+  )
+
+# plotting de l'anomalie à la climatologie mensuelle
 model_anom_temp <- lm(temp_month_anomaly ~ date, data = Temp_monthly_anom)
 p_value_anom_temp <- summary(model_anom_temp)$coefficients[2, 4]
 slope_anom_temp <- coef(model_anom_temp)[2]
@@ -1119,6 +1265,74 @@ ggplot(Temp_monthly_anom, aes(x = date, y = temp_month_anomaly, fill = temp_mont
   
   labs(
     title    = "Anomalie mensuelle de la température (2015–2024)",
+    subtitle = "Par rapport à la climatologie 1991–2020",
+    x        = NULL,
+    y        = expression("Température (en °C)"),
+    caption  = "Source : Archives Météo-France"
+  ) +
+  
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 4)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8,  color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 10, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_line(color = "grey96", linewidth = 0.2),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 10),
+    legend.key       = element_blank()
+  )
+
+# plotting de l'anomalie à la climatologie journalière
+model_anom_temp <- lm(temp_daily_anomaly ~ date, data = Temp_daily_anom)
+p_value_anom_temp <- summary(model_anom_temp)$coefficients[2, 4]
+slope_anom_temp <- coef(model_anom_temp)[2]
+intercept_anom_temp <- coef(model_anom_temp)[1]
+
+ggplot(Temp_daily_anom, aes(x = date, y = temp_daily_anomaly, fill = temp_daily_anomaly > 0)) +
+  
+  geom_col(alpha = 0.8, width = 3) +  # width en jours
+  geom_smooth(
+    aes(x = date, y = temp_daily_anomaly),
+    method    = "lm",
+    se        = TRUE,
+    color     = "grey20",
+    fill      = "grey60",
+    linewidth = 0.8,
+    alpha     = 0.2,
+    inherit.aes = FALSE  # important pour ne pas hériter du fill des barres
+  ) +
+  geom_hline(yintercept = 0, color = "grey30", linewidth = 0.5) +
+  
+  scale_fill_manual(
+    values = c("TRUE" = "#C0392B", "FALSE" = "steelblue4"),
+    labels = c("TRUE" = "Au-dessus de la normale", "FALSE" = "En dessous de la normale"),
+    name   = NULL
+  ) +
+  annotate(
+    "text",
+    x     = min(Temp_daily_anom$date, na.rm = TRUE),
+    y     = max(Temp_daily_anom$temp_daily_anomaly, na.rm = TRUE) * 0.95,
+    label = paste0("y = ", round(intercept_anom_temp, 3), " + ", round(slope_anom_temp, 7), " × x",
+                   "\np = ", ifelse(p_value_anom_temp < 0.001, "< 0.001",
+                                    format(p_value_anom_temp, scientific = TRUE, digits = 3))),
+    hjust = 0, vjust = 1,
+    size  = 4, color = "grey20", fontface = "italic", family = "serif"
+  ) +
+  scale_x_date(
+    date_breaks       = "1 year",
+    date_labels       = "%Y",
+    date_minor_breaks = "6 months",
+    expand            = expansion(mult = 0.01)
+  ) +
+  
+  labs(
+    title    = "Anomalie journalière de la température (2015–2024)",
     subtitle = "Par rapport à la climatologie 1991–2020",
     x        = NULL,
     y        = expression("Température (en °C)"),

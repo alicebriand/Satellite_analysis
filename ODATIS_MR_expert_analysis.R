@@ -28,6 +28,12 @@ load("data/ODATIS-MR_expert/MODIS_SPM_G_PO_sub.RData")
 load("data/ODATIS-MR_expert/MODIS_SPM_R_NS_sub.RData")
 load("data/ODATIS-MR_expert/MODIS_SPM_R_PO_sub.RData")
 
+# OLCI A
+load("data/ODATIS-MR_expert/OLCIA_SPM_G_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_G_PO_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_R_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_R_PO_sub.RData")
+
 # OLCI B (2019)
 load("data/ODATIS-MR_expert/OLCIB_SPM_G_AC_sub.RData")
 load("data/ODATIS-MR_expert/OLCIB_SPM_G_PO_sub.RData")
@@ -376,13 +382,115 @@ OLCIB_SPM_R_PO_sub_95 <- OLCIB_SPM_R_PO_sub |>
 # save(OLCIB_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_AC_sub_95.Rdata")
 # save(OLCIB_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCIB_SPM_R_PO_sub_95.Rdata")
 
+## OLCI A -------------------------------------------------------------------
+### calcul de l'aire --------------------------------------------------------
+
+# Trier et extraire les valeurs uniques
+lons_uniques <- sort(unique(OLCIA_SPM_G_AC_sub$lon))
+lats_uniques <- sort(unique(OLCIA_SPM_G_AC_sub$lat))
+
+# Résolution en degrés
+res_lon <- diff(lons_uniques)[1]  # écart entre 2 pixels voisins en longitude
+res_lat <- diff(lats_uniques)[1]  # idem en latitude
+
+cat("Résolution lon :", res_lon, "°\n")
+cat("Résolution lat :", res_lat, "°\n")
+
+# Conversion en km (pour ~43°N, zone Méditerranée/Atlantique Sud de France)
+lat_ref <- 43 
+res_lon_km <- res_lon * 111 * cos(lat_ref * pi / 180)
+res_lat_km <- res_lat * 111
+
+cat("Résolution lon :", round(res_lon_km, 3), "km\n")
+cat("Résolution lat :", round(res_lat_km, 3), "km\n")
+
+# Aire d'un pixel
+aire_pixel_km2 <- res_lon_km * res_lat_km
+cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
+
+### define 95ème percentile -------------------------------------------------
+
+#### OLCIA_SPM_G_AC_sub ------------------------------------------------------
+
+seuil_95_OLCIA_SPM_G_AC_sub <- quantile(OLCIA_SPM_G_AC_sub$`SPM-G-AC_mean`, 0.95, na.rm = TRUE)
+cat("Seuil 95ème percentile :", seuil_95_OLCIA_SPM_G_AC_sub, "g/m³\n")
+
+# seuil = 8.549291 g/m³
+
+# Stats du panache par jour
+OLCIA_SPM_G_AC_sub_95 <- OLCIA_SPM_G_AC_sub |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(`SPM-G-AC_mean`>= seuil_95_OLCIA_SPM_G_AC_sub, na.rm = TRUE),
+    mean_spm = mean(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_95_OLCIA_SPM_G_AC_sub], na.rm = TRUE),
+    median_spm = median(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_95_OLCIA_SPM_G_AC_sub], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+  )
+
+#### OLCIA_SPM_G_PO_sub ------------------------------------------------------
+
+seuil_95_OLCIA_SPM_G_PO_sub <- quantile(OLCIA_SPM_G_PO_sub$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
+cat("Seuil 95ème percentile :", seuil_95_OLCIA_SPM_G_PO_sub, "g/m³\n")
+
+# seuil = 0.5696055 g/m³
+
+# Stats du panache par jour
+OLCIA_SPM_G_PO_sub_95 <- OLCIA_SPM_G_PO_sub |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(`SPM-G-PO_mean`>= seuil_95_OLCIA_SPM_G_PO_sub, na.rm = TRUE),
+    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_OLCIA_SPM_G_PO_sub], na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_OLCIA_SPM_G_PO_sub], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+  )
+
+#### OLCIA_SPM_R_AC_sub ------------------------------------------------------
+
+seuil_95_OLCIA_SPM_R_AC_sub <- quantile(OLCIA_SPM_R_AC_sub$`SPM-R-AC_mean`, 0.95, na.rm = TRUE)
+cat("Seuil 95ème percentile :", seuil_95_OLCIA_SPM_R_AC_sub, "g/m³\n")
+
+# seuil = 12.18402 g/m³
+
+# Stats du panache par jour
+OLCIA_SPM_R_AC_sub_95 <- OLCIA_SPM_R_AC_sub |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(`SPM-R-AC_mean`>= seuil_95_OLCIA_SPM_R_AC_sub, na.rm = TRUE),
+    mean_spm = mean(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_95_OLCIA_SPM_R_AC_sub], na.rm = TRUE),
+    median_spm = median(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_95_OLCIA_SPM_R_AC_sub], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+  )
+
+#### OLCIA_SPM_R_PO_sub ------------------------------------------------------
+
+seuil_95_OLCIA_SPM_R_PO_sub <- quantile(OLCIA_SPM_R_PO_sub$`SPM-R-PO_mean`, 0.95, na.rm = TRUE)
+cat("Seuil 95ème percentile :", seuil_95_OLCIA_SPM_R_PO_sub, "g/m³\n")
+
+# seuil = 1.790228 g/m³
+
+# Stats du panache par jour
+OLCIA_SPM_R_PO_sub_95 <- OLCIA_SPM_R_PO_sub |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(`SPM-R-PO_mean`>= seuil_95_OLCIA_SPM_R_PO_sub, na.rm = TRUE),
+    mean_spm = mean(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_95_OLCIA_SPM_R_PO_sub], na.rm = TRUE),
+    median_spm = median(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_95_OLCIA_SPM_R_PO_sub], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+  )
+
+# save
+# save(OLCIA_SPM_G_AC_sub_95, file = "data/ODATIS-MR_expert/OLCIA_SPM_G_AC_sub_95.Rdata")
+# save(OLCIA_SPM_G_PO_sub_95, file = "data/ODATIS-MR_expert/OLCIA_SPM_G_PO_sub_95.Rdata")
+# save(OLCIA_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/OLCIA_SPM_R_AC_sub_95.Rdata")
+# save(OLCIA_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/OLCIA_SPM_R_PO_sub_95.Rdata")
+
 # plotting threshold ------------------------------------------------------
 
 # ── 1. Tableau récapitulatif de tous les seuils ────────────────────────────
 seuils_df <- data.frame(
-  capteur  = c(rep("MERIS", 4), rep("MODIS", 4), rep("OLCI-B", 4)),
-  algo     = c("G","G","R","R",  "G","G","R","R",  "G","G","R","R"),
-  correc   = c("AC","PO","AC","PO", "NS","PO","NS","PO", "AC","PO","AC","PO"),
+  capteur  = c(rep("MERIS", 4), rep("MODIS", 4), rep("OLCI-B", 4), rep("OLCI-A", 4)),
+  algo     = c("G","G","R","R",  "G","G","R","R",  "G","G","R","R", "G","G","R","R"),
+  correc   = c("AC","PO","AC","PO", "NS","PO","NS","PO", "AC","PO","AC","PO", "AC", "PO", "AC", "PO"),
   seuil    = c(
     seuil_95_MERIS_SPM_G_AC_sub,  # 4.587
     seuil_95_MERIS_SPM_G_PO_sub,  # 0.503
@@ -395,7 +503,11 @@ seuils_df <- data.frame(
     seuil_95_OLCIB_SPM_G_AC_sub,  # 8.948
     seuil_95_OLCIB_SPM_G_PO_sub,  # 0.511
     seuil_95_OLCIB_SPM_R_AC_sub,  # 12.467
-    seuil_95_OLCIB_SPM_R_PO_sub   # 1.680
+    seuil_95_OLCIB_SPM_R_PO_sub,  # 1.680
+    seuil_95_OLCIA_SPM_G_AC_sub,  # 8.549291
+    seuil_95_OLCIA_SPM_G_PO_sub,  # 0.5696055
+    seuil_95_OLCIA_SPM_R_AC_sub,  # 12.18402
+    seuil_95_OLCIA_SPM_R_PO_sub  # 1.790228
   )
 ) |>
   mutate(
@@ -421,7 +533,7 @@ ggplot(seuils_df, aes(x = capteur, y = seuil, fill = label)) +
   scale_fill_manual(values = couleurs_algo, name = "Algo - Correction") +
   labs(
     title    = "Seuils au 95ème percentile — comparaison capteurs & algorithmes",
-    subtitle = "G = Gordon | R = Roesler | AC = atm. correction | PO = port-out | NS = no-scattering",
+    subtitle = "G = Général | R = Régional | AC = Acolite | PO = Polymer | NS = NirSwir",
     x        = NULL,
     y        = "Seuil SPM (g/m³)"
   ) +
