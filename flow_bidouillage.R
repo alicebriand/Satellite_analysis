@@ -39,12 +39,12 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/All_debit_2015.Rdata")  # charge ton objet débit
-  flow_df <- All_debit_2015 # adapte le nom de l'objet si besoin
+  load("data/Hydro France/All_debit_2019.Rdata")  # charge ton objet débit
+  flow_df <- All_debit_2019 # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/MODIS/8 days/MODIS_month_spm_95")  # charge ton objet SPM
-  plume_daily <- MODIS_month_spm_95 |>  
+  load("data/ODATIS-MR_expert/95 percentile/clean/MODIS_SPM_G_NS_sub_clean.Rdata")  # charge ton objet SPM
+  plume_daily <- MODIS_SPM_G_NS_sub_clean |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -70,7 +70,7 @@ flow_comp <- function(mouth_info){
   # Lagged correlations
   flow_plume_lag_cor <- tibble(
     lag = 0:30,
-    cor = map_dbl(0:30, ~ cor(flow_plume_df$débit, lag(flow_plume_df$aire_panache_km2, .), use = "pairwise.complete.obs"))
+    cor = map_dbl(0:30, ~ cor(flow_plume_df$debit_cumule, lag(flow_plume_df$aire_panache_km2, .), use = "pairwise.complete.obs"))
   )
   
   # Plot river flow
@@ -88,30 +88,34 @@ flow_comp <- function(mouth_info){
     labs(y = "Aire du panache (km²)", x = NULL) +
     scale_x_date(expand = 0) +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
-  # panache_plot
   
-  # Plot river flow and panache size correlation
-  # flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = débit, y = aire_panache_km2)) + 
-  #   geom_point(alpha = 0.7) +
-  #   # geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black") +
-  #   geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 1) +
-  #   labs(y = "Aire du panache (km²)", x = "Débit du Var (m^3 s-1)") +
-  #   theme(panel.border = element_rect(fill = NA, colour = "black"),
-  #         legend.position = "bottom")
-  flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = débit, y = aire_panache_km2)) + 
+  # panache_plot
+  r_val <- round(cor(flow_plume_df$debit_cumule, flow_plume_df$aire_panache_km2, 
+                     use = "complete.obs"), 3)
+  
+  flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = debit_cumule, y = aire_panache_km2)) +
     geom_bin2d(bins = 100) +
     scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
-    geom_smooth(method = "lm",  se = FALSE, colour = "red", linewidth = 1) +
+    geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
     stat_poly_eq(
-      aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
+      aes(label = after_stat(eq.label)),  # ← seulement l'équation
       formula = y ~ x,
       parse = TRUE,
       colour = "red",
-      size = 4,
-      label.x = 0.05,  # position horizontale (0 = gauche, 1 = droite)
-      label.y = 0.95   # position verticale (0 = bas, 1 = haut)
+      size = 6,
+      label.x = 0.05,
+      label.y = 0.95
     ) +
-    labs(y = "Aire du panache (km²)", x = "Débit du Var (m^3 s-1)") +
+    annotate(
+      "text",
+      x = Inf, y = Inf,
+      label = paste0("r = ", r_val),
+      hjust = 1.1, vjust = 2,
+      colour = "red",
+      size = 6,
+      fontface = "italic"
+    ) +
+    labs(y = "Aire du panache (km²)", x = "Débit du cumulé du Var, du Paillon et du Magnan (m³ s⁻¹)") +
     theme_bw() +
     theme(panel.border = element_rect(fill = NA, colour = "black"),
           legend.position = "bottom")
@@ -129,7 +133,7 @@ flow_comp <- function(mouth_info){
   cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/MODIS/8 jours/cor_plot_flow_plume_debit_cumule_MODIS_8_95.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/ODATIS MR expert/MODIS/Débit vs aire panache/cor_plot_flow_plume_debit_cumule_MODIS_95_G_NS.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size

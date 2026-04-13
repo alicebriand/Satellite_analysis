@@ -1282,21 +1282,26 @@ ggplot(data = OLCIA_SPM_R_PO_sub_95, aes(x = date, y = mean_spm)) +
 Y6442010_2009 <- Y6442010_depuis_2000 |> 
   filter(date >= as.Date("2009-01-01"), date <= as.Date("2009-12-31"))
 
+save(Y6442010_2009, file = "data/Hydro France/Y6442010_2009.Rdata")
+
 # 2019 (Var, Magnan and Paillon data)
 
 All_debit_2019 <- All_debit |> 
   filter(date >= as.Date("2019-01-01"), date <= as.Date("2019-12-31"))
 
 All_debit_2019 <- All_debit_2019[-1,] #on supprime la première ligne car doublon
+
+# save(All_debit_2019, file = "data/Hydro France/All_debit_2019.Rdata")
   
 ## MERIS_SPM_G_AC_sub ------------------------------------------------------
-
 
 # To compare precisely river runoff and plume area we have to merge data set to
 # only keep values in both data set
 
 # first clean data
 MERIS_SPM_G_AC_sub_clean <- na.omit(MERIS_SPM_G_AC_sub_95)
+
+# save(MERIS_SPM_G_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_G_AC_sub_clean.Rdata")
 
 MERIS_SPM_G_AC_sub_95_deb <- MERIS_SPM_G_AC_sub_clean |> 
   left_join(Y6442010_2009, by = "date")
@@ -1378,12 +1383,13 @@ ggplot() +
 
 ## MERIS_SPM_G_PO_sub ------------------------------------------------------
 
-
 # To compare precisely river runoff and plume area we have to merge data set to
 # only keep values in both data set
 
 # first clean data
 MERIS_SPM_G_PO_sub_clean <- na.omit(MERIS_SPM_G_PO_sub_95)
+
+# save(MERIS_SPM_G_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_G_PO_sub_clean.Rdata")
 
 MERIS_SPM_G_PO_sub_95_deb <- MERIS_SPM_G_PO_sub_clean |> 
   left_join(Y6442010_2009, by = "date")
@@ -1473,6 +1479,8 @@ ggplot() +
 # first clean data
 MERIS_SPM_R_AC_sub_clean <- na.omit(MERIS_SPM_R_AC_sub_95)
 
+# save(MERIS_SPM_R_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_R_AC_sub_clean.Rdata")
+
 MERIS_SPM_R_AC_sub_95_deb <- MERIS_SPM_R_AC_sub_clean |> 
   left_join(Y6442010_2009, by = "date")
 
@@ -1561,6 +1569,8 @@ ggplot() +
 # first clean data
 MERIS_SPM_R_PO_sub_clean <- na.omit(MERIS_SPM_R_PO_sub_95)
 
+# save(MERIS_SPM_R_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_R_PO_sub_clean.Rdata")
+
 MERIS_SPM_R_PO_sub_95_deb <- MERIS_SPM_R_PO_sub_clean |> 
   left_join(Y6442010_2009, by = "date")
 
@@ -1643,6 +1653,7 @@ ggplot() +
 
 
 
+
 ## MODIS_SPM_G_NS_sub ------------------------------------------------------
 
 # To compare precisely river runoff and plume area we have to merge data set to
@@ -1650,6 +1661,8 @@ ggplot() +
 
 # first clean data
 MODIS_SPM_G_NS_sub_clean <- na.omit(MODIS_SPM_G_NS_sub_95)
+
+# save(MODIS_SPM_G_NS_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MODIS_SPM_G_NS_sub_clean.Rdata")
 
 MODIS_SPM_G_NS_sub_95_deb <- MODIS_SPM_G_NS_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -1739,6 +1752,8 @@ ggplot() +
 # first clean data
 MODIS_SPM_G_PO_sub_clean <- na.omit(MODIS_SPM_G_PO_sub_95)
 
+# save(MODIS_SPM_G_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MODIS_SPM_G_PO_sub_clean.Rdata")
+
 MODIS_SPM_G_PO_sub_95_deb <- MODIS_SPM_G_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -1825,6 +1840,8 @@ ggplot() +
 
 # first clean data
 MODIS_SPM_R_NS_sub_clean <- na.omit(MODIS_SPM_R_NS_sub_95)
+
+# save(MODIS_SPM_R_NS_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MODIS_SPM_R_NS_sub_clean.Rdata")
 
 MODIS_SPM_R_NS_sub_95_deb <- MODIS_SPM_R_NS_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -1914,6 +1931,8 @@ ggplot() +
 # first clean data
 MODIS_SPM_R_PO_sub_clean <- na.omit(MODIS_SPM_R_PO_sub_95)
 
+# save(MODIS_SPM_R_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MODIS_SPM_R_PO_sub_clean.Rdata")
+
 MODIS_SPM_R_PO_sub_95_deb <- MODIS_SPM_R_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -1997,6 +2016,8 @@ ggplot() +
 
 
 
+
+
 ## OLCIB_SPM_G_AC_sub ------------------------------------------------------
 
 # To compare precisely river runoff and plume area we have to merge data set to
@@ -2004,6 +2025,8 @@ ggplot() +
 
 # first clean data
 OLCIB_SPM_G_AC_sub_clean <- na.omit(OLCIB_SPM_G_AC_sub_95)
+
+# save(OLCIB_SPM_G_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIB_SPM_G_AC_sub_clean.Rdata")
 
 OLCIB_SPM_G_AC_sub_95_deb <- OLCIB_SPM_G_AC_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -2093,6 +2116,8 @@ ggplot() +
 # first clean data
 OLCIB_SPM_G_PO_sub_clean <- na.omit(OLCIB_SPM_G_PO_sub_95)
 
+# save(OLCIB_SPM_G_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIB_SPM_G_PO_sub_clean.Rdata")
+
 OLCIB_SPM_G_PO_sub_95_deb <- OLCIB_SPM_G_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -2180,6 +2205,8 @@ ggplot() +
 
 # first clean data
 OLCIB_SPM_R_AC_sub_clean <- na.omit(OLCIB_SPM_R_AC_sub_95)
+
+# save(OLCIB_SPM_R_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIB_SPM_R_AC_sub_clean.Rdata")
 
 OLCIB_SPM_R_AC_sub_95_deb <- OLCIB_SPM_R_AC_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -2269,6 +2296,8 @@ ggplot() +
 # first clean data
 OLCIB_SPM_R_PO_sub_clean <- na.omit(OLCIB_SPM_R_PO_sub_95)
 
+# save(OLCIB_SPM_R_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIB_SPM_R_PO_sub_clean.Rdata")
+
 OLCIB_SPM_R_PO_sub_95_deb <- OLCIB_SPM_R_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -2350,6 +2379,8 @@ ggplot() +
   )
 
 
+
+
 ## OLCIA_SPM_G_AC_sub ------------------------------------------------------
 
 # To compare precisely river runoff and plume area we have to merge data set to
@@ -2357,6 +2388,8 @@ ggplot() +
 
 # first clean data
 OLCIA_SPM_G_AC_sub_clean <- na.omit(OLCIA_SPM_G_AC_sub_95)
+
+# save(OLCIA_SPM_G_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIA_SPM_G_AC_sub_clean.Rdata")
 
 OLCIA_SPM_G_AC_sub_95_deb <- OLCIA_SPM_G_AC_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -2446,6 +2479,8 @@ ggplot() +
 # first clean data
 OLCIA_SPM_G_PO_sub_clean <- na.omit(OLCIA_SPM_G_PO_sub_95)
 
+# save(OLCIA_SPM_G_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIA_SPM_G_PO_sub_clean.Rdata")
+
 OLCIA_SPM_G_PO_sub_95_deb <- OLCIA_SPM_G_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -2533,6 +2568,8 @@ ggplot() +
 
 # first clean data
 OLCIA_SPM_R_AC_sub_clean <- na.omit(OLCIA_SPM_R_AC_sub_95)
+
+# save(OLCIA_SPM_R_AC_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIA_SPM_R_AC_sub_clean.Rdata")
 
 OLCIA_SPM_R_AC_sub_95_deb <- OLCIA_SPM_R_AC_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
@@ -2623,6 +2660,8 @@ ggplot() +
 # first clean data
 OLCIA_SPM_R_PO_sub_clean <- na.omit(OLCIA_SPM_R_PO_sub_95)
 
+# save(OLCIA_SPM_R_PO_sub_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/OLCIA_SPM_R_PO_sub_clean.Rdata")
+
 OLCIA_SPM_R_PO_sub_95_deb <- OLCIA_SPM_R_PO_sub_clean |> 
   inner_join(All_debit_2019, by = "date")
 
@@ -2702,6 +2741,8 @@ ggplot() +
     legend.position   = "top",
     legend.text       = element_text(size = 10)
   )
+
+
 
 
 
