@@ -1,7 +1,7 @@
-# OLCI spatio-temporal analysis new
+# SEXTANT spatio-temporal analysis clean
 # 27/02/2026
 
-# new script for spatio-temporal analysis of OLCI A and B data
+# new script for spatio-temporal analysis of SEXTANT data
 
 # This script will load it in bite sized pieces
 # Then perform an time series analysis
