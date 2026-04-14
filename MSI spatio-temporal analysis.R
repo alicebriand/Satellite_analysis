@@ -18,7 +18,6 @@ library(doParallel); registerDoParallel(cores = 14)
 
 # function ----------------------------------------------------------------
 
-
 # Fonction pour extraire les données d'un objet stars
 extract_stars_to_df <- function(stars_obj, year) {
   # Convertir l'objet stars en un objet sf
@@ -56,14 +55,16 @@ load("~/Downloads/MSI/SPM/MSI_2024_SPM.RData")
 load("~/Downloads/MSI/SPM/MSI_2025_SPM.RData")
 
 # Créer une liste avec les objets chargés
-MSI_2020_2025 <- list(
-  MSI_2020 = download_2020_SPM,
-  MSI_2021 = download_2021_SPM,
-  MSI_2022 = download_2022_SPM,
-  MSI_2023 = download_2023_SPM,
-  MSI_2024 = download_2024_SPM,
-  MSI_2025 = download_2025_SPM
-)
+# MSI_2020_2025 <- list(
+#   MSI_2020 = download_2020_SPM,
+#   MSI_2021 = download_2021_SPM,
+#   MSI_2022 = download_2022_SPM,
+#   MSI_2023 = download_2023_SPM,
+#   MSI_2024 = download_2024_SPM,
+#   MSI_2025 = download_2025_SPM
+# )
+
+load("~/Downloads/MSI/SPM/MSI_2020_2025.RData")
 
 # Liste des années et des objets stars correspondants
 years <- c(2020, 2021, 2022, 2023, 2024, 2025)
@@ -75,8 +76,8 @@ MSI_SPM_2020_2025 <- bind_rows(
 )
 
 # Vérifier le résultat
-glimpse(MSI_SPM_2020_2025)
-summary(MSI_SPM_2020_2025)
+glimpse(download_2020_SPM)
+summary(download_2020_SPM)
 
 
 

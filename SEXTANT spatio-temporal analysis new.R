@@ -1,4 +1,4 @@
-# SEXTANT spatio-temporal analysis clean
+# SEXTANT spatio-temporal analysis new
 # 27/02/2026
 
 # new script for spatio-temporal analysis of SEXTANT data
@@ -853,3 +853,140 @@ nrow(Var_sextant_clean)     # après
 
 write_csv(SEXTANT_1998_2025_spm_95, "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.csv")
 write_csv(Y6442010_depuis_2000, "data/Hydro France/Y6442010_depuis_2000.csv")
+
+# Bidouillage -------------------------------------------------------------
+
+SEXTANT_2009_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+  filter(date >= as.Date("2009-01-01"), date <= as.Date("2009-12-31"))
+
+# save(SEXTANT_2009_spm_95, file ="data/SEXTANT/SPM/SEXTANT_2009_spm_95.Rdata")
+
+SEXTANT_2019_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+  filter(date >= as.Date("2019-01-01"), date <= as.Date("2019-12-31"))
+
+# save(SEXTANT_2019_spm_95, file ="data/SEXTANT/SPM/SEXTANT_2019_spm_95.Rdata")
+
+
+# load data ---------------------------------------------------------------
+
+load("data/Hydro France/All_debit_2019.Rdata")
+load("data/Hydro France/Y6442010_2009.Rdata")
+
+# plotting sextant 2009 ---------------------------------------------------
+
+Var_SEXTANT_panache <- inner_join(Y6442010_2009, SEXTANT_2009_spm_95, by = "date")
+
+cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
+
+# 1. Stocker la corrélation
+cor_result <- cor.test(Var_SEXTANT_panache$débit, 
+                       Var_SEXTANT_panache$aire_panache_km2, 
+                       method = "spearman")
+rho     <- round(as.numeric(cor_result$estimate), 3)
+p_value <- cor_result$p.value
+
+# 2. Graphique
+ggplot() +
+  geom_point(data = SEXTANT_2009_spm_95, aes(x = date, y = scaled_aire_panache, color = "Aire des panaches")) +
+  geom_point(data = Y6442010_2009, aes(x = date, y = débit, color = "Débit du Var")) +
+  annotate(
+    "text",
+    x = min(SEXTANT_2009_spm_95$date, na.rm = TRUE),
+    y = max(SEXTANT_2009_spm_95$scaled_aire_panache, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "ρ = ", rho,
+      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 8,
+    color = "grey20",
+    fontface = "italic"
+  ) +
+  scale_color_manual(values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, 
+                        name = "Aire des panaches (en km²)")
+  ) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(
+    title = "Évolution des panaches et du Var vu par le produit SEXTANT OC5 (2009)",
+    x = NULL,
+    color = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
+    axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
+    axis.text         = element_text(size = 10, color = "grey30"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    axis.ticks        = element_line(color = "grey70"),
+    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor  = element_blank(),
+    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position   = "top",
+    legend.text       = element_text(size = 10)
+  )
+
+# plotting sextant 2019 ---------------------------------------------------
+
+Var_SEXTANT_panache <- inner_join(All_debit_2019, SEXTANT_2019_spm_95, by = "date")
+
+cor.test(Var_SEXTANT_panache$debit_cumule, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
+
+# 1. Stocker la corrélation
+cor_result <- cor.test(Var_SEXTANT_panache$debit_cumule, 
+                       Var_SEXTANT_panache$aire_panache_km2, 
+                       method = "spearman")
+rho     <- round(as.numeric(cor_result$estimate), 3)
+p_value <- cor_result$p.value
+
+# 2. Graphique
+ggplot() +
+  geom_point(data = SEXTANT_2019_spm_95, aes(x = date, y = scaled_aire_panache, color = "Aire des panaches")) +
+  geom_point(data = All_debit_2019, aes(x = date, y = debit_cumule, color = "Débit cumulé")) +
+  annotate(
+    "text",
+    x = min(SEXTANT_2019_spm_95$date, na.rm = TRUE),
+    y = max(SEXTANT_2019_spm_95$scaled_aire_panache, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "ρ = ", rho,
+      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 8,
+    color = "grey20",
+    fontface = "italic"
+  ) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, 
+                        name = "Aire des panaches (en km²)")
+  ) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(
+    title = "Évolution des panaches et des débits cumulés du Var, Paillon et Magnan vu par le produit SEXTANT OC5 (2019)",
+    x = NULL,
+    color = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
+    axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
+    axis.text         = element_text(size = 10, color = "grey30"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    axis.ticks        = element_line(color = "grey70"),
+    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor  = element_blank(),
+    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position   = "top",
+    legend.text       = element_text(size = 10)
+  )
+

@@ -1,4 +1,4 @@
-# SEXTANT spatio-temporal analysis new
+# SEXTANT spatio-temporal analysis clean
 # 27/02/2026
 
 # new script for spatio-temporal analysis of SEXTANT data
@@ -73,7 +73,6 @@ load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
 }
 
 # Load data ---------------------------------------------------------------
-
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
@@ -362,4 +361,5 @@ ggplot() +
 Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
 
 cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
+
 
