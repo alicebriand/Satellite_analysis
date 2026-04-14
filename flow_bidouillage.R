@@ -43,8 +43,8 @@ flow_comp <- function(mouth_info){
   flow_df <- All_debit_2019 # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/ODATIS-MR_expert/95 percentile/clean/OLCI_SPM_R_PO_sub_clean.Rdata")  # charge ton objet SPM
-  plume_daily <- OLCI_SPM_R_PO_sub_clean |>  
+  load("data/ODATIS-MR_expert/95 percentile/clean/OLCI_SPM_G_PO_sub_0.94_clean.Rdata")  # charge ton objet SPM
+  plume_daily <- OLCI_SPM_G_PO_sub_0.94_clean |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -115,7 +115,7 @@ flow_comp <- function(mouth_info){
       size = 6,
       fontface = "italic"
     ) +
-    labs(y = "Aire du panache (km²)", x = "Débit du cumulé du Var, du Paillon et du Magnan (m³ s⁻¹)") +
+    labs(y = "Aire du panache (km²)", x = "Débit cumulé du Var, du Paillon et du Magnan (m³ s⁻¹)") +
     theme_bw() +
     theme(panel.border = element_rect(fill = NA, colour = "black"),
           legend.position = "bottom")
@@ -133,7 +133,7 @@ flow_comp <- function(mouth_info){
   cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/ODATIS MR expert/OLCI/Débit vs aire des panaches/cor_plot_flow_plume_debit_cumule_OLCI_95_R_PO.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/ODATIS MR expert/OLCI/Débit vs aire des panaches/seuil 0.94/cor_plot_flow_plume_debit_cumule_OLCI_0.94_G_PO.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size
