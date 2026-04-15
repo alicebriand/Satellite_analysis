@@ -255,6 +255,7 @@ ggplot(data = sextant_1998_monthly, aes(x = lon, y = lat)) +
   facet_wrap(~month)
 # facet_grid(year~month)
 
+
 # on veut faire une carte pour 1 jour en particulier
 # Filtrer pour le jour voulu
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%

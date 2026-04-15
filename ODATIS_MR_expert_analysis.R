@@ -13,6 +13,8 @@ library(ncdf4)    # For reading NetCDF files
 library(lubridate) # For working with dates
 library(reshape2) # For data reshaping
 library(ggplot2)
+library(rnaturalearth)
+library(ggspatial)
 
 # load data ---------------------------------------------------------------
 
@@ -31,21 +33,21 @@ load("data/ODATIS-MR_expert/MODIS_SPM_R_NS_sub.RData")
 load("data/ODATIS-MR_expert/MODIS_SPM_R_PO_sub.RData")
 
 # OLCI A
-# load("data/ODATIS-MR_expert/OLCIA_SPM_G_AC_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIA_SPM_G_PO_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIA_SPM_R_AC_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIA_SPM_R_PO_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_G_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_G_PO_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_R_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIA_SPM_R_PO_sub.RData")
 
 # OLCI B (2019)
-# load("data/ODATIS-MR_expert/OLCIB_SPM_G_AC_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIB_SPM_G_PO_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIB_SPM_R_AC_sub.RData")
-# load("data/ODATIS-MR_expert/OLCIB_SPM_R_PO_sub.RData")
+load("data/ODATIS-MR_expert/OLCIB_SPM_G_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIB_SPM_G_PO_sub.RData")
+load("data/ODATIS-MR_expert/OLCIB_SPM_R_AC_sub.RData")
+load("data/ODATIS-MR_expert/OLCIB_SPM_R_PO_sub.RData")
 
 # merge data
 
-# OLCI_SPM_G_AC_sub <- bind_rows(OLCIA_SPM_G_AC_sub, OLCIB_SPM_G_AC_sub)
-# OLCI_SPM_G_PO_sub <- bind_rows(OLCIA_SPM_G_PO_sub, OLCIB_SPM_G_PO_sub)
+OLCI_SPM_G_AC_sub <- bind_rows(OLCIA_SPM_G_AC_sub, OLCIB_SPM_G_AC_sub)
+OLCI_SPM_G_PO_sub <- bind_rows(OLCIA_SPM_G_PO_sub, OLCIB_SPM_G_PO_sub)
 # OLCI_SPM_R_AC_sub <- bind_rows(OLCIA_SPM_R_AC_sub, OLCIB_SPM_R_AC_sub)
 # OLCI_SPM_R_PO_sub <- bind_rows(OLCIA_SPM_R_PO_sub, OLCIB_SPM_R_PO_sub)
 
@@ -73,6 +75,13 @@ load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_G_AC_sub_95.Rdata")
 load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_G_PO_sub_95.Rdata")
 load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_R_AC_sub_95.Rdata")
 load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_R_PO_sub_95.Rdata")
+
+# Hydrological data
+
+load("data/Hydro France/Y6442010_depuis_2000.Rdata")
+load("data/Hydro France/Y6442010_2009.Rdata")
+load("data/Hydro France/All_debit.Rdata")
+load("data/Hydro France/All_debit_2019.Rdata")
 
 # function ----------------------------------------------------------------
 
@@ -414,7 +423,7 @@ OLCI_SPM_R_PO_sub_95 <- OLCI_SPM_R_PO_sub |>
 # save(OLCI_SPM_R_AC_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCI_SPM_R_AC_sub_95.Rdata")
 # save(OLCI_SPM_R_PO_sub_95, file = "data/ODATIS-MR_expert/95 percentile/OLCI_SPM_R_PO_sub_95.Rdata")
 
-# plotting threshold ------------------------------------------------------
+# plotting threshold 95 ------------------------------------------------------
 
 # ── 1. Tableau récapitulatif de tous les seuils ────────────────────────────
 seuils_df <- data.frame(
@@ -965,7 +974,7 @@ ggplot(data = OLCI_SPM_R_PO_sub_95, aes(x = date, y = mean_spm)) +
 Y6442010_2009 <- Y6442010_depuis_2000 |> 
   filter(date >= as.Date("2009-01-01"), date <= as.Date("2009-12-31"))
 
-save(Y6442010_2009, file = "data/Hydro France/Y6442010_2009.Rdata")
+# save(Y6442010_2009, file = "data/Hydro France/Y6442010_2009.Rdata")
 
 # 2019 (Var, Magnan and Paillon data)
 
@@ -2069,6 +2078,12 @@ ggplot() +
 # MODIS_SPM_G_NS
 # OLCI_SPM_G_PO
 
+
+# load sextant data -------------------------------------------------------
+
+load("data/SEXTANT/SPM/SEXTANT_2009_spm_95.Rdata")
+load("data/SEXTANT/SPM/SEXTANT_2019_spm_95.Rdata")
+
 ## MERIS --------------------------------------------------------------------
 
 ODATIS_EXPERT_SEXTANT_panache <- left_join(MERIS_SPM_G_PO_sub_clean, SEXTANT_2009_spm_95, by = "date")
@@ -2084,8 +2099,8 @@ p_value <- cor_result$p.value
 
 # 2. Graphique
 ggplot() +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "MERIS")) +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "MERIS")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
   annotate(
     "text",
     x = min(ODATIS_EXPERT_SEXTANT_panache$date, na.rm = TRUE),
@@ -2142,8 +2157,8 @@ p_value <- cor_result$p.value
 
 # 2. Graphique
 ggplot() +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "MODIS")) +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "MODIS")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
   annotate(
     "text",
     x = min(ODATIS_EXPERT_SEXTANT_panache$date, na.rm = TRUE),
@@ -2202,8 +2217,8 @@ p_value <- cor_result$p.value
 
 # 2. Graphique
 ggplot() +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "OLCI")) +
-  geom_point(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.x, color = "OLCI")) +
+  geom_line(data = ODATIS_EXPERT_SEXTANT_panache, aes(x = date, y = aire_panache_km2.y, color = "SEXTANT OC5")) +
   annotate(
     "text",
     x = min(ODATIS_EXPERT_SEXTANT_panache$date, na.rm = TRUE),
@@ -2247,6 +2262,105 @@ ggplot() +
     legend.key.size   = unit(1.2, "cm")       # ← points de la légende plus gros
   )
 
+# 98 percentile -----------------------------------------------------------
+
+#### MERIS_SPM_G_PO_sub ------------------------------------------------------
+
+seuil_98_MERIS_SPM_G_PO_sub <- quantile(MERIS_SPM_G_PO_sub$`SPM-G-PO_mean`, 0.98, na.rm = TRUE)
+cat("Seuil 98ème percentile :", seuil_98_MERIS_SPM_G_PO_sub, "g/m³\n")
+
+# seuil = 0.745317 g/m³
+
+# Stats du panache par jour
+# MERIS_SPM_G_AC_sub_95 <- MERIS_SPM_G_AC_sub |> 
+#   group_by(date) |> 
+#   summarise(
+#     pixel_count = sum(`SPM-G-AC_mean`>= seuil_95_MERIS_SPM_G_AC_sub, na.rm = TRUE),
+#     mean_spm = mean(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_95_MERIS_SPM_G_AC_sub], na.rm = TRUE),
+#     median_spm = median(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_95_MERIS_SPM_G_AC_sub], na.rm = TRUE),
+#     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+#   )
+
+#### MODIS_SPM_G_NS_sub ------------------------------------------------------
+
+seuil_98_MODIS_SPM_G_NS_sub <- quantile(MODIS_SPM_G_NS_sub$`SPM-G-NS_mean`, 0.98, na.rm = TRUE)
+cat("Seuil 98ème percentile :", seuil_98_MODIS_SPM_G_NS_sub, "g/m³\n")
+
+# seuil = 1.388686 g/m³
+
+# Stats du panache par jour
+# MODIS_SPM_G_NS_sub_98 <- MODIS_SPM_G_NS_sub |> 
+#   group_by(date) |> 
+#   summarise(
+#     pixel_count = sum(`SPM-G-NS_mean`>= seuil_98_MODIS_SPM_G_NS_sub, na.rm = TRUE),
+#     mean_spm = mean(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_98_MODIS_SPM_G_NS_sub], na.rm = TRUE),
+#     median_spm = median(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_98_MODIS_SPM_G_NS_sub], na.rm = TRUE),
+#     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+#   )
+
+#### OLCI_SPM_G_PO_sub ------------------------------------------------------
+
+seuil_98_OLCI_SPM_G_PO_sub <- quantile(OLCI_SPM_G_PO_sub$`SPM-G-PO_mean`, 0.98, na.rm = TRUE)
+cat("Seuil 98ème percentile :", seuil_98_OLCI_SPM_G_PO_sub, "g/m³\n")
+
+# seuil = 1.027433 g/m³
+
+# Stats du panache par jour
+# OLCI_SPM_G_PO_sub_98 <- OLCI_SPM_G_PO_sub |> 
+#   group_by(date) |> 
+#   summarise(
+#     pixel_count = sum(`SPM-G-PO_mean`>= seuil_98_OLCI_SPM_G_PO_sub, na.rm = TRUE),
+#     mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_98_OLCI_SPM_G_PO_sub], na.rm = TRUE),
+#     median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_98_OLCI_SPM_G_PO_sub], na.rm = TRUE),
+#     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+#   )
+
+# plotting threshold 98 ------------------------------------------------------
+
+# ── 1. Tableau récapitulatif de tous les seuils ────────────────────────────
+seuils_df <- data.frame(
+  capteur  = c(rep("MERIS", 1), rep("MODIS", 1), rep("OLCI", 1)),
+  algo     = c("G", "G","G"),
+  correc   = c("PO", "NS","PO"),
+  seuil    = c(
+    seuil_98_MERIS_SPM_G_PO_sub,  # 0.745317
+    seuil_98_MODIS_SPM_G_NS_sub,  # 1.388686
+    seuil_98_OLCI_SPM_G_PO_sub   # 1.027433
+  )
+) |>
+  mutate(
+    label    = paste0(algo, "-", correc),
+    label_val = round(seuil, 2)
+  )
+
+# ── 2. Barplot groupé par capteur ─────────────────────────────────────────
+couleurs_algo <- c(
+  "G-PO" = "#aec7e8",
+  "G-NS" = "#6baed6"
+)
+
+ggplot(seuils_df, aes(x = capteur, y = seuil, fill = label)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65, color = "white") +
+  geom_text(
+    aes(label = label_val),
+    position = position_dodge(width = 0.75),
+    vjust = -0.4, size = 3, fontface = "bold"
+  ) +
+  scale_fill_manual(values = couleurs_algo, name = "Algo - Correction") +
+  labs(
+    title    = "Seuils au 98ème percentile — comparaison capteurs & algorithmes",
+    subtitle = "G = Général | R = Régional | AC = Acolite | PO = Polymer | NS = NirSwir",
+    x        = NULL,
+    y        = "Seuil SPM (g/m³)"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 13),
+    plot.subtitle = element_text(size = 9, color = "grey50"),
+    legend.position = "bottom",
+    panel.grid.major.x = element_blank()
+  )
+
 # Fixed threshold ---------------------------------------------------------
 
 # to not being influenced by threshold we have to set a fix one
@@ -2256,106 +2370,6 @@ ggplot() +
 # so we can choose firstly the threshold of sextant OC5 product
 
 ## MERIS -------------------------------------------------------------------
-
-### MERIS_SPM_G_AC_sub -------------------------------------------------------------------
-
-seuil_sextant_MERIS_SPM_G_AC_sub <- 0.94
-
-# Stats du panache par jour
-MERIS_SPM_G_AC_sub_0.94 <- MERIS_SPM_G_AC_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-AC_mean`>= seuil_sextant_MERIS_SPM_G_AC_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_sextant_MERIS_SPM_G_AC_sub], na.rm = TRUE),
-    median_spm = median(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_sextant_MERIS_SPM_G_AC_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-# To compare precisely river runoff and plume area we have to merge data set to
-# only keep values in both data set
-
-# first clean data
-MERIS_SPM_G_AC_sub_0.94_clean <- na.omit(MERIS_SPM_G_AC_sub_0.94)
-
-# save(MERIS_SPM_G_AC_sub_0.94_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_G_AC_sub_0.94_clean.Rdata")
-
-MERIS_SPM_G_AC_sub_0.94_deb <- MERIS_SPM_G_AC_sub_0.94_clean |> 
-  left_join(Y6442010_2009, by = "date")
-
-adjust_factors <- sec_axis_adjustement_factors(MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2, MERIS_SPM_G_AC_sub_0.94_deb$débit)
-
-MERIS_SPM_G_AC_sub_0.94_deb$scaled_aire_panache <- MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
-
-# 1. Tester la normalité
-shapiro.test(MERIS_SPM_G_AC_sub_0.94_deb$débit)
-shapiro.test(MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2)
-# Si p-value < 0.05 → pas normal → Spearman
-
-# 2. Visualiser la relation
-plot(MERIS_SPM_G_AC_sub_0.94_deb$débit, MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2)
-# Si la relation est courbe → Spearman
-cor.test(MERIS_SPM_G_AC_sub_0.94_deb$débit, MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2, method = "spearman")
-
-# 1. Stocker le résultat du cor.test
-cor_result <- cor.test(MERIS_SPM_G_AC_sub_0.94_deb$débit, 
-                       MERIS_SPM_G_AC_sub_0.94_deb$aire_panache_km2, 
-                       method = "spearman")
-
-# 2. Extraire les valeurs
-rho <- round(as.numeric(cor_result$estimate), 3)
-p_value <- cor_result$p.value
-
-# 3. Plotting
-ggplot() +
-  geom_point(data = MERIS_SPM_G_AC_sub_0.94_deb,
-             aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
-  geom_point(data = MERIS_SPM_G_AC_sub_0.94_deb,
-             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
-  annotate(
-    "text",
-    x = min(MERIS_SPM_G_AC_sub_0.94_deb$date, na.rm = TRUE),
-    y = max(MERIS_SPM_G_AC_sub_0.94_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
-    label = paste0(
-      "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
-    ),
-    hjust = 0, vjust = 1,
-    size = 8,
-    color = "grey20",
-    fontface = "italic"
-  ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
-                    guide = "none") +
-  scale_y_continuous(
-    name = "Débit (m³/s)",
-    expand = expansion(mult = c(0.02, 0.08)),
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
-                        name = "Aire des panaches (en km²)")
-  ) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
-    x       = NULL,
-    color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Acolite | Seuil à 0.94 g/m³"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
-    axis.text        = element_text(size = 10, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
-    axis.ticks       = element_line(color = "grey70"),
-    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
-    panel.grid.minor = element_blank(),
-    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
-    legend.position  = "top",
-    legend.text      = element_text(size = 10)
-  )
 
 ### MERIS_SPM_G_PO_sub -------------------------------------------------------------------
 
@@ -2455,34 +2469,6 @@ ggplot() +
     panel.border     = element_rect(color = "grey70", linewidth = 0.5),
     legend.position  = "bottom",
     legend.text      = element_text(size = 10)
-  )
-
-### MERIS_SPM_R_AC_sub -------------------------------------------------------------------
-
-seuil_sextant_MERIS_SPM_R_AC_sub <- 0.94
-
-# Stats du panache par jour
-MERIS_SPM_R_AC_sub_0.94 <- MERIS_SPM_R_AC_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-AC_mean`>= seuil_sextant_MERIS_SPM_R_AC_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_sextant_MERIS_SPM_R_AC_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_sextant_MERIS_SPM_R_AC_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-### MERIS_SPM_R_PO_sub -------------------------------------------------------------------
-
-seuil_sextant_MERIS_SPM_R_PO_sub <- 0.94
-
-# Stats du panache par jour
-MERIS_SPM_R_PO_sub_0.94 <- MERIS_SPM_R_PO_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-PO_mean`>= seuil_sextant_MERIS_SPM_R_PO_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_MERIS_SPM_R_PO_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_MERIS_SPM_R_PO_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
 ## MODIS -------------------------------------------------------------------
@@ -2587,63 +2573,7 @@ ggplot() +
     legend.text      = element_text(size = 10)
   )
 
-### MODIS_SPM_G_PO_sub ------------------------------------------------------
-
-seuil_sextant_MODIS_SPM_G_PO_sub <- 0.94
-
-# Stats du panache par jour
-MODIS_SPM_G_PO_sub_0.94 <- MODIS_SPM_G_PO_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-PO_mean`>= seuil_sextant_MODIS_SPM_G_PO_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_sextant_MODIS_SPM_G_PO_sub], na.rm = TRUE),
-    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_sextant_MODIS_SPM_G_PO_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-### MODIS_SPM_R_NS_sub ------------------------------------------------------
-
-seuil_sextant_MODIS_SPM_R_NS_sub <- 0.94
-
-# Stats du panache par jour
-MODIS_SPM_R_NS_sub_0.94 <- MODIS_SPM_R_NS_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-NS_mean`>= seuil_sextant_MODIS_SPM_R_NS_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-NS_mean`[`SPM-R-NS_mean` >= seuil_sextant_MODIS_SPM_R_NS_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-NS_mean`[`SPM-R-NS_mean` >= seuil_sextant_MODIS_SPM_R_NS_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-### MODIS_SPM_R_PO_sub ------------------------------------------------------
-
-seuil_sextant_MODIS_SPM_R_PO_sub <- 0.94
-
-# Stats du panache par jour
-MODIS_SPM_R_PO_sub_0.94 <- MODIS_SPM_R_PO_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-PO_mean`>= seuil_sextant_MODIS_SPM_R_PO_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_MODIS_SPM_R_PO_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_MODIS_SPM_R_PO_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
 ## OLCI -------------------------------------------------------------------
-
-### OLCI_SPM_G_AC_sub ------------------------------------------------------
-
-seuil_sextant_OLCI_SPM_G_AC_sub <- 0.94
-
-# Stats du panache par jour
-OLCI_SPM_G_AC_sub_0.94 <- OLCI_SPM_G_AC_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-AC_mean`>= seuil_sextant_OLCI_SPM_G_AC_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_sextant_OLCI_SPM_G_AC_sub], na.rm = TRUE),
-    median_spm = median(`SPM-G-AC_mean`[`SPM-G-AC_mean` >= seuil_sextant_OLCI_SPM_G_AC_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
 
 ### OLCI_SPM_G_PO_sub ------------------------------------------------------
 
@@ -2745,35 +2675,818 @@ ggplot() +
     legend.text      = element_text(size = 10)
   )
 
-### OLCI_SPM_R_AC_sub ------------------------------------------------------
+# spatial analysis -------------------------------------------------------
 
-seuil_sextant_OLCI_SPM_R_AC_sub <- 0.94
+# On identifie 3 dates : une date de crue forte, de crue moyenne / petite et 
+# un jour sans crue
+# Ensuite, à partir des produits bruts on sélectionne seulement ces dates
+# Et pour chaque produit on plotte la carte spatiale
 
-# Stats du panache par jour
-OLCI_SPM_R_AC_sub_0.94 <- OLCI_SPM_R_AC_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-AC_mean`>= seuil_sextant_OLCI_SPM_R_AC_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_sextant_OLCI_SPM_R_AC_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-AC_mean`[`SPM-R-AC_mean` >= seuil_sextant_OLCI_SPM_R_AC_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+## identification des dates ------------------------------------------------
+
+# MERIS (2009)
+
+# forte crue : 09 , 08/02/2009
+# moyenne / petite crue : 25/01/2009
+# pas de crue : 16/02/2009
+
+# MODIS (2019)
+
+# forte crue : 23/12/2019
+# moyenne / petite crue : 27/04/2019
+# pas de crue : 20/07/2019
+
+# OLCI (2019)
+
+# forte crue : 23/12/2019
+# moyenne / petite crue : 27/04/2019
+# pas de crue : 20/07/2019
+
+# filter raw data ---------------------------------------------------------
+
+# MERIS_SPM_G_AC -------------------------------------------------------------------
+
+MERIS_SPM_G_AC_sub_big_flood <- MERIS_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2009-02-09"), date <= as.Date("2009-02-09"))
+
+MERIS_SPM_G_AC_sub_small_flood <- MERIS_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2009-01-25"), date <= as.Date("2009-01-25"))
+
+MERIS_SPM_G_AC_sub_no_flood <- MERIS_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2009-02-16"), date <= as.Date("2009-02-16"))
+
+# MERIS_SPM_G_PO -------------------------------------------------------------------
+
+MERIS_SPM_G_PO_sub_big_flood <- MERIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2009-02-09"), date <= as.Date("2009-02-09"))
+
+MERIS_SPM_G_PO_sub_small_flood <- MERIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2009-01-25"), date <= as.Date("2009-01-25"))
+
+MERIS_SPM_G_PO_sub_no_flood <- MERIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2009-02-16"), date <= as.Date("2009-02-16"))
+
+# MODIS_SPM_G_NS ----------------------------------------------------------
+
+MODIS_SPM_G_NS_sub_big_flood <- MODIS_SPM_G_NS_sub |> 
+  filter(date >= as.Date("2019-12-23"), date <= as.Date("2019-12-23"))
+
+MODIS_SPM_G_NS_sub_small_flood <- MODIS_SPM_G_NS_sub |> 
+  filter(date >= as.Date("2019-04-27"), date <= as.Date("2019-04-27"))
+
+MODIS_SPM_G_NS_sub_no_flood <- MODIS_SPM_G_NS_sub |> 
+  filter(date >= as.Date("2019-08-03"), date <= as.Date("2019-08-03"))
+
+# MODIS_SPM_G_PO ----------------------------------------------------------
+
+MODIS_SPM_G_PO_sub_big_flood <- MODIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-12-23"), date <= as.Date("2019-12-23"))
+
+MODIS_SPM_G_PO_sub_small_flood <- MODIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-04-27"), date <= as.Date("2019-04-27"))
+
+MODIS_SPM_G_PO_sub_no_flood <- MODIS_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-08-03"), date <= as.Date("2019-08-03"))
+
+# OLCI_SPM_G_AC -----------------------------------------------------------
+
+OLCI_SPM_G_AC_sub_big_flood <- OLCI_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2019-12-23"), date <= as.Date("2019-12-23"))
+
+OLCI_SPM_G_AC_sub_small_flood <- OLCI_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2019-04-27"), date <= as.Date("2019-04-27"))
+
+OLCI_SPM_G_AC_sub_no_flood <- OLCI_SPM_G_AC_sub |> 
+  filter(date >= as.Date("2019-08-03"), date <= as.Date("2019-08-03"))
+
+# OLCI_SPM_G_PO -----------------------------------------------------------
+
+OLCI_SPM_G_PO_sub_big_flood <- OLCI_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-12-23"), date <= as.Date("2019-12-23"))
+
+OLCI_SPM_G_PO_sub_small_flood <- OLCI_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-04-27"), date <= as.Date("2019-04-27"))
+
+OLCI_SPM_G_PO_sub_no_flood <- OLCI_SPM_G_PO_sub |> 
+  filter(date >= as.Date("2019-08-03"), date <= as.Date("2019-08-03"))
+
+# graph -------------------------------------------------------------------
+
+world_hr <- ne_countries(scale = "medium", returnclass = "sf")
+
+# spatial plotting --------------------------------------------------------
+
+## MERIS_SPM_G_AC -------------------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_AC_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 09 février 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
   )
 
-### OLCI_SPM_R_PO_sub ------------------------------------------------------
+### Small flood ---------------------------------------------------------------
 
-seuil_sextant_OLCI_SPM_R_PO_sub <- 0.94
-
-# Stats du panache par jour
-OLCI_SPM_R_PO_sub_0.94 <- OLCI_SPM_R_PO_sub |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-R-PO_mean`>= seuil_sextant_OLCI_SPM_R_PO_sub, na.rm = TRUE),
-    mean_spm = mean(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_OLCI_SPM_R_PO_sub], na.rm = TRUE),
-    median_spm = median(`SPM-R-PO_mean`[`SPM-R-PO_mean` >= seuil_sextant_OLCI_SPM_R_PO_sub], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_AC_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+    borders("world", colour = "grey30", linewidth = 0.4) +
+    coord_fixed(
+      ratio = 1.2,
+      xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+      ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+    ) +
+  labs(
+    title    = "Concentration en MES — 25 janvier 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
   )
 
-# River runoff vs mean spm ----------------------------------------------
-# River runoff vs median spm ----------------------------------------------
+### No flood ---------------------------------------------------------------
 
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_AC_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 16 février 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+## MERIS_SPM_G_PO -------------------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_PO_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 09 février 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### Small flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_PO_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 25 janvier 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### No flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MERIS_SPM_G_PO_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 16 février 2009",
+    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+## MODIS_SPM_G_NS ----------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_NS_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-NS_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_NS_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_NS_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 23 décembre 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : NirSwir",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### Small flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_NS_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-NS_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_NS_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_NS_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 27 avril 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : NirSwir",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### No flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_NS_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-NS_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_NS_sub_no_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_NS_sub_no_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 03 août 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : NirSwir",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+## MODIS_SPM_G_PO ----------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_PO_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_PO_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_PO_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 23 décembre 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### Small flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_PO_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_PO_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_PO_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 27 avril 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### No flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = MODIS_SPM_G_PO_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(MODIS_SPM_G_PO_sub_no_flood$lon, na.rm = TRUE),
+    ylim = range(MODIS_SPM_G_PO_sub_no_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 03 août 2019",
+    subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.position  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+## OLCI_SPM_G_AC -----------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_AC_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_AC_sub_big_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_AC_sub_big_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 23 décembre 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### Small flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_AC_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 27 avril 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### No flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_AC_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_AC_sub_no_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_AC_sub_no_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 03 août 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Acolite",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+## OLCI_SPM_G_PO -----------------------------------------------------------
+
+### Big flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_PO_sub_big_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_PO_sub_big_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_PO_sub_big_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 23 décembre 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### Small flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_PO_sub_small_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_PO_sub_small_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_PO_sub_small_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 27 avril 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
+
+### No flood ---------------------------------------------------------------
+
+ggplot() +
+  geom_tile(data = OLCI_SPM_G_PO_sub_no_flood, 
+            aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  annotation_north_arrow(location = "tr") +
+  scale_fill_viridis_c(
+    name     = "MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  borders("world", colour = "grey30", linewidth = 0.4) +
+  coord_fixed(
+    ratio = 1.2,
+    xlim = range(OLCI_SPM_G_PO_sub_no_flood$lon, na.rm = TRUE),
+    ylim = range(OLCI_SPM_G_PO_sub_no_flood$lat, na.rm = TRUE)
+  ) +
+  labs(
+    title    = "Concentration en MES — 03 août 2019",
+    subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)",
+    caption  = "Source : ODATIS — MR Expert Product"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 10, color = "grey40", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
+    axis.title       = element_text(size = 11),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey50", linewidth = 0.5),
+    legend.ACsition  = "right",
+    legend.title     = element_text(size = 10, face = "bold"),
+    legend.text      = element_text(size = 9)
+  )
 
