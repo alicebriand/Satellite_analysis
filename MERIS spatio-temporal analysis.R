@@ -167,9 +167,9 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 
 # Calculer le 95ème percentile
 seuil_95 <- quantile(MERIS_2002_2012_spm_pixels$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
-cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
+cat("Seuil 95ème percentile :", seuil_95, "g/m³\n")
 
-# Seuil 95ème percentile : 0.4883142 mg/m³
+# Seuil 95ème percentile : 0.4910305 g/m³
 
 # Stats du panache par jour
 MERIS_2002_2012_spm_95 <- MERIS_2002_2012_spm_pixels |> 
@@ -310,42 +310,218 @@ ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
+# River runoff vs plume area ----------------------------------------------
 
+## 95ème percentile --------------------------------------------------------
 
-# comparison between liquid flow rate and panache extension
+# For hydrological data, we have to create new df to load only the years between 
+# 2002 and 2012
 
-adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2012_spm_95_propre$median_spm, Y6442010_2002_2012$débit)
+# Only Var data
+Y6442010_2002_2012 <- Y6442010_depuis_2000 |> 
+  filter(date >= as.Date("2002-01-01"), date <= as.Date("2012-12-31"))
 
-MERIS_2002_2012_spm_95_propre$scaled_median_spm <- MERIS_2002_2012_spm_95_propre$median_spm * adjust_factors$diff + adjust_factors$adjust
+# save(Y6442010_2002_2012, file = "data/Hydro France/Y6442010_2002_2012.Rdata")
 
+# first clean data
+MERIS_2002_2012_spm_95_clean <- na.omit(MERIS_2002_2012_spm_95)
+
+# Then, we have to match satellite observation with liquid flow rate by date
+
+MERIS_2002_2012_spm_95_deb <- MERIS_2002_2012_spm_95_clean |> 
+  left_join(Y6442010_2002_2012, by = "date")
+
+# We have a lot of holes in hydrological data and we want to erase them
+
+MERIS_2002_2012_spm_95_deb_clean <- na.omit(MERIS_2002_2012_spm_95_deb)
+
+# Adjustment between values
+
+adjust_factors <- sec_axis_adjustement_factors(MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2, MERIS_2002_2012_spm_95_deb_clean$débit)
+
+MERIS_2002_2012_spm_95_deb_clean$scaled_aire_panache <- MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+# 1. Tester la normalité
+shapiro.test(MERIS_2002_2012_spm_95_deb_clean$débit)
+shapiro.test(MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2)
+# Si p-value < 0.05 → pas normal → Spearman
+
+# 2. Visualiser la relation
+plot(MERIS_2002_2012_spm_95_deb_clean$débit, MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2)
+# Si la relation est courbe → Spearman
+cor.test(MERIS_2002_2012_spm_95_deb_clean$débit, MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2, method = "spearman")
+
+# 1. Stocker le résultat du cor.test
+cor_result <- cor.test(MERIS_2002_2012_spm_95_deb_clean$débit, 
+                       MERIS_2002_2012_spm_95_deb_clean$aire_panache_km2, 
+                       method = "spearman")
+
+# 2. Extraire les valeurs
+rho <- round(as.numeric(cor_result$estimate), 3)
+p_value <- cor_result$p.value
+
+# 3. Plotting
 ggplot() +
-  geom_point(data = Y6442010_2002_2012, 
-             aes(x = date, y = débit, color = "Débit"), size = 0.5) +
-  geom_point(data = MERIS_2002_2012_spm_95_propre, 
-             aes(x = date, y = scaled_median_spm, color = "Concentration en MES"), size = 0.5) +
-  scale_color_manual(values = c("Débit" = "blue", "Concentration en MES" = "red3")) +
+  geom_point(data = MERIS_2002_2012_spm_95_deb_clean,
+             aes(x = date, y = débit, color = "Débit du Var"),
+             size = 1.5, alpha = 0.4) +
+  geom_point(data = MERIS_2002_2012_spm_95_deb_clean,
+             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
+             size = 1.5, alpha = 0.4) +
+  annotate(
+    "text",
+    x = min(MERIS_2002_2012_spm_95_deb_clean$date, na.rm = TRUE),
+    y = max(MERIS_2002_2012_spm_95_deb_clean$scaled_aire_panache, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "ρ = ", rho,
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 8,
+    color = "grey20",
+    fontface = "italic"
+  ) +   # ← le + manquait ici !
+  scale_color_manual(values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan"),
+                    guide = "none") +
   scale_y_continuous(
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Concentration moyenne en MES (en mg/m³)")
+    expand = expansion(mult = c(0.02, 0.08)),
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
+                        name = "Aire des panaches (en km²)")
   ) +
-  labs(title = "Évolution de la concentration médiane en MES et du débit du Var vu par le produit MERIS (ODATIS-MR)",
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    x       = NULL,
+    color   = NULL,
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.text        = element_text(size = 13, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 14)
   )
 
-# runoff vs SPM concentration correlation ---------------------------------
+# seuil sextant 0.94 ------------------------------------------------------
 
-Var_MERIS <- Y6442010_2002_2012 %>%
-  select(date, débit) %>%
-  inner_join(
-    MERIS_2002_2012_spm_95_propre %>% select(date, mean_spm, aire_panache_km2, median_spm),
-    by = "date"
+# As we saw previously with MERIS data, the correlation seems to increase with 
+# a higher threshold
+
+seuil_sextant_MERIS_SPM <- 0.94
+
+# Stats du panache par jour
+MERIS_SPM_0.94 <- MERIS_2002_2012_spm_pixels |> 
+  group_by(date) |> 
+  summarise(
+    pixel_count = sum(`SPM-G-PO_mean`>= seuil_sextant_MERIS_SPM, na.rm = TRUE),
+    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_sextant_MERIS_SPM], na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_sextant_MERIS_SPM], na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
-cor.test(Var_MERIS$débit, Var_MERIS$median_spm, method = "spearman")
+# To compare precisely river runoff and plume area we have to merge data set to
+# only keep values in both data set
+
+# first clean data
+MERIS_SPM_0.94_clean <- na.omit(MERIS_SPM_0.94)
+
+# save(MERIS_SPM_G_PO_sub_0.94_clean, file = "data/ODATIS-MR_expert/95 percentile/clean/MERIS_SPM_G_PO_sub_0.94_clean.Rdata")
+
+MERIS_SPM_0.94_deb <- MERIS_SPM_0.94_clean |> 
+  left_join(Y6442010_2002_2012, by = "date")
+
+# We have a lot of holes in hydrological data and we want to erase them
+MERIS_SPM_0.94_deb <- na.omit(MERIS_SPM_0.94_deb)
+
+adjust_factors <- sec_axis_adjustement_factors(MERIS_SPM_0.94_deb$aire_panache_km2, MERIS_SPM_0.94_deb$débit)
+
+MERIS_SPM_0.94_deb$scaled_aire_panache <- MERIS_SPM_0.94_deb$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+# 1. Tester la normalité
+shapiro.test(MERIS_SPM_0.94_deb$débit)
+shapiro.test(MERIS_SPM_0.94_deb$aire_panache_km2)
+# Si p-value < 0.05 → pas normal → Spearman
+
+# 2. Visualiser la relation
+plot(MERIS_SPM_0.94_deb$débit, MERIS_SPM_0.94_deb$aire_panache_km2)
+# Si la relation est courbe → Spearman
+cor.test(MERIS_SPM_0.94_deb$débit, MERIS_SPM_0.94_deb$aire_panache_km2, method = "spearman")
+
+# 1. Stocker le résultat du cor.test
+cor_result <- cor.test(MERIS_SPM_0.94_deb$débit, 
+                       MERIS_SPM_0.94_deb$aire_panache_km2, 
+                       method = "spearman")
+
+# 2. Extraire les valeurs
+rho <- round(as.numeric(cor_result$estimate), 3)
+p_value <- cor_result$p.value
+
+# 3. Plotting
+ggplot() +
+  geom_point(data = MERIS_SPM_0.94_deb,
+             aes(x = date, y = débit, color = "Débit du Var"),
+             size = 2, alpha = 0.6) +
+  geom_point(data = MERIS_SPM_0.94_deb,
+             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
+             size = 2, alpha = 0.6) +
+  annotate(
+    "text",
+    x = min(MERIS_SPM_0.94_deb$date, na.rm = TRUE),
+    y = max(MERIS_SPM_0.94_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "ρ = ", rho,
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 8,
+    color = "grey20",
+    fontface = "italic"
+  ) +   # ← le + manquait ici !
+  scale_color_manual(values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan"),
+                    guide = "none") +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    expand = expansion(mult = c(0.02, 0.08)),
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
+                        name = "Aire des panaches (en km²)")
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    x       = NULL,
+    color   = NULL,
+    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil à 0.94 g/m³"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 13, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    axis.text        = element_text(size = 13, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 10)
+  )
+
+
+
+
+
 
 
 
