@@ -9,14 +9,18 @@
 
 # Setup ------------------------------------------------------------------
 
+# Install rnaturalearthhires as necessry
+# install.packages("rnaturalearthhires", repos = "https://ropensci.r-universe.dev")
+
 # Load necessary libraries
 library(tidyverse)
 library(tidync)
 library(gganimate)
 library(sf)
 library(rnaturalearth)
+library(giscoR) # Hi-res coastlines
 library(ggpmisc)
-library(doParallel); registerDoParallel(cores = 14)
+library(doParallel); registerDoParallel(cores = parallel::detectCores()-2)
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -362,4 +366,26 @@ Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95
 
 cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
 
+
+
+# Example plot with hi-res coast ------------------------------------------
+
+## This is just an example and should be delete after the hir-res coastline code has been integrated into your figure workflow
+
+# Load one day of SEXTANT data as an example raster
+SEXTANT_one <- load_SEXTANT_spm_pixels("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/01/01/19980101-EUR-L4-SPIM-ATL-v01-fv01-OI.nc", 
+                                       lon_range = lon_range, lat_range = lat_range)
+
+# Hi-res Mediterranean country and coastline shapes
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+# Plot with hi-res coast and SEXTANT raster
+ggplot() +
+  geom_raster(data = SEXTANT_one, aes(x = lon, y = lat, fill = analysed_spim)) +
+  # geom_sf(data = coastline_giscoR, colour = "black", linewidth = 0.3) + # Coastlines
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3) + # Countries
+  coord_sf(xlim = range(SEXTANT_one$lon), ylim = range(SEXTANT_one$lat), expand = FALSE) +
+  scale_fill_viridis_c(option = "turbo", na.value = "transparent") +
+  theme_minimal()
 
