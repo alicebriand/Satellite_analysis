@@ -16,6 +16,8 @@ library(gganimate)
 library(sf)
 library(rnaturalearth)
 library(ggpmisc)
+library(classInt)
+library(mclust)
 library(doParallel); registerDoParallel(cores = 14)
 
 # Get satellite download function
@@ -990,4 +992,22 @@ ggplot() +
     legend.position   = "top",
     legend.text       = element_text(size = 10)
   )
+
+
+# new way of treating sextant data ----------------------------------------
+
+SEXTANT_1998_2025_spm_pixels_clean <- SEXTANT_1998_2025_spm_pixels |>
+  filter(analysed_spim > 0)
+
+# Ensuite on veut savoir s'il y a des NA dans notre base de données (nuages)
+
+# Combien de NA ?
+sum(is.na(SEXTANT_1998_2025_spm_pixels_clean$analysed_spim))
+
+# Est-ce qu'il y en a au moins un ?
+anyNA(SEXTANT_1998_2025_spm_pixels_clean$analysed_spim)
+
+
+
+
 
