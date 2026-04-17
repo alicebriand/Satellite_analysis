@@ -15,6 +15,7 @@ library(reshape2) # For data reshaping
 library(ggplot2)
 library(rnaturalearth)
 library(ggspatial)
+library(classInt)
 
 # load data ---------------------------------------------------------------
 
@@ -48,8 +49,8 @@ load("data/ODATIS-MR_expert/OLCIB_SPM_R_PO_sub.RData")
 
 OLCI_SPM_G_AC_sub <- bind_rows(OLCIA_SPM_G_AC_sub, OLCIB_SPM_G_AC_sub)
 OLCI_SPM_G_PO_sub <- bind_rows(OLCIA_SPM_G_PO_sub, OLCIB_SPM_G_PO_sub)
-# OLCI_SPM_R_AC_sub <- bind_rows(OLCIA_SPM_R_AC_sub, OLCIB_SPM_R_AC_sub)
-# OLCI_SPM_R_PO_sub <- bind_rows(OLCIA_SPM_R_PO_sub, OLCIB_SPM_R_PO_sub)
+OLCI_SPM_R_AC_sub <- bind_rows(OLCIA_SPM_R_AC_sub, OLCIB_SPM_R_AC_sub)
+OLCI_SPM_R_PO_sub <- bind_rows(OLCIA_SPM_R_PO_sub, OLCIB_SPM_R_PO_sub)
 
 load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_G_AC_sub_95.Rdata")
 load("data/ODATIS-MR_expert/95 percentile/OLCI_SPM_G_PO_sub_95.Rdata")
@@ -3490,381 +3491,24 @@ ggplot() +
     legend.text      = element_text(size = 9)
   )
 
-# new way of treating sextant data ----------------------------------------
+# natural break threshold  ------------------------------------------------
 
-# create a zone at the mouth of Var river
-lon_range <- c(7.068225, 7.21000000)
-lat_range <- c(43.509734, 43.723074)
+# plutôt qu'un percentile arbitraire, cherche une rupture dans la distribution 
+# des valeurs
 
-# Fonction pour filtrer les dates avec >20% de NA dans la zone spécifique
-filter_dates_by_na_in_zone <- function(df, lon_range, lat_range, value_col = "value", date_col = "date") {
-  # Filtrer les données dans la zone spécifique
-  df_zone <- df %>%
-    filter(lon >= min(lon_range) & lon <= max(lon_range) &
-             lat >= min(lat_range) & lat <= max(lat_range))
-  
-  # Calculer le % de NA par date dans cette zone
-  na_percent <- df_zone %>%
-    group_by(!!sym(date_col)) %>%
-    summarise(na_percent = mean(is.na(!!sym(value_col))) * 100) %>%
-    ungroup()
-  
-  # Identifier les dates à supprimer (>20% de NA)
-  dates_to_remove <- na_percent %>%
-    filter(na_percent > 20) %>%
-    pull(!!sym(date_col))
-  
-  # Supprimer ces dates du DataFrame original
-  df_filtered <- df %>%
-    filter(!(!!sym(date_col) %in% dates_to_remove))
-  
-  return(df_filtered)
-}
+# MERIS -------------------------------------------------------------------
+
+breaks <- classIntervals(MERIS_SPM, 
+                         n = 5, style = "jenks")
+plot(breaks)  # visualise les ruptures naturelles
+
+# MODIS -------------------------------------------------------------------
+# OLCI -------------------------------------------------------------------
+
+# Seuil par mélange de gaussiennes  ------------------------------------------------
 
 
-# MERIS_SPM_G_PO_sub -------------------------------------------------------------------
-
-# Appliquer la fonction
-MERIS_SPM_G_PO_sub_clean_no_NA <- filter_dates_by_na_in_zone(
-  df = MERIS_SPM_G_PO_sub,
-  lon_range = lon_range,
-  lat_range = lat_range,
-  value_col = "SPM-G-PO_mean",
-  date_col = "date"
-)
-
-## calcul du seuil ------------------------------------------------------
-
-seuil_95_MERIS_SPM_G_PO_sub_clean_no_NA <- quantile(MERIS_SPM_G_PO_sub_clean_no_NA$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
-cat("Seuil 95ème percentile :", seuil_95_MERIS_SPM_G_PO_sub_clean_no_NA, "g/m³\n")
-
-# seuil = 0.5268617 g/m³
-
-# Stats du panache par jour
-MERIS_SPM_G_PO_sub_clean_no_NA_95 <- MERIS_SPM_G_PO_sub_clean_no_NA |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-PO_mean`>= seuil_95_MERIS_SPM_G_PO_sub_clean_no_NA, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_MERIS_SPM_G_PO_sub_clean_no_NA], na.rm = TRUE),
-    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_MERIS_SPM_G_PO_sub_clean_no_NA], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-# save(MERIS_SPM_G_PO_sub_clean_no_NA_95, file = "data/ODATIS-MR_expert/no nuage et seuil 95ème percentile/MERIS_SPM_G_PO_sub_clean_no_NA_95.Rdata")
-
-## correlation -------------------------------------------------------------
-
-# To compare precisely river runoff and plume area we have to merge data set to
-# only keep values in both data set
-
-MERIS_SPM_G_PO_sub_clean_no_NA_deb <- MERIS_SPM_G_PO_sub_clean_no_NA_95 |> 
-  left_join(Y6442010_2009, by = "date")
-
-adjust_factors <- sec_axis_adjustement_factors(MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, MERIS_SPM_G_PO_sub_clean_no_NA_deb$débit)
-
-MERIS_SPM_G_PO_sub_clean_no_NA_deb$scaled_aire_panache <- MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
-
-# 1. Tester la normalité
-shapiro.test(MERIS_SPM_G_PO_sub_clean_no_NA_deb$débit)
-shapiro.test(MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2)
-# Si p-value < 0.05 → pas normal → Spearman
-
-# 2. Visualiser la relation
-plot(MERIS_SPM_G_PO_sub_clean_no_NA_deb$débit, MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2)
-# Si la relation est courbe → Spearman
-cor.test(MERIS_SPM_G_PO_sub_clean_no_NA_deb$débit, MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, method = "spearman")
-
-# 1. Stocker le résultat du cor.test
-cor_result <- cor.test(MERIS_SPM_G_PO_sub_clean_no_NA_deb$débit, 
-                       MERIS_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, 
-                       method = "spearman")
-
-# 2. Extraire les valeurs
-rho <- round(as.numeric(cor_result$estimate), 3)
-p_value <- cor_result$p.value
-
-# 3. Plotting
-ggplot() +
-  geom_point(data = MERIS_SPM_G_PO_sub_clean_no_NA_deb,
-             aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
-  geom_point(data = MERIS_SPM_G_PO_sub_clean_no_NA_deb,
-             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
-  annotate(
-    "text",
-    x = min(MERIS_SPM_G_PO_sub_clean_no_NA_deb$date, na.rm = TRUE),
-    y = max(MERIS_SPM_G_PO_sub_clean_no_NA_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
-    label = paste0(
-      "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
-    ),
-    hjust = 0, vjust = 1,
-    size = 8,
-    color = "grey20",
-    fontface = "italic"
-  ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
-                    guide = "none") +
-  scale_y_continuous(
-    name = "Débit (m³/s)",
-    expand = expansion(mult = c(0.02, 0.08)),
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
-                        name = "Aire des panaches (en km²)")
-  ) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
-    x       = NULL,
-    color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
-    axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
-    axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
-    axis.text         = element_text(size = 10, color = "grey30"),
-    axis.text.x       = element_text(angle = 45, hjust = 1),
-    axis.ticks        = element_line(color = "grey70"),
-    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
-    panel.grid.minor  = element_blank(),
-    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
-    legend.position   = "top",
-    legend.text       = element_text(size = 10)
-  )
-
-# MODIS_SPM_G_NS_sub -------------------------------------------------------------------
-
-# Appliquer la fonction
-MODIS_SPM_G_NS_sub_clean_no_NA <- filter_dates_by_na_in_zone(
-  df = MODIS_SPM_G_NS_sub,
-  lon_range = lon_range,
-  lat_range = lat_range,
-  value_col = "SPM-G-NS_mean",
-  date_col = "date"
-)
-
-## calcul du seuil ------------------------------------------------------
-
-seuil_95_MODIS_SPM_G_NS_sub_clean_no_NA <- quantile(MODIS_SPM_G_NS_sub_clean_no_NA$`SPM-G-NS_mean`, 0.95, na.rm = TRUE)
-cat("Seuil 95ème percentile :", seuil_95_MODIS_SPM_G_NS_sub_clean_no_NA, "g/m³\n")
-
-# seuil = 0.6753418 g/m³
-
-# Stats du panache par jour
-MODIS_SPM_G_NS_sub_clean_no_NA_95 <- MODIS_SPM_G_NS_sub_clean_no_NA |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-NS_mean`>= seuil_95_MODIS_SPM_G_NS_sub_clean_no_NA, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_95_MODIS_SPM_G_NS_sub_clean_no_NA], na.rm = TRUE),
-    median_spm = median(`SPM-G-NS_mean`[`SPM-G-NS_mean` >= seuil_95_MODIS_SPM_G_NS_sub_clean_no_NA], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-# save(MODIS_SPM_G_NS_sub_clean_no_NA_95, file = "data/ODATIS-MR_expert/no nuage et seuil 95ème percentile/MODIS_SPM_G_NS_sub_clean_no_NA_95.Rdata")
-
-## correlation -------------------------------------------------------------
-
-# To compare precisely river runoff and plume area we have to merge data set to
-# only keep values in both data set
-
-MODIS_SPM_G_NS_sub_clean_no_NA_deb <- MODIS_SPM_G_NS_sub_clean_no_NA_95 |> 
-  left_join(All_debit_2019, by = "date")
-
-adjust_factors <- sec_axis_adjustement_factors(MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2, MODIS_SPM_G_NS_sub_clean_no_NA_deb$débit)
-
-MODIS_SPM_G_NS_sub_clean_no_NA_deb$scaled_aire_panache <- MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
-
-# 1. Tester la normalité
-shapiro.test(MODIS_SPM_G_NS_sub_clean_no_NA_deb$débit)
-shapiro.test(MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2)
-# Si p-value < 0.05 → pas normal → Spearman
-
-# 2. Visualiser la relation
-plot(MODIS_SPM_G_NS_sub_clean_no_NA_deb$débit, MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2)
-# Si la relation est courbe → Spearman
-cor.test(MODIS_SPM_G_NS_sub_clean_no_NA_deb$débit, MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2, method = "spearman")
-
-# 1. Stocker le résultat du cor.test
-cor_result <- cor.test(MODIS_SPM_G_NS_sub_clean_no_NA_deb$débit, 
-                       MODIS_SPM_G_NS_sub_clean_no_NA_deb$aire_panache_km2, 
-                       method = "spearman")
-
-# 2. Extraire les valeurs
-rho <- round(as.numeric(cor_result$estimate), 3)
-p_value <- cor_result$p.value
-
-# 3. Plotting
-ggplot() +
-  geom_point(data = MODIS_SPM_G_NS_sub_clean_no_NA_deb,
-             aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
-  geom_point(data = MODIS_SPM_G_NS_sub_clean_no_NA_deb,
-             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
-  annotate(
-    "text",
-    x = min(MODIS_SPM_G_NS_sub_clean_no_NA_deb$date, na.rm = TRUE),
-    y = max(MODIS_SPM_G_NS_sub_clean_no_NA_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
-    label = paste0(
-      "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
-    ),
-    hjust = 0, vjust = 1,
-    size = 8,
-    color = "grey20",
-    fontface = "italic"
-  ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
-                    guide = "none") +
-  scale_y_continuous(
-    name = "Débit (m³/s)",
-    expand = expansion(mult = c(0.02, 0.08)),
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
-                        name = "Aire des panaches (en km²)")
-  ) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
-    x       = NULL,
-    color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
-    axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
-    axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
-    axis.text         = element_text(size = 10, color = "grey30"),
-    axis.text.x       = element_text(angle = 45, hjust = 1),
-    axis.ticks        = element_line(color = "grey70"),
-    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
-    panel.grid.minor  = element_blank(),
-    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
-    legend.position   = "top",
-    legend.text       = element_text(size = 10)
-  )
 
 
-# OLCI_SPM_G_PO_sub -------------------------------------------------------------------
 
-# Appliquer la fonction
-OLCI_SPM_G_PO_sub_clean_no_NA <- filter_dates_by_na_in_zone(
-  df = OLCI_SPM_G_PO_sub,
-  lon_range = lon_range,
-  lat_range = lat_range,
-  value_col = "SPM-G-PO_mean",
-  date_col = "date"
-)
-
-## calcul du seuil ------------------------------------------------------
-
-seuil_95_OLCI_SPM_G_PO_sub_clean_no_NA <- quantile(OLCI_SPM_G_PO_sub_clean_no_NA$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
-cat("Seuil 95ème percentile :", seuil_95_OLCI_SPM_G_PO_sub_clean_no_NA, "g/m³\n")
-
-# seuil = 0.7489568 g/m³
-
-# Stats du panache par jour
-OLCI_SPM_G_PO_sub_clean_no_NA_95 <- OLCI_SPM_G_PO_sub_clean_no_NA |> 
-  group_by(date) |> 
-  summarise(
-    pixel_count = sum(`SPM-G-PO_mean`>= seuil_95_OLCI_SPM_G_PO_sub_clean_no_NA, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_OLCI_SPM_G_PO_sub_clean_no_NA], na.rm = TRUE),
-    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95_OLCI_SPM_G_PO_sub_clean_no_NA], na.rm = TRUE),
-    aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
-  )
-
-# save(OLCI_SPM_G_PO_sub_clean_no_NA_95, file = "data/ODATIS-MR_expert/no nuage et seuil 95ème percentile/OLCI_SPM_G_PO_sub_clean_no_NA_95.Rdata")
-
-## correlation -------------------------------------------------------------
-
-# To compare precisely river runoff and plume area we have to merge data set to
-# only keep values in both data set
-
-OLCI_SPM_G_PO_sub_clean_no_NA_deb <- OLCI_SPM_G_PO_sub_clean_no_NA_95 |> 
-  left_join(All_debit_2019, by = "date")
-
-adjust_factors <- sec_axis_adjustement_factors(OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, OLCI_SPM_G_PO_sub_clean_no_NA_deb$débit)
-
-OLCI_SPM_G_PO_sub_clean_no_NA_deb$scaled_aire_panache <- OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
-
-# 1. Tester la normalité
-shapiro.test(OLCI_SPM_G_PO_sub_clean_no_NA_deb$débit)
-shapiro.test(OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2)
-# Si p-value < 0.05 → pas normal → Spearman
-
-# 2. Visualiser la relation
-plot(OLCI_SPM_G_PO_sub_clean_no_NA_deb$débit, OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2)
-# Si la relation est courbe → Spearman
-cor.test(OLCI_SPM_G_PO_sub_clean_no_NA_deb$débit, OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, method = "spearman")
-
-# 1. Stocker le résultat du cor.test
-cor_result <- cor.test(OLCI_SPM_G_PO_sub_clean_no_NA_deb$débit, 
-                       OLCI_SPM_G_PO_sub_clean_no_NA_deb$aire_panache_km2, 
-                       method = "spearman")
-
-# 2. Extraire les valeurs
-rho <- round(as.numeric(cor_result$estimate), 3)
-p_value <- cor_result$p.value
-
-# 3. Plotting
-ggplot() +
-  geom_point(data = OLCI_SPM_G_PO_sub_clean_no_NA_deb,
-             aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
-  geom_point(data = OLCI_SPM_G_PO_sub_clean_no_NA_deb,
-             aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
-  annotate(
-    "text",
-    x = min(OLCI_SPM_G_PO_sub_clean_no_NA_deb$date, na.rm = TRUE),
-    y = max(OLCI_SPM_G_PO_sub_clean_no_NA_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
-    label = paste0(
-      "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
-    ),
-    hjust = 0, vjust = 1,
-    size = 8,
-    color = "grey20",
-    fontface = "italic"
-  ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
-                    guide = "none") +
-  scale_y_continuous(
-    name = "Débit (m³/s)",
-    expand = expansion(mult = c(0.02, 0.08)),
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
-                        name = "Aire des panaches (en km²)")
-  ) +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
-  labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
-    x       = NULL,
-    color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
-  ) +
-  theme_bw() +
-  theme(
-    plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
-    axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
-    axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
-    axis.text         = element_text(size = 10, color = "grey30"),
-    axis.text.x       = element_text(angle = 45, hjust = 1),
-    axis.ticks        = element_line(color = "grey70"),
-    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
-    panel.grid.minor  = element_blank(),
-    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
-    legend.position   = "top",
-    legend.text       = element_text(size = 10)
-  )
 

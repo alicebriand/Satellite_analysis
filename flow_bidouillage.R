@@ -14,7 +14,6 @@ library(lmtest) # For more detailed linear model tests
 library(patchwork)
 library(doParallel); doParallel::registerDoParallel(cores = 14)
 
-
 # Functions ---------------------------------------------------------------
 
 # Calculate relationship between river flow and panache size
@@ -39,12 +38,12 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/All_debit_2019.Rdata")  # charge ton objet débit
-  flow_df <- All_debit_2019 # adapte le nom de l'objet si besoin
+  load("data/Hydro France/All_debit_2025.Rdata")  # charge ton objet débit
+  flow_df <- All_debit_2025 # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/ODATIS-MR_expert/no nuage et seuil 95ème percentile/OLCI_SPM_G_PO_sub_clean_no_NA_95.Rdata")  # charge ton objet SPM
-  plume_daily <- OLCI_SPM_G_PO_sub_clean_no_NA_95 |>  
+  load("data/MSI/SPM/95ème percentile/MSI_2025_SPM_95.Rdata")  # charge ton objet SPM
+  plume_daily <- MSI_2025_SPM_95 |>  
     dplyr::select(date, aire_panache_km2) |> 
     mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
   
@@ -83,7 +82,7 @@ flow_comp <- function(mouth_info){
   flow_plot <- ggplot(flow_plume_df, aes(x = date, y = debit_cumule)) +
     # geom_ribbon(aes(ymin = (flow-(flow/2)), ymax = flow+flow/2)) +
     geom_line(color = "darkolivegreen3") +
-    labs(y = "debit_cumule cumulé du Var, du Paillon et du Magnan (m^3 s-1)", x = NULL) +
+    labs(y = "Débit cumulé (m^3 s-1)", x = NULL) +
     scale_x_date(expand = 0) +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
 
@@ -128,17 +127,30 @@ flow_comp <- function(mouth_info){
   # Plot lag results
   flow_plume_cor_lag_plot <- ggplot(flow_plume_lag_cor, aes(x = lag, y = cor)) +
     geom_point() +
-    labs(x = "Décalage entre la taille du panache et le pic de débit cumulé fluvial cumulé (en jours)", y = "Corrélation (r)") +
+    labs(x = "Décalage entre la taille du panache et le débit fluvial cumulé (en jours)", y = "Corrélation") +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   # flow_plume_cor_lag_plot
   
   # Combine plots and save
-  flow_plume_title <- grid::textGrob(paste0(mouth_info$mouth_name," : river flow vs plume size"), gp = grid::gpar(fontsize = 16, fontface = "bold", col = "black"))
-  ts_plot <- ggpubr::ggarrange(flow_plot, panache_plot, ncol = 1, nrow = 2, labels = c("a)", "b)"), align = "v")
-  cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
+  flow_plume_title <- grid::textGrob(paste0("Débit liquide vs extension des panaches turbides"), gp = grid::gpar(fontsize = 16, fontface = "bold", col = "black"), vjust = -1)
+  # ts_plot <- ggpubr::ggarrange(flow_plot, panache_plot, ncol = 1, nrow = 2, labels = c("a)", "b)"), align = "v")
+  # cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, ncol = 1, nrow = 2, labels = c("c)", "d)"), heights = c(1, 0.3))
+  ts_plot <- ggpubr::ggarrange(flow_plot, panache_plot, 
+                               ncol = 1, nrow = 2, 
+                               labels = c("a)", "b)"), 
+                               align = "v",
+                               hjust = -0.5,  # ← pousse le label vers la droite
+                               vjust = 1.5)   # ← pousse le label vers le bas
+  
+  cor_plot <- ggpubr::ggarrange(flow_plume_cor_plot, flow_plume_cor_lag_plot, 
+                                ncol = 1, nrow = 2, 
+                                labels = c("c)", "d)"), 
+                                heights = c(1, 0.3),
+                                hjust = -0.5,
+                                vjust = 1.5)
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/ODATIS MR expert/OLCI/no nuage et seuil 95/cor_plot_flow_plume_debit_cumule_OLCI_G_PO.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/MSI/SPM/analyse temporelle/cor_plot_flow_plume_debit_cumule_MSI_2025_seuilde2025.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size
