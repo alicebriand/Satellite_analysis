@@ -587,12 +587,39 @@ ggwindrose(
   calm_wind = 0,
   n_col = 1,
   facet = NULL,
-  plot_title = "Direction et vitesse du vent entre 1994 et 2024 près de Nice",
+  plot_title = "Direction et vitesse du vent entre 1991 et 2024 près de Nice",
   stack_reverse = TRUE) +
   labs(
-    subtitle = "1994-2024",
+    subtitle = "1991-2024",
     caption = "Source: Archives Météo France"
   )
+
+ggwindrose(
+  speed = speed,
+  direction = direction,
+  n_directions = 8,
+  n_speeds = 5,
+  col_pal = "GnBu",  # Utilise une palette discrète
+  legend_title = "Vitesse du vent (m/s)",
+  calm_wind = 2,
+  plot_title = "Rose des vents | Nice (1991-2024)",
+  stack_reverse = TRUE
+) +
+  labs(
+    subtitle = "Direction et vitesse moyenne du vent (1991-2024)",
+    caption = "Source: Archives Météo France"
+  ) +
+  theme(
+    legend.position = "right",
+    legend.text = element_text(size = 13),
+    legend.title = element_text(size = 12, face = "bold"),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5, color = "darkblue"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5),
+    plot.caption = element_text(size = 13, color = "gray50"),
+    panel.background = element_rect(fill = "white"),
+    panel.grid = element_blank()
+  ) +
+  annotate("text", x = 0, y = 0, label = "", size = 3, color = "red")
 
 
 # Wind vs plume datas -----------------------------------------------------

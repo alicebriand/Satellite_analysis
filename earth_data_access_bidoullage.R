@@ -27,6 +27,7 @@ if (!all(c("maps", "tidyverse", "ncdf4", "terra", "doParallel", "plyr") %in% ins
 library(tidyverse)
 library(ncdf4)
 library(terra)
+library(giscoR) # Hi-res coastlines
 library(luna) # Used to access NASA data
 library(doParallel); registerDoParallel(cores = detectCores() - 2)
 
@@ -39,7 +40,6 @@ library(doParallel); registerDoParallel(cores = detectCores() - 2)
 # An account can be created here: https://urs.earthdata.nasa.gov/
 # Once you have your account details, create the .csv file shown here and store in a secure location
 earth_up <- read_csv("~/pCloudDrive/Stage/password_earth_data_access.csv")
-
 
 # Functions ---------------------------------------------------------------
 
@@ -136,6 +136,18 @@ load_MODIS_tif <- function(file_name, mask_rast){
   return(study_area_df)
 }
 
+# Fonction pour calculer le % de pixels valides (non nuages)
+check_cloud_cover <- function(file_hdf, seuil_nuages = 0.5) {
+  
+  r <- rast(file_hdf, lyrs = 1)  # bande 1
+  vals <- values(r)
+  
+  # Pixels valides = réflectance entre 0 et 0.6
+  pct_valide <- sum(vals > 0 & vals <= 0.6, na.rm = TRUE) / sum(!is.na(vals))
+  
+  return(pct_valide >= seuil_nuages)  # TRUE = image utilisable
+}
+
 # MODIS data --------------------------------------------------------------
 
 # Lists all products that are currently searchable on Earth Data and related servers
@@ -181,10 +193,10 @@ S3_catalogue <- earth_data_catalogue[grepl("OLCI|Sentinel|SENTINEL", earth_data_
 ## 1) Setup ---------------------------------------------------------------
 
 # Chose where you would like to save the files
-dl_dir <- "~/Downloads/MODIS NASA/L2/2008-12-18/"
+dl_dir <- "~/Downloads/MODIS NASA/L2/2024/02/11/"
 
 # Chosen start and end dates for downloading
-start_date <- "2008-12-18"; end_date <- "2008-12-18"
+start_date <- "2024-02-11"; end_date <- "2024-02-11"
 
 # Determine what you want your bounding box to be
 # NB: The processing functions will fail if too much data are loaded at once
@@ -268,7 +280,7 @@ plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
 
 # Load the desired mask file
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MOD44W_2008-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2024/02/11/MOD44W.A2024001.h18v04.061.2025064072734.hdf")
 
 # Check that it looks correct - should show white where land would be
 plot(MODIS_mask)
@@ -281,7 +293,7 @@ plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = FALSE)
 
 # Load a file
-MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MYD09GQ_2008-12-18.tif")
+MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2024/02/11/MYD09GQ.A2024042.h18v04.061.2024044055403.hdf")
 
 # Check that it looks correct
 plot(MODIS_rast_b1)
@@ -335,7 +347,7 @@ maps::map(add = TRUE)
 
 # Load the MODIS mask first
 # Change the filename if this is not correct
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2008-12-18/study_area_MOD44W_2008-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2/2024/02/11/study_area_MOD44W_2024-01-01.tif")
 
 # Filter out just the .tif files (i.e. not the HDF files)
 tif_files <- list.files(path = dl_dir, pattern = "\\.tif$", full.names = TRUE)
@@ -355,23 +367,49 @@ study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
 
 ## 5) Plot data ------------------------------------------------------------
 
+# Hi-res Mediterranean country and coastline shapes
+# coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+# countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
 # Map
+# pl_map <- study_area_df |> 
+#   # Remove pixels that are too high (i.e. clouds)
+#   filter(sur_refl_b01_1 <= 3000) |> 
+#   # Select one date
+#   filter(date == "2024-01-31") |> 
+#   # Round all surface reflectance values greater than 0.1 down to 0.1 for better plotting
+#   # mutate(Rrs = case_when(Rrs > 0.1 ~ 0.1, 
+#   #                        Rrs < 0 ~ 0, TRUE ~ Rrs)) |> 
+#   ggplot() +
+#   annotation_borders(fill = "grey80") +
+#   geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+#   scale_fill_viridis_c() +
+#   guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
+#   # NB: Change fill label to correctly indicate which band width was used
+#   labs(x = "Longitude (°E)", y = "Latitude (°N)", fill = "Surface reflectance (620-670 nm) ") +
+#   coord_quickmap(xlim = range(study_area_df$lon), ylim = range(study_area_df$lat)) +
+#   theme(panel.border = element_rect(colour = "black", fill = NA),
+#         legend.position = "top", 
+#         legend.box = "vertical",
+#         legend.title = element_text(size = 20),
+#         legend.text = element_text(size = 18),
+#         axis.title = element_text(size = 20),
+#         axis.text = element_text(size = 18))
+
 pl_map <- study_area_df |> 
-  # Remove pixels that are too high (i.e. clouds)
   filter(sur_refl_b01_1 <= 3000) |> 
-  # Select one date
-  filter(date == "2008-12-18") |> 
-  # Round all surface reflectance values greater than 0.1 down to 0.1 for better plotting
-  # mutate(Rrs = case_when(Rrs > 0.1 ~ 0.1, 
-  #                        Rrs < 0 ~ 0, TRUE ~ Rrs)) |> 
+  filter(date == "2024-02-11") |> 
   ggplot() +
-  annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
   scale_fill_viridis_c() +
   guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
-  # NB: Change fill label to correctly indicate which band width was used
-  labs(x = "Longitude (°E)", y = "Latitude (°N)", fill = "Surface reflectance (459-479 nm) ") +
-  coord_quickmap(xlim = range(study_area_df$lon), ylim = range(study_area_df$lat)) +
+  labs(x = "Longitude (°E)", y = "Latitude (°N)", fill = "Surface reflectance (620-670 nm)") +
+  coord_sf(                                                    # ← remplace coord_quickmap
+    xlim = range(study_area_df$lon), 
+    ylim = range(study_area_df$lat), 
+    expand = FALSE
+  ) +
   theme(panel.border = element_rect(colour = "black", fill = NA),
         legend.position = "top", 
         legend.box = "vertical",
@@ -381,15 +419,127 @@ pl_map <- study_area_df |>
         axis.text = element_text(size = 18))
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2/2008-12-18/fig_MODIS_2008-12-18.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2/2024/02/11/fig_MODIS_2024-02-11.png", pl_map, height = 9, width = 14)
 
 
+# one year by one year ----------------------------------------------------
 
+# Workflow ----------------------------------------------------------------
+
+## 1) Setup ---------------------------------------------------------------
+
+# Chose where you would like to save the files
+dl_dir <- "~/Downloads/MODIS NASA/L2 2024/"
+
+# Chosen start and end dates for downloading
+start_date <- "2024-01-01"; end_date <- "2024-12-31"
+
+# Paillon
+# study_coords <- matrix(c(
+#   7.2100000, 43.6000000,  # Bottom-left corner
+#   7.3600000, 43.6000000, # Bottom-right corner
+#   7.3600000, 43.7300000, # Top-right corner
+#   7.2100000, 43.7300000,  # Top-left corner
+#   7.2100000, 43.6000000   # Close the polygon (same as first point)
+# ), ncol = 2, byrow = TRUE)
+# Var
+study_coords <- matrix(c(
+  6.8925000, 43.2136389,  # Bottom-left corner
+  7.4200000, 43.2136389, # Bottom-right corner
+  7.4200000, 43.7300000, # Top-right corner
+  6.8925000, 43.7300000,  # Top-left corner
+  6.8925000, 43.2136389   # Close the polygon (same as first point)
+), ncol = 2, byrow = TRUE)
+
+## 2) Download files -------------------------------------------------------
+
+# If that looks reasonable, download them
+# NB: If this doesn't work, then the product ID, even if it is listed, may not be findable by the luna package
+luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox, 
+              download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
+
+# To follow the rest of the examples below we also want to download the MODIS mask files
+luna::getNASA(product = "MOD44W", start_date = start_date, end_date = end_date, 
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
+
+# Lister tous les fichiers HDF téléchargés
+# all_hdf <- list.files("~/Downloads/MODIS NASA/L2 2024/", 
+#                       pattern = "MYD09GQ\\.", 
+#                       full.names = TRUE, recursive = TRUE)
+
+# On ne peut pas travailler directement avec des fichiers hdf, R ne les acceptent pas,
+# donc on doit les transformer
+
+## 3) Process files --------------------------------------------------------
+
+# Set file pathways
+# NB: Change the directory to where you saved the files if it was changed
+# NB: Change the pattern in rast_files to match the product ID you used if it is different
+mask_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MOD44W\\.", full.names = TRUE))
+rast_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MYD09GQ\\.", full.names = TRUE))
+
+# Chose specific files
+mask_files <- mask_files[1,] # Change accordingly
+rast_files <- rast_files[1,] # Change accordingly
+
+# Process all of the water mask files
+# IF not, create it or change the directories below as desired
+plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
+
+# Load the desired mask file
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024/MOD44W.A2024001.h18v04.061.2025064072734.hdf")
+
+# Check that it looks correct - should show white where land would be
+plot(MODIS_mask)
+maps::map(add = TRUE)
+
+# Prep one day of MODIS data
+# NB: This requires that this folder exists: ~/data/MODIS
+# IF not, create it or change the directories below to match 
+plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = FALSE)
+
+# Load a file
+MODIS_rast_b1 <- rast("~/Downloads/MODIS NASA/L2/2024/02/11/MYD09GQ.A2024042.h18v04.061.2024044055403.hdf")
+
+
+## 4) Filter couldy images --------------------------------------------------------
+
+# Garder seulement les images avec > 50% de pixels valides
+images_claires <- all_hdf[sapply(all_hdf, check_cloud_cover, seuil_nuages = 0.5)]
+
+cat(length(images_claires), "images utilisables sur", length(all_hdf), "\n")
+
+## 4) Process files --------------------------------------------------------
+
+# Convertir en data.frame pour plyr
+images_df <- luna::modisDate(images_claires)
+
+# Traiter toutes les images claires en parallèle
+plyr::d_ply(.data = images_df, .variables = c("date"), .fun = proc_MODIS_hdf, 
+            .parallel = TRUE,   # ← parallélisation
+            bbox = study_bbox, 
+            out_dir = "~/Downloads/MODIS NASA/L2 2024/tif/", 
+            layer_num = 2, 
+            land_mask = FALSE)
+
+tif_files <- list.files("~/Downloads/MODIS NASA/L2 2024/tif/", 
+                        pattern = "MYD09GQ.*\\.tif$", 
+                        full.names = TRUE)
+
+# Charger tout en un seul data.frame
+study_area_df <- map_dfr(tif_files, load_MODIS_tif, MODIS_mask)
+
+# Vérifier les dates disponibles
+unique(study_area_df$date)
 
 # create new repertories for each date ------------------------------------
 
 # # Répertoire de base où créer les dossiers
-# repertoire_base <- "~/Downloads/MODIS NASA/L2/"
+repertoire_base <- "~/Downloads/MODIS NASA/L2 2024/"
 # 
 # # Extraire les dates uniques où débit > 200
 # # dates_filtrees <-  %>%
@@ -409,4 +559,23 @@ ggsave("~/Downloads/MODIS NASA/L2/2008-12-18/fig_MODIS_2008-12-18.png", pl_map, 
 #   if (!dir.exists(chemin_dossier)) {
 #     dir.create(chemin_dossier, recursive = TRUE)
 #   }
+# }
+
+# créer un répertoire pour toutes les dates de l'année 2024
+
+# Définir l'année souhaitée
+# annee <- 2024
+# 
+# dates <- seq(as.Date(paste0(annee, "-01-01")),
+#              as.Date(paste0(annee, "-12-31")),
+#              by = "day")
+# 
+# for (date in dates) {
+#   date <- as.Date(date, origin = "1970-01-01")  # ← reconversion nécessaire
+#   chemin <- file.path(
+#     annee,
+#     format(date, "%m"),
+#     format(date, "%d")
+#   )
+#   dir.create(chemin, recursive = TRUE, showWarnings = FALSE)
 # }

@@ -15,7 +15,7 @@
 # In this case it is better to save the output of the first script, then load them in the second script
 # source("~/Satellite_analysis/earth_data_access.R")
 
-# The shared functions between scripts are hwoever and excellent reason to use source()
+# The shared functions between scripts are however and excellent reason to use source()
 # Therefore I have moved the shared functions to a script that is source()'d here
 source("func.R")
 
@@ -68,13 +68,24 @@ Var_Morin <- function(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1", A = 80, 
   return(study_area_df)
 }
 
-
 Paillon_Morin <- function(study_area_df, sur_refl_b01_1, A = 39, C = 0.2563) {
+  # Vérifier que la colonne de réflectance existe
+  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
+    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
+  }
+  
+  # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
+  study_area_df <- study_area_df %>%
+    mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
+    )
+  
+  return(study_area_df)
+}
 
 # NB: When writing a function it is a good idea (but not necessary) to name your arguments
 # in a way that is not found in your code outside of the function
 # E.g. Here I changed 'study_area_df' to 'df' and 'sur_refl_b01_1' to 'col_name'
-MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562) {
+MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562){
   
   # Vérifier que la colonne de réflectance existe
   if (!(col_name %in% names(df))) {
@@ -119,6 +130,12 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
 # data analysis -----------------------------------------------------------
 
 # Apply SDM equation
+
+study_area_df <- study_area_df |>  
+  mutate(SPM = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)))
+
+
+
 study_area_df <- MODIS_L2_SPM(study_area_df, col_name = "sur_refl_b01_1") 
 
 # Or, because it is a single equation, we can apply it directly to the data.frame with mutate()
@@ -229,11 +246,6 @@ study_area_df <- study_area_df |>
 
 # We have to filter the data frame because there are some absurd values
 # study_area_df <- study_area_df |> 
-#   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
-
-# we have to filter the data frame because there are some absurd values
-
-# study_area_df <- study_area_df %>%
 #   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
 
 study_area_df <- study_area_df |>
