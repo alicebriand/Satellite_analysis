@@ -313,36 +313,6 @@ MODIS_water <- mask(MODIS_rast_b1, MODIS_mask_proj)
 plot(MODIS_water)
 maps::map(add = TRUE)
 
-#     # then do the same for band 2
-# 
-# # Prep one day of MODIS data
-# # NB: This requires that this folder exists: ~/data/MODIS
-# # IF not, create it or change the directories below to match 
-# plyr::d_ply(.data = rast_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
-#             bbox = study_bbox, out_dir = "~/Downloads/MODIS NASA/L2/", layer_num = 2, land_mask = FALSE)
-# 
-# # Load a file
-# MODIS_rast_b2 <- rast("~/Downloads/MODIS NASA/L2/study_area_MYD09GQ_2020-10-03.tif")
-# 
-# # Check that it looks correct
-# plot(MODIS_rast_b2)
-# maps::map(add = TRUE)
-# 
-# # Project the 250 m mask to the same grid as the 500 m raster data
-# MODIS_mask_proj <- project(MODIS_mask, MODIS_rast_b2)
-# 
-# # Check that it worked
-# plot(MODIS_mask_proj)
-# maps::map(add = TRUE)
-# 
-# # Mask the raster data
-# MODIS_water <- mask(MODIS_rast_b2, MODIS_mask_proj)
-# 
-# # Check to see if it looks correct - should show white where land is
-# plot(MODIS_water)
-# maps::map(add = TRUE)
-
-
 ## 4) Load data ------------------------------------------------------------
 
 # Load the MODIS mask first
@@ -360,10 +330,6 @@ product_ID_files <- product_ID_files[1]
 
 # Load all files
 study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
-
-# One can then apply whatever algorithms one wants to this dataframe
-# 
-# study_area_df <- left_join(study_area_df_b1, study_area_df_b2)
 
 ## 5) Plot data ------------------------------------------------------------
 
@@ -404,6 +370,8 @@ ggsave("~/Downloads/MODIS NASA/L2/2024/02/11/fig_MODIS_2024-02-11.png", pl_map, 
 # one year by one year ----------------------------------------------------
 
 # Workflow ----------------------------------------------------------------
+
+## 2024 --------------------------------------------------------------------
 
 ## 1) Setup ---------------------------------------------------------------
 
@@ -500,9 +468,11 @@ all_hdf_df <- luna::modisDate(all_hdf)
 all_hdf_df$mois <- format(all_hdf_df$date, "%m")
 
 # Traiter les données mois par mois
+
+# Pour la bande 1 = layer 2
 for (m in unique(all_hdf_df$mois)) {
   
-  cat("Traitement du mois :", m, "\n")
+  cat("Traitement bande 1 - mois :", m, "\n")
   hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
   
   # Traiter date par date avec gestion des erreurs
@@ -516,7 +486,7 @@ for (m in unique(all_hdf_df$mois)) {
       plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
                   .parallel = FALSE,
                   bbox = study_bbox,
-                  out_dir = "~/Downloads/MODIS NASA/L2 2024/tif/",
+                  out_dir = "~/Downloads/MODIS NASA/L2 2024/tif_bande_1/",
                   layer_num = 2,
                   land_mask = FALSE)
       cat("  ✓", as.character(date_lisible), "\n")
@@ -530,30 +500,57 @@ for (m in unique(all_hdf_df$mois)) {
   cat("Mois", m, "terminé\n\n")
 }
 
+# Pour la bande 2 = layer 3
+for (m in unique(all_hdf_df$mois)) {
+  cat("Traitement bande 2 - mois :", m, "\n")
+  hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
+  
+  for (d in unique(hdf_mois$date)) {
+    hdf_jour <- hdf_mois[hdf_mois$date == d, ]
+    date_lisible <- as.Date(d, origin = "1970-01-01")
+    tryCatch({
+      plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
+                  .parallel = FALSE, bbox = study_bbox,
+                  out_dir = "~/Downloads/MODIS NASA/L2 2024/tif_bande_2/",
+                  layer_num = 3,  # ← à vérifier, probablement 1 pour b02
+                  land_mask = FALSE)
+      cat("  ✓", as.character(date_lisible), "\n")
+    }, error = function(e) {
+      cat("  ✗ ERREUR", as.character(date_lisible), ":", conditionMessage(e), "\n")
+    })
+  }
+  gc()
+}
+
 # Load the MODIS mask first
 # Change the filename if this is not correct
 MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024/study_area_MOD44W_2024-01-01.tif")
 
 # Lister tous les tif produits
-tif_files <- list.files("~/Downloads/MODIS NASA/L2 2024/tif/", 
+tif_files_b1 <- list.files("~/Downloads/MODIS NASA/L2 2024/tif_bande_1/", 
                         pattern = "MYD09GQ.*\\.tif$", 
                         full.names = TRUE)
 
+tif_files_b2 <- list.files("~/Downloads/MODIS NASA/L2 2024/tif_bande_2/", 
+                           pattern = "MYD09GQ.*\\.tif$", 
+                           full.names = TRUE)
+
 # Ensure the correct product ID is being used
-product_ID_files <- tif_files[grepl(product_ID, tif_files)]
-
-# je veux créer une fonction (ou boucle ou jsp comment ça s'appelle) pour créer un objet 
-# product_ID_files_date pour chaque fichier de ma liste product_ID_files
-
-# Select just a subset of files as desired
-# product_ID_files <- product_ID_files[1]
+product_ID_files_b1 <- tif_files_b1[grepl(product_ID, tif_files_b1)]
+product_ID_files_b2 <- tif_files_b2[grepl(product_ID, tif_files_b2)]
 
 # Load all files
-study_area_df <- map_dfr(product_ID_files, load_MODIS_tif, MODIS_mask)
+study_area_df_2024_b1 <- map_dfr(product_ID_files_b1, load_MODIS_tif, MODIS_mask)
+study_area_df_2024_b2 <- map_dfr(product_ID_files_b2, load_MODIS_tif, MODIS_mask)
 
 # Vérifier
-unique(study_area_df$date)  # toutes les dates chargées
-nrow(study_area_df)         # nombre total de pixels
+unique(study_area_df_2024_b1$date)  # toutes les dates chargées
+nrow(study_area_df_2024_b1)         # nombre total de pixels
+
+unique(study_area_df_2024_b2$date)  # toutes les dates chargées
+nrow(study_area_df_2024_b2)         # nombre total de pixels
+
+study_area_df_2024 <- left_join(study_area_df_2024_b1, study_area_df_2024_b2, by = c("date", "lon", "lat"))
 
 # on va enlever manuellement les jours qui sont contaminés par des nuages (ça va être long)
 
@@ -587,54 +584,24 @@ dates_a_exclure <- c("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-05", "20
                      "2024-12-05", "2024-12-06", "2024-12-07", "2024-12-09", "2024-12-10", 
                      "2024-12-11", "2024-12-13", "2024-12-03", "2024-12-18", "2024-12-19")
 
-study_area_df_clean <- study_area_df |> 
-  filter(!date %in% as.Date(dates_a_exclure))
+study_area_df_clean_2024 <- study_area_df_2024 |> 
+  filter(!date %in% as.Date(dates_a_exclure)) |> 
+  filter(sur_refl_b01_1 >= 0, sur_refl_b02_1 >= 0) # on a des valeurs de réflectance négatives, on les supprime
 
-# on a des valeurs de réflectance négatives, on les supprime
-study_area_df_clean <- study_area_df_clean |> 
-  filter(sur_refl_b01_1 >= 0)
-
-# for (f in product_ID_files) {
-#   
-#   # Extraire la date du nom de fichier
-#   date_fichier <- as.Date(str_split(gsub("\\.tif", "", basename(f)), "_")[[1]][4])
-#   cat("Traitement :", as.character(date_fichier), "\n")
-#   
-#   # Charger le fichier
-#   df_jour <- tryCatch(
-#     load_MODIS_tif(f, MODIS_mask),
-#     error = function(e) {
-#       cat("  ✗ Erreur chargement :", conditionMessage(e), "\n")
-#       return(NULL)
-#     }
-#   )
-#   
-#   # Passer au suivant si erreur
-#   if (is.null(df_jour)) next
-#   
-#   # Filtrer les nuages (réflectance trop élevée)
-#   df_jour <- df_jour |> filter(sur_refl_b01_1 > 0 & sur_refl_b01_1 <= 0.6)
-#   
-#   # Sauter si trop peu de pixels valides (image trop nuageuse)
-#   if (nrow(df_jour) < 100) {
-#     cat("  ✗ Trop nuageux, ignoré\n")
-#     next
-#   }
-# }
-
-# truc --------------------------------------------------------------------
+### plotting --------------------------------------------------------------------
 
 # Créer un dossier pour les figures
-dir.create("~/Downloads/MODIS NASA/L2 2024/figures/", recursive = TRUE, showWarnings = FALSE)
+dir.create("~/Downloads/MODIS NASA/L2 2024/figures/bande 2/", recursive = TRUE, showWarnings = FALSE)
 
 # Hi-res Mediterranean country and coastline shapes
 # coastline_giscoR <- gisco_get_coastallines(resolution = "01")
 # countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
-for (d in unique(study_area_df$date)) {
+# ensuite on peut plotter la bande 1 ou 2
+for (d in unique(study_area_df_clean_2024$date)) {
   
-  df_jour <- study_area_df |> 
-    filter(date == d, sur_refl_b01_1 <= 3000)
+  df_jour <- study_area_df_clean_2024 |> 
+    filter(date == d, sur_refl_b02_1 <= 3000)
   
   # Sauter si pas assez de pixels (image trop nuageuse)
   # if (nrow(df_jour) < 100) {
@@ -644,14 +611,14 @@ for (d in unique(study_area_df$date)) {
   
   pl <- df_jour |> 
     ggplot() +
-    geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+    geom_tile(aes(x = lon, y = lat, fill = sur_refl_b02_1)) +
     geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
     scale_fill_viridis_c() +
     guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
     labs(x = "Longitude (°E)", y = "Latitude (°N)", 
-         fill = "Surface reflectance (620-670 nm)",
+         fill = "Surface reflectance (841-876 nm)",
          title = as.character(d)) +
-    coord_sf(xlim = range(study_area_df$lon), ylim = range(study_area_df$lat), expand = FALSE) +
+    coord_sf(xlim = range(study_area_df_clean_2024$lon), ylim = range(study_area_df_clean_2024$lat), expand = FALSE) +
     theme(panel.border = element_rect(colour = "black", fill = NA),
           legend.position = "top",
           legend.box = "vertical",
@@ -660,7 +627,7 @@ for (d in unique(study_area_df$date)) {
           axis.title = element_text(size = 20),
           axis.text = element_text(size = 18))
   
-  ggsave(paste0("~/Downloads/MODIS NASA/L2 2024/figures/fig_MODIS_", d, ".png"), 
+  ggsave(paste0("~/Downloads/MODIS NASA/L2 2024/figures/bande 2/fig_MODIS_", d, ".png"), 
          pl, height = 9, width = 14)
   
   cat("✓ Figure sauvegardée :", as.character(d), "\n")
@@ -670,42 +637,291 @@ for (d in unique(study_area_df$date)) {
 
 
 
+## 2016 --------------------------------------------------------------------
 
+# Chose where you would like to save the files
+dl_dir <- "~/Downloads/MODIS NASA/L2 2016 Terra/"
 
+# Chosen start and end dates for downloading
+start_date <- "2016-01-01"; end_date <- "2016-12-31"
 
+# Paillon
+# study_coords <- matrix(c(
+#   7.2100000, 43.6000000,  # Bottom-left corner
+#   7.3600000, 43.6000000, # Bottom-right corner
+#   7.3600000, 43.7300000, # Top-right corner
+#   7.2100000, 43.7300000,  # Top-left corner
+#   7.2100000, 43.6000000   # Close the polygon (same as first point)
+# ), ncol = 2, byrow = TRUE)
+# Var
+study_coords <- matrix(c(
+  6.8925000, 43.2136389,  # Bottom-left corner
+  7.4200000, 43.2136389, # Bottom-right corner
+  7.4200000, 43.7300000, # Top-right corner
+  6.8925000, 43.7300000,  # Top-left corner
+  6.8925000, 43.2136389   # Close the polygon (same as first point)
+), ncol = 2, byrow = TRUE)
 
+# Turn it into the necessary SpatVector object type
+study_bbox <- vect(study_coords, crs = "EPSG:4326", type = "polygons")
 
+# Print the object to verify it worked - should be four points that make a box
+plot(study_coords)
+maps::map(add = TRUE)
 
+# Chose the product ID you want to download
+# Attention ici je dowload TERRA data
+product_ID <- "MOD09GQ"
 
-## 4) Filter cloudy images --------------------------------------------------------
+# Look at the server and version info for the product of choice
+earth_data_catalogue[earth_data_catalogue$short_name == product_ID,]
 
-# # Garder seulement les images avec > 50% de pixels valides
-# images_claires <- all_hdf_df[sapply(all_hdf_df, check_cloud_cover, seuil_nuages = 0.5)]
-# 
-# cat(length(images_claires), "images utilisables sur", length(all_hdf), "\n")
+# Then choose the server and version number
+# NB: 'LPCLOUD' is the preferred server, but is not always available
+# NB: One should generally choose the newest version, i.e. the biggest number
+product_server <- "LPCLOUD" # NB: Change this if not shown in the output shown above
+product_version <- "061" # NB: Change this if not shown in the output shown above
 
-## 4) Process files --------------------------------------------------------
+## 2) Download files -------------------------------------------------------
 
-# Convertir en data.frame pour plyr
-images_df <- luna::modisDate(images_claires)
+# First have a peak at what files exist
+# NB: If this throws an error, it may be necessary to manually change the download server
+# Remove the server and version arguments and run again
+# It should show all of the possible servers and versions from which the desired product can be downloaded
+luna::getNASA("MOD09GQ", start_date, end_date, aoi = study_bbox, download = FALSE)
 
-# Traiter toutes les images claires en parallèle
-plyr::d_ply(.data = images_df, .variables = c("date"), .fun = proc_MODIS_hdf, 
-            .parallel = TRUE,   # ← parallélisation
-            bbox = study_bbox, 
-            out_dir = "~/Downloads/MODIS NASA/L2 2024/tif/", 
-            layer_num = 2, 
-            land_mask = FALSE)
+# If that looks reasonable, download them
+# NB: If this doesn't work, then the product ID, even if it is listed, may not be findable by the luna package
+luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox,
+              download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
 
-tif_files <- list.files("~/Downloads/MODIS NASA/L2 2024/tif/", 
-                        pattern = "MYD09GQ.*\\.tif$", 
+# To follow the rest of the examples below we also want to download the MODIS mask files
+luna::getNASA(product = "MOD44W", start_date = start_date, end_date = end_date,
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
+
+## 3) Process files --------------------------------------------------------
+
+# Set file pathways
+# NB: Change the directory to where you saved the files if it was changed
+# NB: Change the pattern in rast_files to match the product ID you used if it is different
+mask_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MOD44W\\.", full.names = TRUE))
+rast_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MOD09GQ\\.", full.names = TRUE))
+
+# Chose specific files
+mask_files <- mask_files[1,] # Change accordingly
+rast_files <- rast_files[1,] # Change accordingly
+
+# Process all of the water mask files
+# IF not, create it or change the directories below as desired
+plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
+
+# Load the desired mask file
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2016 Terra/")
+
+# Check that it looks correct - should show white where land would be
+plot(MODIS_mask)
+maps::map(add = TRUE)
+
+## MODIS data --------------------------------------------------------------
+
+# Lister tous les fichiers HDF téléchargés
+all_hdf <- list.files("~/Downloads/MODIS NASA/L2 2016 Terra/",
+                      pattern = "MOD09GQ\\.",
+                      full.names = TRUE, recursive = TRUE)
+
+# Convertir la liste all_hdf en data.frame avec les dates (comme rast_files)
+all_hdf_df <- luna::modisDate(all_hdf)
+
+# Ajouter une colonne mois
+all_hdf_df$mois <- format(all_hdf_df$date, "%m")
+
+# Traiter les données mois par mois
+
+# Pour la bande 1 = layer 2
+for (m in unique(all_hdf_df$mois)) {
+  
+  cat("Traitement du mois :", m, "\n")
+  hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
+  
+  # Traiter date par date avec gestion des erreurs
+  for (d in unique(hdf_mois$date)) {
+    
+    hdf_jour <- hdf_mois[hdf_mois$date == d, ]
+    date_lisible <- as.Date(d, origin = "1970-01-01")
+    
+    # tryCatch permet de continuer même si un fichier plante
+    tryCatch({
+      plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
+                  .parallel = FALSE,
+                  bbox = study_bbox,
+                  out_dir = "~/Downloads/MODIS NASA/L2 2016 Terra/tif_bande_1/",
+                  layer_num = 2,
+                  land_mask = FALSE)
+      cat("  ✓", as.character(date_lisible), "\n")
+      
+    }, error = function(e) {
+      cat("  ✗ ERREUR", as.character(date_lisible), ":", conditionMessage(e), "\n")
+    })
+  }
+  
+  gc()
+  cat("Mois", m, "terminé\n\n")
+}
+
+# Pour la bande 2 = layer 3
+for (m in unique(all_hdf_df$mois)) {
+  
+  cat("Traitement du mois :", m, "\n")
+  hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
+  
+  # Traiter date par date avec gestion des erreurs
+  for (d in unique(hdf_mois$date)) {
+    
+    hdf_jour <- hdf_mois[hdf_mois$date == d, ]
+    date_lisible <- as.Date(d, origin = "1970-01-01")
+    
+    # tryCatch permet de continuer même si un fichier plante
+    tryCatch({
+      plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
+                  .parallel = FALSE,
+                  bbox = study_bbox,
+                  out_dir = "~/Downloads/MODIS NASA/L2 2016 Terra/tif_bande_2/",
+                  layer_num = 3,
+                  land_mask = FALSE)
+      cat("  ✓", as.character(date_lisible), "\n")
+      
+    }, error = function(e) {
+      cat("  ✗ ERREUR", as.character(date_lisible), ":", conditionMessage(e), "\n")
+    })
+  }
+  
+  gc()
+  cat("Mois", m, "terminé\n\n")
+}
+
+# Load the MODIS mask first
+# Change the filename if this is not correct
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2016 Terra/study_area_MOD44W_2016-01-01.tif")
+
+# Lister tous les tif produits
+tif_files_b1 <- list.files("~/Downloads/MODIS NASA/L2 2016 Terra/tif_bande_1/", 
+                        pattern = "MOD09GQ.*\\.tif$", 
                         full.names = TRUE)
 
-# Charger tout en un seul data.frame
-study_area_df <- map_dfr(tif_files, load_MODIS_tif, MODIS_mask)
+tif_files_b2 <- list.files("~/Downloads/MODIS NASA/L2 2016 Terra/tif_bande_2/", 
+                           pattern = "MOD09GQ.*\\.tif$", 
+                           full.names = TRUE)
 
-# Vérifier les dates disponibles
-unique(study_area_df$date)
+# Ensure the correct product ID is being used
+product_ID_files_b1 <- tif_files_b1[grepl(product_ID, tif_files_b1)]
+product_ID_files_b2 <- tif_files_b2[grepl(product_ID, tif_files_b2)]
+
+# Load all files
+study_area_df_2016_b1 <- map_dfr(product_ID_files_b1, load_MODIS_tif, MODIS_mask)
+study_area_df_2016_b2 <- map_dfr(product_ID_files_b2, load_MODIS_tif, MODIS_mask)
+
+# Vérifier
+unique(study_area_df_2016_b1$date)  # toutes les dates chargées
+nrow(study_area_df_2016_b1)         # nombre total de pixels
+
+unique(study_area_df_2016_b2$date)  # toutes les dates chargées
+nrow(study_area_df_2016_b2)         # nombre total de pixels
+
+study_area_df_2016 <- left_join(study_area_df_2016_b1, study_area_df_2016_b2, by = c("date", "lon", "lat"))
+
+# on va enlever manuellement les jours qui sont contaminés par des nuages (ça va être long)
+
+# ATTENTION CE SONT LEZ DATES POUR TERRA (REFAIRE SI TU VEUX AQUA)
+dates_a_exclure <- c("2016-01-01", "2016-01-02", "2016-01-03", "2016-01-04", "2016-01-05",
+                     "2016-01-07", "2016-01-08", "2016-01-09", "2016-01-10", "2016-01-11", 
+                     "2016-01-14", "2016-01-15", "2016-01-18", "2016-01-19", "2016-01-20",
+                     "2016-01-21", "2016-01-22", "2016-01-23", "2016-01-24", "2016-01-25", 
+                     "2016-01-26", "2016-01-27", "2016-01-28", "2016-01-29", "2016-01-31",
+                     "2016-02-02", "2016-02-03", "2016-02-06", "2016-02-07", "2016-02-08", 
+                     "2016-02-09", "2016-02-12", "2016-02-13", "2016-02-14", "2016-02-16",
+                     "2016-02-17", "2016-02-18", "2016-02-19", "2016-02-20", "2016-02-21", 
+                     "2016-02-22", "2016-02-23", "2016-02-24", "2016-02-25", "2016-02-26", 
+                     "2016-02-27", "2016-02-28", "2016-02-29", "2016-03-04", "2016-03-05", 
+                     "2016-03-08", "2016-03-10", "2016-03-11", "2016-03-13", "2016-03-14", 
+                     "2016-03-16", "2016-03-17", "2016-03-20", "2016-03-23", "2016-03-25", 
+                     "2016-03-27", "2016-03-29", "2016-03-30", "2016-03-31", "2016-04-01", 
+                     "2016-04-02", "2016-04-03", "2016-04-04", "2016-04-05", "2016-04-06", 
+                     "2016-04-09", "2016-04-15", "2016-04-17", "2016-04-20", "2016-04-21", 
+                     "2016-04-23", "2016-04-24", "2016-04-28", "2016-04-30", "2016-05-01", 
+                     "2016-05-02", "2016-05-07", "2016-05-08", "2016-05-09", "2016-05-10", 
+                     "2016-05-11", "2016-05-13", "2016-05-18", "2016-05-22", "2016-05-25", 
+                     "2016-05-26", "2016-05-27", "2016-05-28", "2016-05-29", "2016-06-01", 
+                     "2016-06-02", "2016-06-03", "2016-06-04", "2016-06-11", "2016-06-12", 
+                     "2016-06-14", "2016-06-15", "2016-06-16", "2016-06-19", "2016-06-21", 
+                     "2016-06-30", "2016-07-08", "2016-07-12", "2016-07-14", "2016-07-23", 
+                     "2016-07-24", "2016-07-30", "2016-08-09", "2016-08-11", "2016-08-16", 
+                     "2016-08-17", "2016-08-18", "2016-08-22", "2016-08-30", "2016-09-03",
+                     "2016-09-04", "2016-09-14", "2016-09-16", "2016-09-17", "2016-09-21", 
+                     "2016-09-23", "2016-09-24", "2016-09-27", "2016-10-01", "2016-10-06", 
+                     "2016-10-09", "2016-10-12", "2016-10-13", "2016-10-14", "2016-10-16", 
+                     "2016-10-17", "2016-10-23", "2016-10-24", "2016-10-25", "2016-10-26", 
+                     "2016-10-28", "2016-11-04", "2016-11-05", "2016-11-06", "2016-11-09", 
+                     "2016-11-10", "2016-11-12", "2016-11-13", "2016-11-15", "2016-11-16", 
+                     "2016-11-17", "2016-11-18", "2016-11-19", "2016-11-20", "2016-11-21", 
+                     "2016-11-22", "2016-11-23", "2016-11-24", "2016-11-26", "2016-12-03", 
+                     "2016-12-04", "2016-12-05", "2016-12-10", "2016-12-12", "2016-12-15", 
+                     "2016-12-19", "2016-12-20", "2016-12-21", "2016-12-24", "2016-12-25", 
+                     "2016-12-26", "2016-12-30")
+
+study_area_df_clean_2016 <- study_area_df_2016 |> 
+  filter(!date %in% as.Date(dates_a_exclure)) |> 
+  filter(sur_refl_b01_1 >= 0, sur_refl_b02_1 >= 0) # on a des valeurs de réflectance négatives, on les supprime
+
+### plotting --------------------------------------------------------------------
+
+# Créer un dossier pour les figures
+dir.create("~/Downloads/MODIS NASA/L2 2016 Terra/figures/bande 1/", recursive = TRUE, showWarnings = FALSE)
+dir.create("~/Downloads/MODIS NASA/L2 2016 Terra/figures/bande 2/", recursive = TRUE, showWarnings = FALSE)
+
+# Hi-res Mediterranean country and coastline shapes
+# coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+# countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+# ensuite on peut plotter la bande 1 ou 2
+for (d in unique(study_area_df_clean_2016$date)) {
+  
+  df_jour <- study_area_df_clean_2016 |> 
+    filter(date == d, sur_refl_b02_1 <= 3000)
+  
+  # Sauter si pas assez de pixels (image trop nuageuse)
+  # if (nrow(df_jour) < 100) {
+  #   cat("✗ Trop nuageux :", as.character(d), "\n")
+  #   next
+  # }
+  
+  pl <- df_jour |> 
+    ggplot() +
+    geom_tile(aes(x = lon, y = lat, fill = sur_refl_b02_1)) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    scale_fill_viridis_c() +
+    guides(fill = guide_colorbar(barwidth = 20, barheight = 2)) +
+    labs(x = "Longitude (°E)", y = "Latitude (°N)", 
+         fill = "Surface reflectance (841-876 nm)",
+         title = as.character(d)) +
+    coord_sf(xlim = range(study_area_df_clean_2016$lon), ylim = range(study_area_df_clean_2016$lat), expand = FALSE) +
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          legend.position = "top",
+          legend.box = "vertical",
+          legend.title = element_text(size = 20),
+          legend.text = element_text(size = 18),
+          axis.title = element_text(size = 20),
+          axis.text = element_text(size = 18))
+  
+  ggsave(paste0("~/Downloads/MODIS NASA/L2 2016 Terra/figures/bande 2/fig_MODIS_", d, ".png"), 
+         pl, height = 9, width = 14)
+  
+  cat("✓ Figure sauvegardée :", as.character(d), "\n")
+}
+
+
 
 
 

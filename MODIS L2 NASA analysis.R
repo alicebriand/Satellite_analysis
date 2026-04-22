@@ -19,6 +19,8 @@
 source("func.R")
 
 load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017.csv",
+                                        delim = ",", locale = locale(decimal_mark = ","))
 
 # Load necessary libraries
 library(tidyverse)
@@ -28,6 +30,7 @@ library(gganimate)
 library(doParallel); registerDoParallel(cores = detectCores()-2)
 library(heatwaveR)
 library(ggpmisc)
+library(sf)
 
 # function ---------------------------------------------------------------
 
@@ -116,8 +119,13 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
 # It is a single equation, we can apply it directly to the data.frame with mutate()
 # SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
 # and values come from? I do not find them in the literature?
-study_area_df_clean <- study_area_df_clean |>  
+study_area_df_clean_2024 <- study_area_df_clean_2024 |>  
   mutate(SPM_Morin = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)))
+
+# Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
+study_area_df_clean_2024 <- study_area_df_clean_2024 |>
+  mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
+         SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
 
 # A different algorithm based on Teng et al. 2025
 # https://www.sciencedirect.com/science/article/pii/S003442572500149X
@@ -145,39 +153,38 @@ study_area_df_clean <- study_area_df_clean |>
   mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
         SPM_Nechad = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
 
-# OR we can try
+# OR we can try : 
 # SPM[mg l−1]= a + b * ρsurf,645
 # ρsurf,645 = sur_refl_b01_1
-# a=289.29,b=2.1 # For starting
+# a=289.29, b=2.1 # For starting
 study_area_df_clean <- study_area_df_clean |> 
   filter(sur_refl_b01_1 >= 0 ) |> 
   mutate(SPM_formule = 0 + 2.1 * sur_refl_b01_1)
 
-# # We have to filter the data frame because there are some absurd values
-# study_area_df <- study_area_df |> 
-#   mutate(sur_refl_b01_1 = ifelse(sur_refl_b01_1 >= 0.5, 0.5, sur_refl_b01_1))
-
-## plotting -----------------------------------------------------------
+# plotting -----------------------------------------------------------
 
 # we have to choose some dates and look at what data look like : 
-study_area_df_04_03_2024 <- study_area_df_clean |> 
+study_area_df_04_03_2024 <- study_area_df_clean_2024 |> 
   filter(date == "2024-03-04")
+
+study_area_df_26_11_2016 <- study_area_df_clean_2016 |> 
+  filter(date == "2016-11-26")
 
 ## Morin -------------------------------------------------------------------
 
 # First, when we do the map there are some extreme values (until 8000), which is weird
 # we want to erase them so maybe the map will be better
-
-study_area_df_04_03_2024_Morin <- study_area_df_04_03_2024 |> 
+study_area_df_26_11_2016_Morin <- study_area_df_26_11_2016 |> 
   filter(SPM_Morin <= 100)
 
-max_spm <- max(study_area_df_04_03_2024_Morin$SPM_Morin, na.rm = TRUE)
+# set the maximum values
+max_spm <- max(study_area_df_04_03_2024$SPM_Doxaran, na.rm = TRUE)
 
 # Créer le graphique
-pl_map <- study_area_df_04_03_2024_Morin %>%
+pl_map <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = SPM_Morin)) +
+  geom_tile(aes(x = lon, y = lat, fill = SPM_Doxaran)) +
   geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
   scale_fill_viridis_c(
     option = "plasma",
@@ -211,7 +218,7 @@ pl_map <- study_area_df_04_03_2024_Morin %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024/SPM/fig_MODIS_SPM_04_03_2024_Morin1.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran.png", pl_map, height = 9, width = 14)
 
 ## Teng -------------------------------------------------------------------
 
@@ -388,3 +395,193 @@ pl_map <- study_area_df_04_03_2024_Morin %>%
 
 # Save as desired
 ggsave("~/Downloads/MODIS NASA/L2 2024/SPM/fig_MODIS_SPM_04_03_2024_formule.png", pl_map, height = 9, width = 14)
+
+## Doxaran -------------------------------------------------------------------
+
+# First, when we do the map there are some extreme values (until 8000), which is weird
+# we want to erase them so maybe the map will be better
+study_area_df_04_03_2024_1 <- study_area_df_04_03_2024 |> 
+  filter(SPM_Doxaran <= 100)
+
+# set the maximum values
+max_spm <- max(study_area_df_04_03_2024_1$SPM_Doxaran, na.rm = TRUE)
+
+# Créer le graphique
+pl_map <- study_area_df_04_03_2024_1 %>%
+  ggplot() +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = SPM_Doxaran)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  scale_fill_viridis_c(
+    option = "plasma",
+    name = "SPM [mg/l]",
+    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth = 20,
+    barheight = 2,
+    title.position = "top",
+    title.hjust = 0.5
+  )) +
+  labs(
+    x = "Longitude (°E)",
+    y = "Latitude (°N)",
+    fill = "SPM [mg/l]"
+  ) +
+  coord_sf(                                   
+    xlim = range(study_area_df_04_03_2024_1$lon), 
+    ylim = range(study_area_df_04_03_2024_1$lat), 
+    expand = FALSE
+  ) +
+  theme(
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "top",
+    legend.box = "vertical",
+    legend.title = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18)
+  )
+
+# Save as desired
+ggsave("~/Downloads/MODIS NASA/L2 2024/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran_1.png", pl_map, height = 9, width = 14)
+
+
+# SPM prediction vs in situ data -------------------------------------------------------
+
+## in situ data ------------------------------------------------------------
+
+# we have to extract lat and lon from in situ data
+
+# renommer le doc
+Var_2016 <- Log_Var_Paillon_2016_2017
+
+# garder seulement les paramètres d'intérêts
+Var_2016 <- Var_2016 |> 
+  select(StationID, Date, Latitude_dd, Longitude_dd, Location, `SPMmoyen(mg/l)`, 
+         `SPMsd(mg/l)`)
+
+# rename columns
+Var_2016 <- Var_2016 |> 
+  rename(date = Date,
+         lat = Latitude_dd, 
+         lon = Longitude_dd,
+         SPM_moy = `SPMmoyen(mg/l)`, 
+         SPM_sd = `SPMsd(mg/l)`)
+
+# transformer la date en "vraie" date
+Var_2016 <- Var_2016 %>%
+  mutate(date = as.Date(date, format = "%d/%m/%Y"))
+
+Var_2016 <- Var_2016 |>
+  mutate(
+    lat = as.numeric(gsub(",", ".", lat)),
+    lon = as.numeric(gsub(",", ".", lon))
+  )
+
+## MODIS data ------------------------------------------------------------
+
+# we have to choose the speficical date
+study_area_df_25_11_2016 <- study_area_df_clean_2016 |>
+  filter(date == as.Date("2016-11-25"))
+
+## merging data set --------------------------------------------------------
+
+# we have to create a df with in situ data and SPM prediction
+study_area_df_clean_2016_in_situ <- inner_join(study_area_df_25_11_2016, Var_2016, by = c("date", "lon", "lat"))
+
+# If it worked we should have 7 rows, I hope it match
+
+# it doesn't work
+
+## spatial correspondence --------------------------------------------------------
+
+# What if it doesn't match ? Then we would have to take the closer location to 
+# our points, we should identify the 8 points around the point of interest (I did not
+# do that finally)
+
+# st_as_sf : convert foreign object to an sf object
+# ce sont des df dont l'une des colonnes contient une géométrie
+
+# Convertir les points in situ en objet spatial
+pts_insitu <- st_as_sf(Var_2016, coords = c("lon", "lat"), crs = 4326) # crs = coordinate reference system
+
+# Convertir les pixels MODIS en objet spatial (pour une date donnée)
+pts_modis <- study_area_df_25_11_2016 |> 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+# Trouver le pixel MODIS le plus proche de chaque point in situ
+idx_proche <- st_nearest_feature(pts_insitu, pts_modis)
+
+# Extraire les valeurs MODIS correspondantes
+Var_2016_modis <- Var_2016 |> 
+  mutate(sur_refl_b01_modis = pts_modis$sur_refl_b01_1[idx_proche],
+         sur_refl_b02_modis = pts_modis$sur_refl_b02_1[idx_proche])
+
+# We have to convert reflectance in SPM concentration
+
+## apply equations ---------------------------------------------------------
+
+Var_2016_modis <- Var_2016_modis |>
+  filter(sur_refl_b01_modis >= 0 ) |> 
+  mutate(SPM_Morin = (80 * sur_refl_b01_modis) / (1 - (sur_refl_b01_modis / 0.1562))) |> 
+  mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_modis/sur_refl_b01_modis)/0.189),
+         SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran)) |> 
+  mutate(Rrs_b01_01 = (sur_refl_b01_modis/pi), # First convert Rhow_w to Rrs
+         SPM_Teng = 1992.2 * Rrs_b01_01^1.027) |> 
+  mutate(SPM_Tsapanou = ((289.29 * sur_refl_b01_modis)/(1-(sur_refl_b01_modis/0.1686)))+2.10) |> 
+  mutate(Rrs_b01_01 = (sur_refl_b01_modis/pi), # First convert Rhow_w to Rrs
+         SPM_Nechad = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0) |> 
+  mutate(SPM_formule = 0 + 2.1 * sur_refl_b01_modis)
+
+# We have to plot a scatter plot for each parameter
+
+ggplot(Var_2016_modis, aes(x= SPM_Morin, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+  
+ggplot(Var_2016_modis, aes(x= SPM_Doxaran, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+
+ggplot(Var_2016_modis, aes(x= SPM_Teng, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+
+ggplot(Var_2016_modis, aes(x= SPM_Tsapanou, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+
+ggplot(Var_2016_modis, aes(x= SPM_Nechad, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+
+ggplot(Var_2016_modis, aes(x= SPM_formule, y= SPM_moy) ) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, linewidth = 2, linetype = "dashed", color = "black")
+
+# les résultats sont très nuls donc je me demande si c'est possible que la localisation des points n'est pas
+# fonctionné --> c'est le capteur qui n'était pas bon (mais c'est bon j'ai remplacé par Terra)
+
+# Carte de vérification
+ggplot() +
+  geom_tile(data = study_area_df_25_11_2016, 
+            aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  scale_fill_viridis_c(option = "plasma") +
+  geom_point(data = Var_2016,
+             aes(x = lon, y = lat), 
+             colour = "red", size = 3, shape = 21, fill = "white") +
+  geom_text(data = Var_2016,
+            aes(x = lon, y = lat, label = StationID),
+            vjust = -1, size = 3) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80") +
+  coord_sf(xlim = range(study_area_df_25_11_2016$lon),
+           ylim = range(study_area_df_25_11_2016$lat)) +
+  theme_minimal()
+
+
+
+
+
+
+
