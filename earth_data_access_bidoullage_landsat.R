@@ -1,4 +1,4 @@
-# earth_data_access.R
+# earth_data_access_bidoullage_landsat.R
 
 # This script provides the functions, workflow, and examples 
 # to download any data product from the NASA earth data server:
@@ -135,57 +135,16 @@ load_MODIS_tif <- function(file_name, mask_rast){
   return(study_area_df)
 }
 
-# --- Chargement avec filtre QA ---
-load_MODIS_tif_masked <- function(tif_path, mask, hdf_GA_list, bbox, seuil_nuages = 0.30) {
+# Fonction pour calculer le % de pixels valides (non nuages)
+check_cloud_cover <- function(file_hdf, seuil_nuages = 0.5) {
   
-  basename_tif <- basename(tif_path)
-  date_tif <- as.Date(
-    regmatches(basename_tif, regexpr("\\d{4}-\\d{2}-\\d{2}", basename_tif))
-  )
+  r <- rast(file_hdf, lyrs = 1)  # bande 1
+  vals <- values(r)
   
-  pct_nuages <- cloud_cover_pct(date_tif, hdf_GA_list, bbox)  # ← bbox ajouté
+  # Pixels valides = réflectance entre 0 et 0.6
+  pct_valide <- sum(vals > 0 & vals <= 0.6, na.rm = TRUE) / sum(!is.na(vals))
   
-  if (is.na(pct_nuages) || pct_nuages > seuil_nuages) {
-    cat("  ✗ Exclue (", round(pct_nuages * 100, 1), "% nuages) —", basename_tif, "\n")
-    return(NULL)
-  }
-  
-  cat("  ✓", as.character(date_tif), "\n")
-  df <- load_MODIS_tif(tif_path, mask)
-  return(df)
-}
-
-# --- Fonction pour calculer la couverture nuageuse d'une image ---
-cloud_cover_pct <- function(date_tif, hdf_GA_list, bbox) {
-  
-  date_julien <- format(date_tif, "A%Y%j")
-  hdf_match   <- hdf_GA_list[grepl(date_julien, basename(hdf_GA_list))]
-  
-  if (length(hdf_match) == 0) {
-    cat("  ⚠ Pas de MYD09GA trouvé pour", as.character(date_tif), "\n")
-    return(NA)
-  }
-  
-  tryCatch({
-    qa <- sds(hdf_match[1])[2][[1]]
-    
-    # Reprojeter la bbox en système de coordonnées MODIS sinusoïdal
-    bbox_sinu <- project(bbox, crs(qa))
-    
-    # Recadrer sur la zone d'étude
-    qa_crop <- crop(qa, bbox_sinu)
-    
-    # Calculer le % de nuages uniquement sur la zone d'étude
-    cloud_bits <- bitwAnd(as.integer(values(qa_crop)), 3L)
-    prop       <- mean(cloud_bits > 0, na.rm = TRUE)
-    
-    cat("  → % nuages :", round(prop * 100, 1), "% —", as.character(date_tif), "\n")
-    return(prop)
-    
-  }, error = function(e) {
-    cat("  ✗ Fichier corrompu :", basename(hdf_match[1]), "\n")
-    return(NA)
-  })
+  return(pct_valide >= seuil_nuages)  # TRUE = image utilisable
 }
 
 # MODIS data --------------------------------------------------------------
@@ -198,11 +157,11 @@ earth_data_catalogue <- luna::getProducts()
 MODIS_catalogue <- earth_data_catalogue[grepl("MOD|MYD", earth_data_catalogue$short_name),]
 
 # MODIS directory that lists all products
-# https://nrt3.modaps.eosdis.nasa.gov/archive/allData/61
+https://nrt3.modaps.eosdis.nasa.gov/archive/allData/61
 
 # Uncomment and run any of these lines to open the product page in your web browser
 # MODIS/Aqua Surface Reflectance Daily L2G Global 250m SIN Grid V061
-# productInfo("MYD09GQ")
+productInfo("MYD09GQ")
 
 # Level 1
 # NB: L1 products are often very difficult to work with in R
@@ -212,8 +171,8 @@ MODIS_catalogue <- earth_data_catalogue[grepl("MOD|MYD", earth_data_catalogue$sh
 # productInfo("MYD02QKM")
 
 # Level 2
-# productInfo("MYD09GHK") #L2G 500 m
-# "MYD09"
+productInfo("MYD09GHK") #L2G 500 m
+"MYD09"
 
 # Level 3
 # productInfo("MYD09Q1" # MODIS/Aqua Surface Reflectance 8-Day L3 Global 250m SIN Grid V006
@@ -300,6 +259,7 @@ luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date
 luna::getNASA(product = "MOD44W", start_date = start_date, end_date = end_date, 
               aoi = study_bbox, download = TRUE, overwrite = FALSE,
               path = dl_dir, username = earth_up$username, password = earth_up$password)
+
 
 ## 3) Process files --------------------------------------------------------
 
@@ -418,7 +378,7 @@ ggsave("~/Downloads/MODIS NASA/L2/2024/02/11/fig_MODIS_2024-02-11.png", pl_map, 
 dl_dir <- "~/Downloads/MODIS NASA/L2 2024 Aqua/"
 
 # Chosen start and end dates for downloading
-start_date <- "2024-01-01"; end_date <- "2024-12-31"
+start_date <- "2024-03-04"; end_date <- "2024-03-04"
 
 # Paillon
 # study_coords <- matrix(c(
@@ -460,23 +420,14 @@ product_version <- "061" # NB: Change this if not shown in the output shown abov
 
 # If that looks reasonable, download them
 # NB: If this doesn't work, then the product ID, even if it is listed, may not be findable by the luna package
-# luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox,
-#               download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
-#               path = dl_dir, username = earth_up$username, password = earth_up$password)
+luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox,
+              download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
 
 # To follow the rest of the examples below we also want to download the MODIS mask files
 # luna::getNASA(product = "MOD44W", start_date = start_date, end_date = end_date, 
 #               aoi = study_bbox, download = TRUE, overwrite = FALSE,
 #               path = dl_dir, username = earth_up$username, password = earth_up$password)
-
-# we also download the quality product for the reflectance band (tells us if pixels 
-# are valid : clouds, clear sky or mixt)
-# luna::getNASA(product = "MYD09GA", 
-#               start_date = start_date, end_date = end_date,
-#               aoi = study_bbox, download = TRUE, overwrite = FALSE,
-#               server = product_server, version = product_version,
-#               path = "~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GA/",
-#               username = earth_up$username, password = earth_up$password)
 
 ## 3) Process files --------------------------------------------------------
 
@@ -504,58 +455,8 @@ maps::map(add = TRUE)
 
 ## MODIS data --------------------------------------------------------------
 
-### masque nuage ------------------------------------------------------------
-
-all_hdf_GA <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GA/",
-                         pattern    = "MYD09GA\\.",
-                         full.names = TRUE,
-                         recursive  = TRUE)
-
-# Vérifier
-length(all_hdf_GA)
-head(all_hdf_GA)
-
-# Sur un seul fichier MYD09GA
-sds(all_hdf_GA[1])
-# Chercher "state" dans les noms — doit s'appeler "sur_refl_state_500m"
-
-# Afficher les sous-datasets avec leur index
-sds_info <- sds(all_hdf_GA[1])
-names(sds_info)  # ou
-sds_info$MYD09GA.A2024001.h18v04.061.2024003111813  # selon la version de terra
-
-# Lire chaque sous-dataset par son numéro et afficher son nom
-for (i in 1:10) {
-  r <- sds(all_hdf_GA[1])[i]
-  cat("Layer", i, ":", names(r), "\n")
-}
-
-# Tester tous les layers pour voir lequel a des valeurs variées
-for (i in 1:10) {
-  r    <- sds(all_hdf_GA[1])[i][[1]]
-  vals <- values(r)
-  cat("Layer", i, "| min:", min(vals, na.rm=T), 
-      "max:", max(vals, na.rm=T),
-      "NA%:", round(mean(is.na(vals))*100, 1), "%\n")
-}
-
-# Diagnostic complet sur le layer 2
-qa         <- sds(all_hdf_GA[1])[2][[1]]
-cloud_bits <- qa & 3L
-
-# Voir la distribution des bits 0-1
-table(values(cloud_bits))
-# 0 = clair, 1 = nuageux, 2 = mixte, 3 = non produit
-
-# Diagnostic
-qa         <- sds(all_hdf_GA[1])[2][[1]]
-cloud_bits <- bitwAnd(as.integer(values(qa)), 3L)
-table(cloud_bits)
-# Doit donner : 0 = clair, 1 = nuageux, 2 = mixte, 3 = non produit
-### fichier hdf MODIS ------------------------------------------------------------
-
 # Lister tous les fichiers HDF téléchargés
-all_hdf <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/",
+all_hdf <- list.files("~/Downloads/MODIS NASA/L2 2024/",
                       pattern = "MYD09GQ\\.",
                       full.names = TRUE, recursive = TRUE)
 
@@ -598,7 +499,6 @@ for (m in unique(all_hdf_df$mois)) {
   cat("Mois", m, "terminé\n\n")
 }
 
-
 # Pour la bande 2 = layer 3
 for (m in unique(all_hdf_df$mois)) {
   cat("Traitement bande 2 - mois :", m, "\n")
@@ -623,14 +523,14 @@ for (m in unique(all_hdf_df$mois)) {
 
 # Load the MODIS mask first
 # Change the filename if this is not correct
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024 Aqua/study_area_MOD44W_2024-01-01.tif")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024/study_area_MOD44W_2024-01-01.tif")
 
 # Lister tous les tif produits
-tif_files_b1 <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/tif_bande_1/", 
+tif_files_b1 <- list.files("~/Downloads/MODIS NASA/L2 2024/tif_bande_1/", 
                         pattern = "MYD09GQ.*\\.tif$", 
                         full.names = TRUE)
 
-tif_files_b2 <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/tif_bande_2/", 
+tif_files_b2 <- list.files("~/Downloads/MODIS NASA/L2 2024/tif_bande_2/", 
                            pattern = "MYD09GQ.*\\.tif$", 
                            full.names = TRUE)
 
@@ -642,83 +542,41 @@ product_ID_files_b2 <- tif_files_b2[grepl(product_ID, tif_files_b2)]
 study_area_df_2024_b1 <- map_dfr(product_ID_files_b1, load_MODIS_tif, MODIS_mask)
 study_area_df_2024_b2 <- map_dfr(product_ID_files_b2, load_MODIS_tif, MODIS_mask)
 
-# Tester sur 5 fichiers seulement d'abord
-test_b1 <- map_dfr(
-  product_ID_files_b1[1:21],
-  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA)
-)
-qa <- sds(all_hdf_GA[1])[2][[1]]
-summary(values(qa))
-# Si tout est 0 ou une seule valeur → mauvais layer
-
-# Lancer avec study_bbox en plus
-study_area_df_2024_b1 <- map_dfr(
-  product_ID_files_b1,
-  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA, study_bbox)
-)
-
-study_area_df_2024_b2 <- map_dfr(
-  product_ID_files_b2,
-  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA, study_bbox)
-)
-
 study_area_df_2024 <- left_join(study_area_df_2024_b1, study_area_df_2024_b2, by = c("date", "lon", "lat"))
 
 save(study_area_df_2024, file = "data/MODIS L2 NASA/study_area_df_2024")
 
-
-# test
-# Sur un fichier que vous savez nuageux visuellement
-test_hdf <- "~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GQ.A2024001.h18v04.061.2024003111813.hdf"
-qa <- rast(test_hdf, subds = "QC_250m_1")
-hist(values(qa), main = "Distribution des valeurs QC")
-summary(values(qa))
-
-# Convertir quelques valeurs en binaire pour comprendre
-valeurs_uniques <- unique(values(qa))
-valeurs_uniques <- valeurs_uniques[!is.na(valeurs_uniques)]
-
-# Afficher en binaire
-data.frame(
-  decimal = valeurs_uniques,
-  binaire = sapply(valeurs_uniques, function(x) paste(rev(as.integer(intToBits(x)[1:16])), collapse=""))
-)
-
-
-
-
-
 # on va enlever manuellement les jours qui sont contaminés par des nuages (ça va être long)
-# dates_a_exclure <- c("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-05", "2024-01-07",
-#                      "2024-01-08", "2024-01-09", "2024-01-10", "2024-01-13", "2024-01-14", 
-#                      "2024-01-17", "2024-01-19", "2024-01-21", "2024-01-22", "2024-01-24",
-#                      "2024-01-26", "2024-01-27", "2024-01-28", "2024-01-29", "2024-01-30",
-#                      "2024-02-01", "2024-02-02", "2024-02-03", "2024-02-01", "2024-02-05",
-#                      "2024-02-06", "2024-02-09", "2024-02-10", "2024-02-12", "2024-02-15",
-#                      "2024-02-16", "2024-02-18", "2024-02-22", "2024-02-23", "2024-02-24",
-#                      "2024-02-25", "2024-02-27", "2024-02-28", "2024-03-03", "2024-03-08",
-#                      "2024-03-09", "2024-03-11", "2024-03-15", "2024-03-17", "2024-03-22", 
-#                      "2024-03-25", "2024-03-26", "2024-03-28", "2024-03-29", "2024-03-30", 
-#                      "2024-03-31", "2024-04-04", "2024-04-07", "2024-04-08", "2024-04-09",
-#                      "2024-04-10", "2024-04-15", "2024-04-18", "2024-04-22", "2024-04-26",
-#                      "2024-04-27", "2024-04-28", "2024-04-29", "2024-04-30", "2024-05-01",
-#                      "2024-05-01", "2024-05-02", "2024-05-03", "2024-05-05", "2024-05-06",
-#                      "2024-05-12", "2024-05-14", "2024-05-15", "2024-05-20", "2024-05-23", 
-#                      "2024-05-24", "2024-05-27", "2024-05-29", "2024-05-30", "2024-06-02",
-#                      "2024-06-05", "2024-06-06", "2024-06-08", "2024-06-09", "2024-06-19", 
-#                      "2024-06-20", "2024-06-22", "2024-06-23", "2024-06-24", "2024-06-26", 
-#                      "2024-06-27", "2024-07-02", "2024-07-03", "2024-07-06", "2024-07-12", 
-#                      "2024-07-19", "2024-07-21", "2024-08-05", "2024-08-15", "2024-08-19",
-#                      "2024-08-27", "2024-08-31", "2024-09-04", "2024-09-08", "2024-09-17", 
-#                      "2024-09-18", "2024-09-19", "2024-09-22", "2024-09-24", "2024-09-26",
-#                      "2024-10-02", "2024-10-04", "2024-10-06", "2024-10-07", "2024-10-09",
-#                      "2024-10-12", "2024-10-14", "2024-10-16", "2024-10-17", "2024-10-19",
-#                      "2024-10-22", "2024-10-24", "2024-10-26", "2024-10-27", "2024-10-29",
-#                      "2024-11-06", "2024-11-09", "2024-11-12", "2024-11-18", "2024-11-20",
-#                      "2024-11-21", "2024-11-24", "2024-11-26", "2024-11-28", "2024-12-03",
-#                      "2024-12-05", "2024-12-06", "2024-12-07", "2024-12-09", "2024-12-10", 
-#                      "2024-12-11", "2024-12-13", "2024-12-03", "2024-12-18", "2024-12-19")
 
+dates_a_exclure <- c("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-05", "2024-01-07",
+                     "2024-01-08", "2024-01-09", "2024-01-10", "2024-01-13", "2024-01-14", 
+                     "2024-01-17", "2024-01-19", "2024-01-21", "2024-01-22", "2024-01-24",
+                     "2024-01-26", "2024-01-27", "2024-01-28", "2024-01-29", "2024-01-30",
+                     "2024-02-01", "2024-02-02", "2024-02-03", "2024-02-01", "2024-02-05",
+                     "2024-02-06", "2024-02-09", "2024-02-10", "2024-02-12", "2024-02-15",
+                     "2024-02-16", "2024-02-18", "2024-02-22", "2024-02-23", "2024-02-24",
+                     "2024-02-25", "2024-02-27", "2024-02-28", "2024-03-03", "2024-03-08",
+                     "2024-03-09", "2024-03-11", "2024-03-15", "2024-03-17", "2024-03-22", 
+                     "2024-03-25", "2024-03-26", "2024-03-28", "2024-03-29", "2024-03-30", 
+                     "2024-03-31", "2024-04-04", "2024-04-07", "2024-04-08", "2024-04-09",
+                     "2024-04-10", "2024-04-15", "2024-04-18", "2024-04-22", "2024-04-26",
+                     "2024-04-27", "2024-04-28", "2024-04-29", "2024-04-30", "2024-05-01",
+                     "2024-05-01", "2024-05-02", "2024-05-03", "2024-05-05", "2024-05-06",
+                     "2024-05-12", "2024-05-14", "2024-05-15", "2024-05-20", "2024-05-23", 
+                     "2024-05-24", "2024-05-27", "2024-05-29", "2024-05-30", "2024-06-02",
+                     "2024-06-05", "2024-06-06", "2024-06-08", "2024-06-09", "2024-06-19", 
+                     "2024-06-20", "2024-06-22", "2024-06-23", "2024-06-24", "2024-06-26", 
+                     "2024-06-27", "2024-07-02", "2024-07-03", "2024-07-06", "2024-07-12", 
+                     "2024-07-19", "2024-07-21", "2024-08-05", "2024-08-15", "2024-08-19",
+                     "2024-08-27", "2024-08-31", "2024-09-04", "2024-09-08", "2024-09-17", 
+                     "2024-09-18", "2024-09-19", "2024-09-22", "2024-09-24", "2024-09-26",
+                     "2024-10-02", "2024-10-04", "2024-10-06", "2024-10-07", "2024-10-09",
+                     "2024-10-12", "2024-10-14", "2024-10-16", "2024-10-17", "2024-10-19",
+                     "2024-10-22", "2024-10-24", "2024-10-26", "2024-10-27", "2024-10-29",
+                     "2024-11-06", "2024-11-09", "2024-11-12", "2024-11-18", "2024-11-20",
+                     "2024-11-21", "2024-11-24", "2024-11-26", "2024-11-28", "2024-12-03",
+                     "2024-12-05", "2024-12-06", "2024-12-07", "2024-12-09", "2024-12-10", 
+                     "2024-12-11", "2024-12-13", "2024-12-03", "2024-12-18", "2024-12-19")
 
 study_area_df_clean_2024 <- study_area_df_2024 |> 
   filter(!date %in% as.Date(dates_a_exclure)) |> 
@@ -1461,23 +1319,6 @@ for (d in unique(study_area_df_clean_2017$date)) {
 
 
 
-# exclusion nuages -------------------------------------------------
-
-# Charger la bande QA
-qc <- rast("~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GQ.A2024001.h18v04.061.2024003111813.hdf", subds = "QC_250m_1")
-
-# Les bits 0-1 encodent l'état nuageux :
-# 00 = ciel clair, 01 = nuageux, 10 = mixte, 11 = non produit
-
-# Extraire les bits 0 et 1 avec un masque binaire
-cloud_bits <- qc & 3L  # 3L = 0b11 en binaire, isole les 2 premiers bits
-
-# Garder uniquement les pixels clairs (valeur = 0)
-masque_clair <- cloud_bits == 0
-
-# Appliquer le masque à vos bandes de réflectance
-b1_masked <- mask(sur_refl_b01_1, masque_clair, maskvalue = FALSE)
-b2_masked <- mask(sur_refl_b02_1, masque_clair, maskvalue = FALSE)
 
 
 

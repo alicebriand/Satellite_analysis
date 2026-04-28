@@ -23,6 +23,7 @@ load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
 Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017_propre.csv",
                                         delim = ",", locale = locale(decimal_mark = ","))
 load("data/Hydro France/All_debit_2024.Rdata")
+load("data/MODIS L2 NASA/study_area_df_2024")
 
 # Load necessary libraries
 library(tidyverse)
@@ -37,6 +38,7 @@ library(ggpubr)
 library(maptiles)
 library(tidyterra)
 library(patchwork)
+library(giscoR) # Hi-res coastlines
 
 # function ---------------------------------------------------------------
 
@@ -150,12 +152,12 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
 # It is a single equation, we can apply it directly to the data.frame with mutate()
 # SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
 # and values come from? I do not find them in the literature?
-study_area_df_clean_2024 <- study_area_df_clean_2024 |>  
+study_area_df_2024 <- study_area_df_2024 |>  
   mutate(SPM_Morin_Var = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)),
          SPM_Morin_Paillon = (39 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.2563)))
 
 # Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
-study_area_df_clean_2024 <- study_area_df_clean_2024 |>
+study_area_df_2024 <- study_area_df_2024 |>
   mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
          SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
 
@@ -163,7 +165,7 @@ study_area_df_clean_2024 <- study_area_df_clean_2024 |>
 # https://www.sciencedirect.com/science/article/pii/S003442572500149X
 # SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
 # NB: lambda_RED is taken here to be the MODIS band 1 waveband
-study_area_df_clean_2024 <- study_area_df_clean_2024 |> 
+study_area_df_2024 <- study_area_df_2024 |> 
 mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
        Rrs_b02_01 = (sur_refl_b02_1/pi), # First convert Rhow_w to Rrs
        SPM_Teng_MO = 1992.2 * Rrs_b01_01^1.027,
@@ -176,14 +178,14 @@ mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
 # Though this is for LandSat 8
 # SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
 # A = 289.29 g m−3 , B = 2.10 g m−3 and C = 0.1686
-study_area_df_clean_2024 <- study_area_df_clean_2024 |> 
+study_area_df_2024 <- study_area_df_2024 |> 
   mutate(SPM_Tsapanou = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686)))+2.10)
 # This produces too many negative values...
 
 # So we digress to the Nechad formula of 
 # SPM = ((A * Rrs)/(1-(Rrs/C)))+B
 # A ≈ 200-230, C ≈ 0.15-⁣0.17 B ≈0# Just as a starting guess
-study_area_df_clean_2024 <- study_area_df_clean_2024 |> 
+study_area_df_2024 <- study_area_df_2024 |> 
   filter(sur_refl_b01_1 >= 0 ) |> 
   mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
         SPM_Nechad = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
@@ -192,14 +194,14 @@ study_area_df_clean_2024 <- study_area_df_clean_2024 |>
 # SPM[mg l−1]= a + b * ρsurf,645
 # ρsurf,645 = sur_refl_b01_1
 # a=289.29, b=2.1 # For starting
-study_area_df_clean_2024 <- study_area_df_clean_2024 |> 
+study_area_df_2024 <- study_area_df_2024 |> 
   filter(sur_refl_b01_1 >= 0 ) |> 
   mutate(SPM_formule = 0 + 2.1 * sur_refl_b01_1)
 
 # plotting -----------------------------------------------------------
 
 # we have to choose some dates and look at what data look like : 
-study_area_df_04_03_2024 <- study_area_df_clean_2024 |> 
+study_area_df_04_03_2024 <- study_area_df_2024 |> 
   filter(date == "2024-03-04")
 
 study_area_df_25_11_2016 <- study_area_df_clean_2016 |> 
@@ -218,6 +220,9 @@ study_area_df_28_03_2017 <- study_area_df_clean_2017 |>
 # we want to erase them so maybe the map will be better
 # study_area_df_04_03_2024_Morin <- study_area_df_04_03_2024 |> 
 #   filter(SPM_Morin <= 100)
+
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # set the maximum values
 max_spm <- max(study_area_df_04_03_2024$SPM_Morin_Var, na.rm = TRUE)
@@ -354,7 +359,7 @@ pl_map <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MO.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MO.png", pl_map, height = 9, width = 14)
 
 ## Teng MM -------------------------------------------------------------------
 
@@ -398,7 +403,7 @@ pl_map <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MM.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MM.png", pl_map, height = 9, width = 14)
 
 ## Teng extrem MM -------------------------------------------------------------------
 
@@ -1516,6 +1521,7 @@ p1 | p2 | p3 +
 # pixel area --------------------------------------------------------------
 
 ## extraction des valeurs en degré -----------------------------------------
+f <- "~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GQ.A2024001.h18v04.061.2024003111813.hdf"
 
 r <- rast(f, subds = "sur_refl_b01_1")
 
@@ -1559,15 +1565,15 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 6), "km²\n")
 # define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
-seuil_95_Teng_MO <- quantile(study_area_df_clean_2024$SPM_Teng_MO, 0.95, na.rm = TRUE)
-seuil_95_Teng_MM <- quantile(study_area_df_clean_2024$SPM_Teng_MM, 0.95, na.rm = TRUE)
-seuil_95_Teng_extrm_MM <- quantile(study_area_df_clean_2024$SPM_Teng_extrm_MM, 0.95, na.rm = TRUE)
-seuil_95_Doxaran <- quantile(study_area_df_clean_2024$SPM_Doxaran, 0.95, na.rm = TRUE)
-seuil_95_Tsapanou <- quantile(study_area_df_clean_2024$SPM_Tsapanou, 0.95, na.rm = TRUE)
-seuil_95_Nechad <- quantile(study_area_df_clean_2024$SPM_Nechad, 0.95, na.rm = TRUE)
-seuil_95_formule <- quantile(study_area_df_clean_2024$SPM_formule, 0.95, na.rm = TRUE)
-seuil_95_Morin_Var <- quantile(study_area_df_clean_2024$SPM_Morin_Var, 0.95, na.rm = TRUE)
-seuil_95_Morin_Paillon <- quantile(study_area_df_clean_2024$SPM_Morin_Paillon, 0.95, na.rm = TRUE)
+seuil_95_Teng_MO <- quantile(study_area_df_2024$SPM_Teng_MO, 0.95, na.rm = TRUE)
+seuil_95_Teng_MM <- quantile(study_area_df_2024$SPM_Teng_MM, 0.95, na.rm = TRUE)
+seuil_95_Teng_extrm_MM <- quantile(study_area_df_2024$SPM_Teng_extrm_MM, 0.95, na.rm = TRUE)
+seuil_95_Doxaran <- quantile(study_area_df_2024$SPM_Doxaran, 0.95, na.rm = TRUE)
+seuil_95_Tsapanou <- quantile(study_area_df_2024$SPM_Tsapanou, 0.95, na.rm = TRUE)
+seuil_95_Nechad <- quantile(study_area_df_2024$SPM_Nechad, 0.95, na.rm = TRUE)
+seuil_95_formule <- quantile(study_area_df_2024$SPM_formule, 0.95, na.rm = TRUE)
+seuil_95_Morin_Var <- quantile(study_area_df_2024$SPM_Morin_Var, 0.95, na.rm = TRUE)
+seuil_95_Morin_Paillon <- quantile(study_area_df_2024$SPM_Morin_Paillon, 0.95, na.rm = TRUE)
 
 cat("Seuil 95ème percentile :", seuil_95_Teng_MO, "g/m³\n") # 226.9015 g/m³
 cat("Seuil 95ème percentile :", seuil_95_Teng_MM, "g/m³\n") # 1133.327 g/m³
@@ -1580,7 +1586,7 @@ cat("Seuil 95ème percentile :", seuil_95_Morin_Var, "g/m³\n") # 36.84141 g/m³
 cat("Seuil 95ème percentile :", seuil_95_Morin_Paillon, "g/m³\n") # 16.88488 g/m³
 
 # Stats du panache par jour
-study_area_df_clean_2024_95 <- study_area_df_clean_2024 |> 
+study_area_df_2024_95 <- study_area_df_2024 |> 
   group_by(date) |> 
   summarise(
     # Teng_MO
@@ -1632,16 +1638,52 @@ study_area_df_clean_2024_95 <- study_area_df_clean_2024 |>
 
 ## graphiques --------------------------------------------------------------
 
+### plotter tout en même temps ----------------------------------------------
+
+#### mean_spm ----------------------------------------------------------------
+
+ggplot() +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Teng_MO, color = "Teng MO")) +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Teng_MM, color = "Teng MM")) +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Teng_extrm_MM, color = "Teng extrême MM")) +
+  # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Doxaran, color = "Doxaran")) +
+  # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Tsapanou, color = "Tsapanou")) +
+  # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Nechad, color = "Nechad")) +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_formule, color = "Formule")) +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Morin_Var, color = "Morin Var")) +
+  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Morin_Paillon, color = "Morin Paillon")) +
+  labs(
+    title = "Prédiction de la concentration en MES selon les différents algorithmes - 2024",
+    subtitle = "Prédictions des MES - MODIS niveau 2",
+    x = "date",
+    y = expression(SPM["prédictions"] ~ (mg ~ L^{-1}))
+  ) +
+  
+  # Thème
+  theme(
+    plot.title    = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5, color = "grey50"),
+    axis.title    = element_text(face = "bold"),
+    axis.text     = element_text(color = "grey30"),
+    panel.grid.minor = element_blank(),
+    panel.border  = element_rect(color = "grey70")
+  )
+  
+  
+  
+  
+             
+
 ### Teng MO -----------------------------------------------------------------
 
-adjust_factors <- sec_axis_adjustement_factors(study_area_df_clean_2024_95$aire_panache_km2_Teng_MO, All_debit_2024$debit_cumule)
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_MO, All_debit_2024$debit_cumule)
 
-study_area_df_clean_2024_95$scaled_aire_panache_km2_Teng_MO <- study_area_df_clean_2024_95$aire_panache_km2_Teng_MO * adjust_factors$diff + adjust_factors$adjust
+study_area_df_2024_95$scaled_aire_panache_km2_Teng_MO <- study_area_df_2024_95$aire_panache_km2_Teng_MO * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_line(data = All_debit_2024, 
             aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
-  geom_line(data = study_area_df_clean_2024_95, 
+  geom_line(data = study_area_df_2024_95, 
             aes(x = date, y = scaled_aire_panache_km2_Teng_MO, color = "Aire des panaches"), size = 0.3) +
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
@@ -1660,22 +1702,22 @@ ggplot() +
 
 ### Teng MM -----------------------------------------------------------------
 
-adjust_factors <- sec_axis_adjustement_factors(study_area_df_clean_2024_95$mean_spm_Teng_MM, All_debit_2024$debit_cumule)
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_MM, All_debit_2024$debit_cumule)
 
-study_area_df_clean_2024_95$scaled_mean_spm_Teng_MM <- study_area_df_clean_2024_95$mean_spm_Teng_MM * adjust_factors$diff + adjust_factors$adjust
+study_area_df_2024_95$scaled_aire_panache_km2_Teng_MM <- study_area_df_2024_95$aire_panache_km2_Teng_MM * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_line(data = All_debit_2024, 
             aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
-  geom_line(data = study_area_df_clean_2024_95, 
-            aes(x = date, y = scaled_mean_spm_Teng_MM, color = "Moyenne en MES"), size = 0.3) +
-  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Moyenne en MES" = "red3")) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Teng_MM, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
     # limits = c(0, 250),   # ← min et max de l'axe Y
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Moyenne en MES (en km²)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
   ) +
-  labs(title = "Évolution de la concentration moyenne en MES et du débit cumulé vu par le produit MODIS L2",
+  labs(title = "Évolution de la taille des panaches turbides et du débit cumulé vu par le produit MODIS L2",
        caption = "Algorithme développé par Teng et al., 2025 pour les eaux riches en MM",
        x = "Date") +
   theme_minimal() +
@@ -1686,14 +1728,14 @@ ggplot() +
 
 ### Teng extrêmement riche en MM -----------------------------------------------------------------
 
-adjust_factors <- sec_axis_adjustement_factors(study_area_df_clean_2024_95$aire_panache_km2_Teng_extrm_MM, All_debit_2024$debit_cumule)
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_extrm_MM, All_debit_2024$debit_cumule)
 
-study_area_df_clean_2024_95$scaled_aire_panache_km2_Teng_extrm_MM <- study_area_df_clean_2024_95$aire_panache_km2_Teng_extrm_MM * adjust_factors$diff + adjust_factors$adjust
+study_area_df_2024_95$scaled_aire_panache_km2_Teng_extrm_MM <- study_area_df_2024_95$aire_panache_km2_Teng_extrm_MM * adjust_factors$diff + adjust_factors$adjust
 
 ggplot() +
   geom_line(data = All_debit_2024, 
             aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
-  geom_line(data = study_area_df_clean_2024_95, 
+  geom_line(data = study_area_df_2024_95, 
             aes(x = date, y = scaled_aire_panache_km2_Teng_extrm_MM, color = "Aire des panaches"), size = 0.3) +
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
@@ -1703,6 +1745,162 @@ ggplot() +
   ) +
   labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
        caption = "Algorithme développé par Teng et al., 2025 pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### Doxaran -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Doxaran, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_Doxaran <- study_area_df_2024_95$aire_panache_km2_Doxaran * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Doxaran, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par Doxaran et al., 2009 pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### Doxaran -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Tsapanou, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_Tsapanou <- study_area_df_2024_95$aire_panache_km2_Tsapanou * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Tsapanou, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par Tsapanou et al., 2020 pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### Nechad -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Nechad, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_Nechad <- study_area_df_2024_95$aire_panache_km2_Nechad * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Nechad, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par Nechad et al., ... pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### formule -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_formule, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_formule <- study_area_df_2024_95$aire_panache_km2_formule * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_formule, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par formule et al., ... pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### Morin Var -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Morin_Var, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_Morin_Var <- study_area_df_2024_95$aire_panache_km2_Morin_Var * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Morin_Var, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par Morin et al., ... pour les eaux très riches en MM",
+       x = "Date") +
+  theme_minimal() +
+  scale_x_date(
+    date_breaks = "1 year",  
+    date_labels = "%Y"       
+  )
+
+### Morin Paillon -----------------------------------------------------------------
+
+adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Morin_Paillon, All_debit_2024$debit_cumule)
+
+study_area_df_2024_95$scaled_aire_panache_km2_Morin_Paillon <- study_area_df_2024_95$aire_panache_km2_Morin_Paillon * adjust_factors$diff + adjust_factors$adjust
+
+ggplot() +
+  geom_line(data = All_debit_2024, 
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
+  geom_line(data = study_area_df_2024_95, 
+            aes(x = date, y = scaled_aire_panache_km2_Morin_Paillon, color = "Aire des panaches"), size = 0.3) +
+  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
+  scale_y_continuous(
+    # limits = c(0, 250),   # ← min et max de l'axe Y
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  ) +
+  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
+       caption = "Algorithme développé par Morin et al., ... pour les eaux très riches en MM",
        x = "Date") +
   theme_minimal() +
   scale_x_date(

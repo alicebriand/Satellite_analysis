@@ -622,6 +622,8 @@ ggwindrose(
   annotate("text", x = 0, y = 0, label = "", size = 3, color = "red")
 
 
+
+
 # Wind vs plume datas -----------------------------------------------------
 
 ## wind speed vs plume area ------------------------------------------------

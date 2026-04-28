@@ -258,48 +258,42 @@ ggplot(data = sextant_1998_monthly, aes(x = lon, y = lat)) +
 # facet_grid(year~month)
 
 
+
 # on veut faire une carte pour 1 jour en particulier
+
+# Hi-res Mediterranean country and coastline shapes
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
 # Filtrer pour le jour voulu
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%
   filter(date == as.Date("2020-10-03"))
 
 ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
-  geom_raster() +  # pour des données grillées (raster)
-  scale_fill_viridis_c(
-    name = "SPM (mg/L)",
-    option = "turbo",   # turbo, magma, plasma selon tes préférences
-    na.value = "transparent"
-  ) +
-  coord_fixed(ratio = 1.2) +  # ratio lat/lon adapté à la Méditerranée
-  labs(
-    title = "Concentration en SPM — 03 octobre 2020",
-    x = "Longitude",
-    y = "Latitude"
-  ) +
-  theme_minimal()
-
-
-cotes <- ne_coastline(scale = "medium", returnclass = "sf")  
-
-# ou ne_countries() pour les frontières terrestres
-
-ggplot() +
-  geom_raster(data = df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
-  geom_sf(data = cotes, color = "black", linewidth = 0.3) +
-  scale_fill_viridis_c(
-    name = "SPM (mg/L)",
-    option = "turbo",
-    na.value = "transparent"
-  ) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
   coord_sf(
-    xlim = c(min(df_jour$lon), max(df_jour$lon)),
-    ylim = c(min(df_jour$lat), max(df_jour$lat))
+    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+    ylim   = range(df_jour$lat),
+    expand = FALSE
+  ) +
+  scale_fill_viridis_c(
+    name     = "Concentration en MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
   ) +
   labs(
-    title = "Concentration en SPM — 03 octobre 2020",
-    x = "Longitude", y = "Latitude"
+    title = "Concentration en MES — 03 octobre 2020",
+    x     = "Longitude",
+    y     = "Latitude"
   ) +
-  theme_minimal()
+  theme_bw() +
+  theme(
+    plot.title   = element_text(size = 13, face = "bold"),
+    axis.text    = element_text(size = 11, color = "grey30"),
+    panel.border = element_rect(color = "grey70", linewidth = 0.5)
+  )
 
 # maintenant, on regarde la carte après avoir appliqué les valeurs de filtre au
 # 95ème percentile
@@ -333,18 +327,145 @@ ggplot() +
   geom_raster(data = df_jour %>% mutate(mean_spm = mean_val),
               aes(x = lon, y = lat, fill = mean_spm)) +
   geom_sf(data = panache_sf, fill = NA, color = "red", linewidth = 0.5) +  # contour
-  geom_sf(data = cotes, color = "black", linewidth = 0.3) +
-  scale_fill_viridis_c(name = "SPM moyen (mg/L)", option = "turbo") +
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+  coord_sf(
+    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+    ylim   = range(df_jour$lat),
+    expand = FALSE) +
+  scale_fill_viridis_c(name = "MES moyen (g/m³)", option = "turbo") +
   coord_sf(
     xlim = c(min(df_jour$lon), max(df_jour$lon)),
     ylim = c(min(df_jour$lat), max(df_jour$lat))
   ) +
   labs(
-    title = paste0("SPM moyen dans le panache — 03 octobre 2020"),
-    subtitle = paste0("Moyenne = ", round(mean_val, 3), " mg/L | n = ", nrow(df_jour), " pixels"),
+    title = paste0("MES moyen dans le panache — 03 octobre 2020"),
+    subtitle = paste0("Moyenne = ", round(mean_val, 3), " g/m³ | n = ", nrow(df_jour), " pixels"),
     x = "Longitude", y = "Latitude"
   ) +
   theme_minimal()
+
+# patchwork ---------------------------------------------------------------
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"))
+
+p1 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+  coord_sf(
+    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+    ylim   = range(df_jour$lat),
+    expand = FALSE
+  ) +
+  scale_fill_viridis_c(
+    name     = "Concentration en MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  labs(
+    title = "Concentration en MES — 03 octobre 2020",
+    x     = "Longitude",
+    y     = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title   = element_text(size = 13, face = "bold"),
+    axis.text    = element_text(size = 11, color = "grey30"),
+    panel.border = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03")) %>%
+  mutate(analysed_spim = ifelse(analysed_spim > 0.94, analysed_spim, NA))
+
+p2 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+  coord_sf(
+    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+    ylim   = range(df_jour$lat),
+    expand = FALSE
+  ) +
+  scale_fill_viridis_c(
+    name     = "Concentration en MES (g/m³)",
+    option   = "turbo",
+    na.value = "transparent"
+  ) +
+  labs(
+    title = "Concentration en MES — 03 octobre 2020",
+    x     = "Longitude",
+    y     = "Latitude"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title   = element_text(size = 13, face = "bold"),
+    axis.text    = element_text(size = 11, color = "grey30"),
+    panel.border = element_rect(color = "grey70", linewidth = 0.5)
+  )
+
+# maintenant, on regarde la carte après avoir appliqué les valeurs de filtre au
+# 95ème percentile
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03")) %>%
+  mutate(analysed_spim = ifelse(analysed_spim > 0.94, analysed_spim, NA))
+
+# ensuite les valeurs au dessus de ce seuil sont moyennées
+
+mean_spm_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94) %>%
+  summarise(mean_spm = mean(analysed_spim, na.rm = TRUE))
+
+
+
+df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94)
+
+# Valeur moyenne unique
+mean_val <- mean(df_jour$analysed_spim, na.rm = TRUE)
+
+# Créer un polygone convexe autour des pixels du panache
+panache_sf <- df_jour %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  st_union() %>%
+  st_convex_hull()  # enveloppe convexe du panache
+
+p3 <- ggplot() +
+  geom_raster(data = df_jour %>% mutate(mean_spm = mean_val),
+              aes(x = lon, y = lat, fill = mean_spm)) +
+  geom_sf(data = panache_sf, fill = NA, color = "red", linewidth = 0.5) +  # contour
+  geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+  coord_sf(
+    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+    ylim   = range(df_jour$lat),
+    expand = FALSE) +
+  scale_fill_viridis_c(name = "MES moyen (g/m³)", option = "turbo") +
+  coord_sf(
+    xlim = c(min(df_jour$lon), max(df_jour$lon)),
+    ylim = c(min(df_jour$lat), max(df_jour$lat))
+  ) +
+  labs(
+    title = paste0("MES moyen dans le panache — 03 octobre 2020"),
+    subtitle = paste0("Moyenne = ", round(mean_val, 3), " g/m³ | n = ", nrow(df_jour), " pixels"),
+    x = "Longitude", y = "Latitude"
+  ) +
+  theme_minimal()
+
+# --- Patchwork ---
+(p1 / p2 | p3) +
+  plot_annotation(
+    title      = "Identification du panache du 03/10/2020 — Sextant OC5",
+    caption    = "Source : Sextant OC5",
+    tag_levels = "a", tag_prefix = "(", tag_suffix = ")",
+    theme      = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
 
 # Temporal analysis -------------------------------------------------------
 
