@@ -188,6 +188,29 @@ cloud_cover_pct <- function(date_tif, hdf_GA_list, bbox) {
   })
 }
 
+apply_pixel_qa_mask <- function(reflectance_rast, all_hdf_GA) {
+  
+  qa <- rast(all_hdf_GA, subds = "QC_500m_1")
+  
+  # Bit 0-1 : qualité MODLAND (0 = bon, 1 = utile, 2-3 = mauvais)
+  modland     <- bitwAnd(as.integer(values(qa)), 3L)
+  
+  # Bit 2-5 : bande 1 (rouge) qualité data (0 = bon)
+  b1_quality  <- bitwAnd(bitwShiftR(as.integer(values(qa)), 2L), 15L)
+  
+  # Bit 6-9 : bande 2 (NIR) qualité data (0 = bon)  
+  b2_quality  <- bitwAnd(bitwShiftR(as.integer(values(qa)), 6L), 15L)
+  
+  # Garder uniquement les pixels de bonne qualité
+  bon_pixel   <- (modland <= 1) & (b1_quality == 0) & (b2_quality == 0)
+  
+  # Créer un raster masque
+  masque      <- reflectance_rast
+  values(masque) <- as.integer(bon_pixel)
+  
+  return(masque)
+}
+
 # MODIS data --------------------------------------------------------------
 
 # Lists all products that are currently searchable on Earth Data and related servers
@@ -471,7 +494,7 @@ product_version <- "061" # NB: Change this if not shown in the output shown abov
 
 # we also download the quality product for the reflectance band (tells us if pixels 
 # are valid : clouds, clear sky or mixt)
-# luna::getNASA(product = "MYD09GA", 
+# luna::getNASA(product = "MYD09GA",
 #               start_date = start_date, end_date = end_date,
 #               aoi = study_bbox, download = TRUE, overwrite = FALSE,
 #               server = product_server, version = product_version,
@@ -496,68 +519,24 @@ plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .
             bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
 
 # Load the desired mask file
-MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024/MOD44W.A2024001.h18v04.061.2025064072734.hdf")
+MODIS_mask <- rast("~/Downloads/MODIS NASA/L2 2024 Aqua/MOD44W.A2024001.h18v04.061.2025064072734.hdf")
 
 # Check that it looks correct - should show white where land would be
 plot(MODIS_mask)
 maps::map(add = TRUE)
 
-## MODIS data --------------------------------------------------------------
-
-### masque nuage ------------------------------------------------------------
-
-all_hdf_GA <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GA/",
-                         pattern    = "MYD09GA\\.",
-                         full.names = TRUE,
-                         recursive  = TRUE)
-
-# Vérifier
-length(all_hdf_GA)
-head(all_hdf_GA)
-
-# Sur un seul fichier MYD09GA
-sds(all_hdf_GA[1])
-# Chercher "state" dans les noms — doit s'appeler "sur_refl_state_500m"
-
-# Afficher les sous-datasets avec leur index
-sds_info <- sds(all_hdf_GA[1])
-names(sds_info)  # ou
-sds_info$MYD09GA.A2024001.h18v04.061.2024003111813  # selon la version de terra
-
-# Lire chaque sous-dataset par son numéro et afficher son nom
-for (i in 1:10) {
-  r <- sds(all_hdf_GA[1])[i]
-  cat("Layer", i, ":", names(r), "\n")
-}
-
-# Tester tous les layers pour voir lequel a des valeurs variées
-for (i in 1:10) {
-  r    <- sds(all_hdf_GA[1])[i][[1]]
-  vals <- values(r)
-  cat("Layer", i, "| min:", min(vals, na.rm=T), 
-      "max:", max(vals, na.rm=T),
-      "NA%:", round(mean(is.na(vals))*100, 1), "%\n")
-}
-
-# Diagnostic complet sur le layer 2
-qa         <- sds(all_hdf_GA[1])[2][[1]]
-cloud_bits <- qa & 3L
-
-# Voir la distribution des bits 0-1
-table(values(cloud_bits))
-# 0 = clair, 1 = nuageux, 2 = mixte, 3 = non produit
-
-# Diagnostic
-qa         <- sds(all_hdf_GA[1])[2][[1]]
-cloud_bits <- bitwAnd(as.integer(values(qa)), 3L)
-table(cloud_bits)
-# Doit donner : 0 = clair, 1 = nuageux, 2 = mixte, 3 = non produit
-### fichier hdf MODIS ------------------------------------------------------------
+## 4) MODIS data --------------------------------------------------------------
 
 # Lister tous les fichiers HDF téléchargés
 all_hdf <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/",
                       pattern = "MYD09GQ\\.",
                       full.names = TRUE, recursive = TRUE)
+
+# lister tous les hdf du produit de qualité pixel
+all_hdf_GA <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GA/",
+                         pattern    = "MYD09GA\\.",
+                         full.names = TRUE,
+                         recursive  = TRUE)
 
 # Convertir la liste all_hdf en data.frame avec les dates (comme rast_files)
 all_hdf_df <- luna::modisDate(all_hdf)
@@ -638,25 +617,16 @@ tif_files_b2 <- list.files("~/Downloads/MODIS NASA/L2 2024 Aqua/tif_bande_2/",
 product_ID_files_b1 <- tif_files_b1[grepl(product_ID, tif_files_b1)]
 product_ID_files_b2 <- tif_files_b2[grepl(product_ID, tif_files_b2)]
 
-# Load all files
-study_area_df_2024_b1 <- map_dfr(product_ID_files_b1, load_MODIS_tif, MODIS_mask)
-study_area_df_2024_b2 <- map_dfr(product_ID_files_b2, load_MODIS_tif, MODIS_mask)
+study_area_df_2024_b1 <- map_dfr(product_ID_files_b1, ~ load_MODIS_tif_masked
+                                 (.x, MODIS_mask, all_hdf_GA, study_bbox))
 
-# Tester sur 5 fichiers seulement d'abord
-test_b1 <- map_dfr(
-  product_ID_files_b1[1:21],
-  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA)
-)
-qa <- sds(all_hdf_GA[1])[2][[1]]
-summary(values(qa))
-# Si tout est 0 ou une seule valeur → mauvais layer
-
-# Lancer avec study_bbox en plus
+# Lancer sur la bande de réflectance 1
 study_area_df_2024_b1 <- map_dfr(
   product_ID_files_b1,
-  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA, study_bbox)
+  ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA, study_bbox, apply_pixel_qa_mask)
 )
 
+# Lancer sur la bande de réflectance 2
 study_area_df_2024_b2 <- map_dfr(
   product_ID_files_b2,
   ~ load_MODIS_tif_masked(.x, MODIS_mask, all_hdf_GA, study_bbox)
@@ -665,64 +635,6 @@ study_area_df_2024_b2 <- map_dfr(
 study_area_df_2024 <- left_join(study_area_df_2024_b1, study_area_df_2024_b2, by = c("date", "lon", "lat"))
 
 save(study_area_df_2024, file = "data/MODIS L2 NASA/study_area_df_2024")
-
-
-# test
-# Sur un fichier que vous savez nuageux visuellement
-test_hdf <- "~/Downloads/MODIS NASA/L2 2024 Aqua/MYD09GQ.A2024001.h18v04.061.2024003111813.hdf"
-qa <- rast(test_hdf, subds = "QC_250m_1")
-hist(values(qa), main = "Distribution des valeurs QC")
-summary(values(qa))
-
-# Convertir quelques valeurs en binaire pour comprendre
-valeurs_uniques <- unique(values(qa))
-valeurs_uniques <- valeurs_uniques[!is.na(valeurs_uniques)]
-
-# Afficher en binaire
-data.frame(
-  decimal = valeurs_uniques,
-  binaire = sapply(valeurs_uniques, function(x) paste(rev(as.integer(intToBits(x)[1:16])), collapse=""))
-)
-
-
-
-
-
-# on va enlever manuellement les jours qui sont contaminés par des nuages (ça va être long)
-# dates_a_exclure <- c("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-05", "2024-01-07",
-#                      "2024-01-08", "2024-01-09", "2024-01-10", "2024-01-13", "2024-01-14", 
-#                      "2024-01-17", "2024-01-19", "2024-01-21", "2024-01-22", "2024-01-24",
-#                      "2024-01-26", "2024-01-27", "2024-01-28", "2024-01-29", "2024-01-30",
-#                      "2024-02-01", "2024-02-02", "2024-02-03", "2024-02-01", "2024-02-05",
-#                      "2024-02-06", "2024-02-09", "2024-02-10", "2024-02-12", "2024-02-15",
-#                      "2024-02-16", "2024-02-18", "2024-02-22", "2024-02-23", "2024-02-24",
-#                      "2024-02-25", "2024-02-27", "2024-02-28", "2024-03-03", "2024-03-08",
-#                      "2024-03-09", "2024-03-11", "2024-03-15", "2024-03-17", "2024-03-22", 
-#                      "2024-03-25", "2024-03-26", "2024-03-28", "2024-03-29", "2024-03-30", 
-#                      "2024-03-31", "2024-04-04", "2024-04-07", "2024-04-08", "2024-04-09",
-#                      "2024-04-10", "2024-04-15", "2024-04-18", "2024-04-22", "2024-04-26",
-#                      "2024-04-27", "2024-04-28", "2024-04-29", "2024-04-30", "2024-05-01",
-#                      "2024-05-01", "2024-05-02", "2024-05-03", "2024-05-05", "2024-05-06",
-#                      "2024-05-12", "2024-05-14", "2024-05-15", "2024-05-20", "2024-05-23", 
-#                      "2024-05-24", "2024-05-27", "2024-05-29", "2024-05-30", "2024-06-02",
-#                      "2024-06-05", "2024-06-06", "2024-06-08", "2024-06-09", "2024-06-19", 
-#                      "2024-06-20", "2024-06-22", "2024-06-23", "2024-06-24", "2024-06-26", 
-#                      "2024-06-27", "2024-07-02", "2024-07-03", "2024-07-06", "2024-07-12", 
-#                      "2024-07-19", "2024-07-21", "2024-08-05", "2024-08-15", "2024-08-19",
-#                      "2024-08-27", "2024-08-31", "2024-09-04", "2024-09-08", "2024-09-17", 
-#                      "2024-09-18", "2024-09-19", "2024-09-22", "2024-09-24", "2024-09-26",
-#                      "2024-10-02", "2024-10-04", "2024-10-06", "2024-10-07", "2024-10-09",
-#                      "2024-10-12", "2024-10-14", "2024-10-16", "2024-10-17", "2024-10-19",
-#                      "2024-10-22", "2024-10-24", "2024-10-26", "2024-10-27", "2024-10-29",
-#                      "2024-11-06", "2024-11-09", "2024-11-12", "2024-11-18", "2024-11-20",
-#                      "2024-11-21", "2024-11-24", "2024-11-26", "2024-11-28", "2024-12-03",
-#                      "2024-12-05", "2024-12-06", "2024-12-07", "2024-12-09", "2024-12-10", 
-#                      "2024-12-11", "2024-12-13", "2024-12-03", "2024-12-18", "2024-12-19")
-
-
-study_area_df_clean_2024 <- study_area_df_2024 |> 
-  filter(!date %in% as.Date(dates_a_exclure)) |> 
-  filter(sur_refl_b01_1 >= 0, sur_refl_b02_1 >= 0) # on a des valeurs de réflectance négatives, on les supprime
 
 ### plotting --------------------------------------------------------------------
 

@@ -21,6 +21,9 @@ library(rnaturalearth)
 library(giscoR) # Hi-res coastlines
 library(ggpmisc)
 library(doParallel); registerDoParallel(cores = parallel::detectCores()-2)
+library(ggpubr)  # Pour stat_cor()
+library(scales)
+
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -76,6 +79,26 @@ load_SEXTANT_spm_pixels <- function(file_name, lon_range, lat_range){
   return(sextant_one)
 }
 
+# to load sextant data
+load_SEXTANT_chl_pixels <- function(file_name, lon_range, lat_range){
+  
+  # Find the date
+  sextant_one_date <- as.Date(tidync(file_name)[["attribute"]][["value"]][["start_date"]])
+  
+  # The necessary code
+  sextant_one <- tidync(file_name) |> 
+    hyper_filter(lon = lon >= lon_range[1] & lon <= lon_range[2],
+                 lat = lat >= lat_range[1] & lat <= lat_range[2]) |> 
+    hyper_tibble() |> 
+    mutate(lon = as.numeric(lon),
+           lat = as.numeric(lat),
+           date = sextant_one_date) |> 
+    dplyr::select(lon, lat, date, analysed_chl_a)  # tous les pixels, sans filtre
+  
+  # Exit
+  return(sextant_one)
+}
+
 # Load data ---------------------------------------------------------------
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
@@ -85,40 +108,71 @@ load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
 ## SPM ---------------------------------------------------------------------
 
-# SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_1999_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2000_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2001_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2002_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2003_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2004_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2005_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2006_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2007_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2008_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2009_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2010_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2013_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2014_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2015_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2016_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2017_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2018_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2019_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2020_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2021_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2022_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-# SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_1999_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2000_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2001_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2002_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2003_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2004_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2005_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2006_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2007_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2008_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2009_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2010_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2013_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2014_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2015_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2016_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2017_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2018_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2019_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2020_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2021_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2022_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+
+SEXTANT_1998_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_1999_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2000_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2001_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2002_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2003_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2004_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2005_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2006_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2007_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2008_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2009_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2010_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2013_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2014_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2015_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2016_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2017_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2018_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2019_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2020_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2021_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2022_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2023_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2024_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2025_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
 ### to define threshold with percentile 95 --------------------------------------------------------
 
-# Load and combine
+#### SPM ---------------------------------------------------------------------
 
 # SEXTANT_1998_spm_pixels <- plyr::ldply(SEXTANT_1998_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 # SEXTANT_1999_spm_pixels <- plyr::ldply(SEXTANT_1999_dir, load_SEXTANT_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
@@ -162,6 +216,51 @@ load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 #                                       SEXTANT_2025_spm_pixels)
 # 
 # save(SEXTANT_1998_2025_spm_pixels, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+
+#### CHL ---------------------------------------------------------------------
+
+SEXTANT_1998_chl_pixels <- plyr::ldply(SEXTANT_1998_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_1999_chl_pixels <- plyr::ldply(SEXTANT_1999_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2000_chl_pixels <- plyr::ldply(SEXTANT_2000_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2001_chl_pixels <- plyr::ldply(SEXTANT_2001_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2002_chl_pixels <- plyr::ldply(SEXTANT_2002_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2003_chl_pixels <- plyr::ldply(SEXTANT_2003_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2004_chl_pixels <- plyr::ldply(SEXTANT_2004_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2005_chl_pixels <- plyr::ldply(SEXTANT_2005_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2006_chl_pixels <- plyr::ldply(SEXTANT_2006_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2007_chl_pixels <- plyr::ldply(SEXTANT_2007_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2008_chl_pixels <- plyr::ldply(SEXTANT_2008_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2009_chl_pixels <- plyr::ldply(SEXTANT_2009_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2010_chl_pixels <- plyr::ldply(SEXTANT_2010_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2011_chl_pixels <- plyr::ldply(SEXTANT_2011_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2012_chl_pixels <- plyr::ldply(SEXTANT_2012_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2013_chl_pixels <- plyr::ldply(SEXTANT_2013_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2014_chl_pixels <- plyr::ldply(SEXTANT_2014_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2015_chl_pixels <- plyr::ldply(SEXTANT_2015_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2016_chl_pixels <- plyr::ldply(SEXTANT_2016_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2017_chl_pixels <- plyr::ldply(SEXTANT_2017_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2018_chl_pixels <- plyr::ldply(SEXTANT_2018_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2019_chl_pixels <- plyr::ldply(SEXTANT_2019_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2020_chl_pixels <- plyr::ldply(SEXTANT_2020_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2021_chl_pixels <- plyr::ldply(SEXTANT_2021_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2022_chl_pixels <- plyr::ldply(SEXTANT_2022_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2023_chl_pixels <- plyr::ldply(SEXTANT_2023_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2024_chl_pixels <- plyr::ldply(SEXTANT_2024_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+SEXTANT_2025_chl_pixels <- plyr::ldply(SEXTANT_2025_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+
+# Combine and save
+SEXTANT_1998_2025_chl_pixels <- rbind(SEXTANT_1998_chl_pixels, SEXTANT_1999_chl_pixels, SEXTANT_2000_chl_pixels,
+                                      SEXTANT_2001_chl_pixels, SEXTANT_2002_chl_pixels, SEXTANT_2003_chl_pixels,
+                                      SEXTANT_2004_chl_pixels, SEXTANT_2005_chl_pixels, SEXTANT_2006_chl_pixels,
+                                      SEXTANT_2007_chl_pixels, SEXTANT_2008_chl_pixels, SEXTANT_2009_chl_pixels,
+                                      SEXTANT_2010_chl_pixels, SEXTANT_2011_chl_pixels, SEXTANT_2012_chl_pixels,
+                                      SEXTANT_2013_chl_pixels, SEXTANT_2014_chl_pixels, SEXTANT_2015_chl_pixels,
+                                      SEXTANT_2016_chl_pixels, SEXTANT_2017_chl_pixels, SEXTANT_2018_chl_pixels,
+                                      SEXTANT_2019_chl_pixels, SEXTANT_2020_chl_pixels, SEXTANT_2021_chl_pixels,
+                                      SEXTANT_2022_chl_pixels, SEXTANT_2023_chl_pixels,SEXTANT_2024_chl_pixels,
+                                      SEXTANT_2025_chl_pixels)
+
+save(SEXTANT_1998_2025_chl_pixels, file = "data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
 
 # pixel area --------------------------------------------------------------
 
@@ -236,36 +335,72 @@ save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95
 
 # en échelle normale
 
-# mean spm
+# Calcul du modèle linéaire
 model_sextant_1998_95 <- lm(mean_spm ~ date, data = SEXTANT_1998_2025_spm_95)
-p_value_sextant_1998_95 <- summary(model_sextant_1998_95)$coefficients[2, 4]  # p-value pour la pente
+p_value_sextant_1998_95 <- summary(model_sextant_1998_95)$coefficients[2, 4]
 intercept_sextant_1998_95 <- coef(model_sextant_1998_95)[1]
 slope_sextant_1998_95 <- coef(model_sextant_1998_95)[2]
 
+# Création du graphique
 ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm)) +
-  geom_point(color = "red3", size = 0.5) +
-  # geom_point(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  # Points avec style épuré
+  geom_point(
+    size = 2,
+    shape = 21,
+    fill = "red3",
+    color = "white",
+    stroke = 0.5,
+    # alpha = 0.85
+  ) +
+  # Ligne de régression avec intervalle de confiance
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    color = "darkslateblue",
+    fill = "darkslateblue",
+    alpha = 0.15,
+    linewidth = 1.5
+  ) +
+  # Annotation pour l'équation et la p-value (en haut à droite)
   annotate(
     "text",
     x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
-    y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE) * 0.9,
-    label = paste0(
-      "y = ", round(intercept_sextant_1998_95, 3), " ", round(slope_sextant_1998_95, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
-    ),
+    y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
-    size = 6
+    label = paste0(
+      "y = ", round(intercept_sextant_1998_95, 3), " + ", round(slope_sextant_1998_95, 7), " × x",
+      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    fontface = "italic",
+    family = "serif"
   ) +
-  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit SEXTANT",
-       x = "Date",
-       y = "Concentration moyenne en MES (en mg/m³)") +
-  theme_minimal() +
+  # Titre et labels
+  labs(
+    title = "Évolution de la concentration moyenne en MES dans les panaches turbides de la baie des Anges",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    y = expression("Concentration en MES (g m"^{-3}*")")
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50"),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "grey30"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    plot.margin = margin(1, 1, 1, 1, "cm")  # Marges ajustées pour éviter le chevauchement
+  ) +
+  # Échelle des dates
   scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+    date_breaks = "5 years",
+    date_labels = "%Y"
   )
+
 
 # median spm
 model_sextant_1998_95 <- lm(median_spm ~ date, data = SEXTANT_1998_2025_spm_95)
@@ -274,29 +409,63 @@ intercept_sextant_1998_95 <- coef(model_sextant_1998_95)[1]
 slope_sextant_1998_95 <- coef(model_sextant_1998_95)[2]
 
 ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = median_spm)) +
-  geom_point(color = "red3", size = 0.5) +
-  geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
+  # Points avec style épuré
+  geom_point(
+    size = 2,
+    shape = 21,
+    fill = "red3",
+    color = "white",
+    stroke = 0.5,
+    # alpha = 0.85
+  ) +
+  # Ligne de régression avec intervalle de confiance
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    color = "darkslateblue",
+    fill = "darkslateblue",
+    alpha = 0.15,
+    linewidth = 1.5
+  ) +
+  # Annotation pour l'équation et la p-value (en haut à droite)
   annotate(
     "text",
     x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
-    y = max(SEXTANT_1998_2025_spm_95$median_spm, na.rm = TRUE) * 0.9,
-    label = paste0(
-      "y = ", round(intercept_sextant_1998_95, 3), " ", round(slope_sextant_1998_95, 7), " * x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
-    ),
+    y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
-    size = 6
+    label = paste0(
+      "y = ", round(intercept_sextant_1998_95, 3), " + ", round(slope_sextant_1998_95, 7), " × x",
+      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    fontface = "italic",
+    family = "serif"
   ) +
-  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit SEXTANT",
-       x = "Date",
-       y = "Concentration médiane en MES (en mg/m³)") +
-  theme_minimal() +
+  # Titre et labels
+  labs(
+    title = "Évolution de la concentration médiane en MES dans les panaches turbides de la baie des Anges",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    y = expression("Concentration en MES (g m"^{-3}*")")
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50"),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "grey30"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    plot.margin = margin(1, 1, 1, 1, "cm")  # Marges ajustées pour éviter le chevauchement
+  ) +
+  # Échelle des dates
   scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+    date_breaks = "5 years",
+    date_labels = "%Y"
   )
-
 
 # en échelle log
 
@@ -335,37 +504,268 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
-# comparison between liquid flow rate vs plume extension
+# Comparison --------------------------------------------------------------
 
-adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
+## mean MES / liquid flow rate --------------------------------------------------
 
-SEXTANT_1998_2025_spm_95$scaled_aire_panache <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+# mise à l'échelle
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$mean_spm, Y6442010_depuis_2000$débit)
+SEXTANT_1998_2025_spm_95$scaled_mean_spm <- SEXTANT_1998_2025_spm_95$mean_spm * adjust_factors$diff + adjust_factors$adjust
+
+# Calcul de la corrélation entre débit et aire des panaches
+merged_data <- merge(
+  Y6442010_depuis_2000,
+  SEXTANT_1998_2025_spm_95,
+  by = "date",
+  all = FALSE
+)
+
+correlation <- cor(merged_data$débit, merged_data$mean_spm, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$débit, merged_data$mean_spm, method = "spearman")$p.value
 
 ggplot() +
-  geom_line(data = Y6442010_depuis_2000, 
-            aes(x = date, y = débit, color = "Débit"), size = 0.3) +
-  geom_line(data = SEXTANT_1998_2025_spm_95, 
-            aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"), size = 0.3) +
-  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
-  scale_y_continuous(
-    # limits = c(0, 250),   # ← min et max de l'axe Y
-    name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+  # Ligne pour le débit
+  geom_line(
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit"),
+    size = 0.8,
+    linewidth = 0.4
   ) +
-  labs(title = "Évolution des panaches et du débit du Var vu par le produit SEXTANT OC5",
-       x = "Date") +
-  theme_minimal() +
+  # Ligne pour l'aire des panaches
+  geom_line(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = scaled_mean_spm, color = "Concentration en MES"),
+    size = 0.8,
+    linewidth = 0.4
+  ) +
+  # Couleurs personnalisées
+  scale_color_manual(
+    values = c("Concentration en MES" = "red3", "Débit" = "blue"),
+    name = "Légende"
+  ) +
+  # Axes avec échelle secondaire
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = expression("Concentration en MES (g m"^{-3}*")")
+    )
+  ) +
+  # Titre et labels
+  labs(
+    title = "Évolution de la concentration moyenne en Matière particulaire en suspension panaches turbides et du débit du Var",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    color = "Variable"
+  ) +
+  # Annotation pour la corrélation (en haut à droite)
+  annotate(
+    "text",
+    x = max(c(Y6442010_depuis_2000$date, SEXTANT_1998_2025_spm_95$date), na.rm = TRUE),
+    y = max(c(Y6442010_depuis_2000$débit, SEXTANT_1998_2025_spm_95$mean_spm), na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  ) +
+  # Échelle des dates
   scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+    date_breaks = "5 year",
+    date_labels = "%Y"
   )
 
-# runoff vs SPM concentration correlation ---------------------------------
+## median MES / liquid flow rate --------------------------------------------------
 
-Var_SEXTANT_panache <- inner_join(Y6442010_depuis_2000, SEXTANT_1998_2025_spm_95, by = "date")
+# mise à l'échelle
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$median_spm, Y6442010_depuis_2000$débit)
+SEXTANT_1998_2025_spm_95$scaled_median_spm <- SEXTANT_1998_2025_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
 
-cor.test(Var_SEXTANT_panache$débit, Var_SEXTANT_panache$aire_panache_km2, method = "spearman")
+# Calcul de la corrélation entre débit et aire des panaches
+merged_data <- merge(
+  Y6442010_depuis_2000,
+  SEXTANT_1998_2025_spm_95,
+  by = "date",
+  all = FALSE
+)
 
+correlation <- cor(merged_data$débit, merged_data$median_spm, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$débit, merged_data$median_spm, method = "spearman")$p.value
+
+ggplot() +
+  # Ligne pour le débit
+  geom_line(
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit"),
+    size = 0.8,
+    linewidth = 0.4
+  ) +
+  # Ligne pour l'aire des panaches
+  geom_line(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = scaled_median_spm, color = "Concentration en MES"),
+    size = 0.8,
+    linewidth = 0.4
+  ) +
+  # Couleurs personnalisées
+  scale_color_manual(
+    values = c("Concentration en MES" = "red3", "Débit" = "blue"),
+    name = "Légende"
+  ) +
+  # Axes avec échelle secondaire
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = expression("Concentration en MES (g m"^{-3}*")")
+    )
+  ) +
+  # Titre et labels
+  labs(
+    title = "Évolution de la concentration médiane en Matière particulaire en suspension panaches turbides et du débit du Var",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    color = "Variable"
+  ) +
+  # Annotation pour la corrélation (en haut à droite)
+  annotate(
+    "text",
+    x = max(c(Y6442010_depuis_2000$date, SEXTANT_1998_2025_spm_95$date), na.rm = TRUE),
+    y = max(c(Y6442010_depuis_2000$débit, SEXTANT_1998_2025_spm_95$median_spm), na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  ) +
+  # Échelle des dates
+  scale_x_date(
+    date_breaks = "5 year",
+    date_labels = "%Y"
+  )
+
+## Plume extension / liquid flow rate --------------------------------------------------
+
+# mise à l'échelle
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
+SEXTANT_1998_2025_spm_95$scaled_aire_panache <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+# Calcul de la corrélation entre débit et aire des panaches
+merged_data <- merge(
+  Y6442010_depuis_2000,
+  SEXTANT_1998_2025_spm_95,
+  by = "date",
+  all = FALSE
+)
+
+correlation <- cor(merged_data$débit, merged_data$aire_panache_km2, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$débit, merged_data$aire_panache_km2, method = "spearman")$p.value
+
+ggplot() +
+  # Ligne pour le débit
+  geom_line(
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit"),
+    size = 0.8,
+    linewidth = 0.4
+  ) +
+  # Ligne pour l'aire des panaches
+  geom_line(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
+    size = 0.8,
+    linewidth = 0.4
+  ) +
+  # Couleurs personnalisées
+  scale_color_manual(
+    values = c("Aire des panaches" = "darkcyan", "Débit" = "blue"),
+    name = "Légende"
+  ) +
+  # Axes avec échelle secondaire
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = "Aire des panaches (km²)"
+    )
+  ) +
+  # Titre et labels
+  labs(
+    title = "Évolution de l'extension des panaches turbides et du débit du Var",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    color = "Variable"
+  ) +
+  # Annotation pour la corrélation (en haut à droite)
+  annotate(
+    "text",
+    x = max(c(Y6442010_depuis_2000$date, SEXTANT_1998_2025_spm_95$date), na.rm = TRUE),
+    y = max(c(Y6442010_depuis_2000$débit, SEXTANT_1998_2025_spm_95$scaled_aire_panache), na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  ) +
+  # Échelle des dates
+  scale_x_date(
+    date_breaks = "5 year",
+    date_labels = "%Y"
+  )
 
 
 # Example plot with hi-res coast ------------------------------------------

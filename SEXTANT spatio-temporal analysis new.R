@@ -111,6 +111,8 @@ load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
+load("data/SEXTANT/SPM/all_spm_propre_sextant_2020.RData")
+
 ## SPM ---------------------------------------------------------------------
 
 SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
@@ -144,6 +146,36 @@ SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2
 SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
+SEXTANT_1998_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_1999_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2000_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2001_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2002_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2003_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2004_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2005_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2006_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2007_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2008_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2009_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2010_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2013_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2014_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2015_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2016_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2017_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2018_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2019_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2020_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2021_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2022_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2023_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2024_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+SEXTANT_2025_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
 ### threshold of 1.2 --------------------------------------------------------
 
@@ -498,17 +530,67 @@ ggplot(data = sextant_1998_ts, aes(x = factor(year), y = mean_spm)) +
 
 # Animation ---------------------------------------------------------------
 
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+SEXTANT_2020_spm_pixels <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(date >= as.Date("2020-01-01"), date <= as.Date("2020-12-31")) |> 
+  na.omit(analysed_spim) |> 
+  filter(analysed_spim >= 0)
+
+# Look at the monthly average SPM 
+sextant_2020_monthly <- SEXTANT_2020_spm_pixels |> 
+  mutate(year = lubridate::year(date),
+         month = lubridate::month(date)) |> 
+  summarise(mean_spm = mean(analysed_spim, na.rm = TRUE), .by = c("lon", "lat", "year", "month"))
+
+# graph 12 mois
+p_map <- ggplot(data = sextant_2020_monthly, aes(x = lon, y = lat)) +
+  geom_tile(aes(fill = mean_spm)) +
+  geom_sf(data = countries_giscoR, 
+          colour = "black", fill = "grey80", linewidth = 0.3,
+          inherit.aes = FALSE) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = expression("MES (g m"^{-3}*")"),
+    oob    = scales::squish
+  ) +
+  coord_sf(
+    xlim   = lon_range,
+    ylim   = lat_range,
+    expand = FALSE,
+    default_crs = sf::st_crs(4326)  # ← forcer WGS84 explicitement
+  ) +
+  scale_x_continuous(breaks = seq(lon_range[1], lon_range[2], by = 0.5)) +
+  facet_wrap(~month, labeller = labeller(month = c(
+    "1"  = "Janvier",   "2"  = "Février",  "3"  = "Mars",
+    "4"  = "Avril",     "5"  = "Mai",      "6"  = "Juin",
+    "7"  = "Juillet",   "8"  = "Août",     "9"  = "Septembre",
+    "10" = "Octobre",   "11" = "Novembre", "12" = "Décembre"
+  ))) +
+  labs(
+    title = "Concentration mensuelle moyenne en MES — 2020",
+    x     = "Longitude (°E)", 
+    y     = "Latitude (°N)"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title      = element_text(size = 13, face = "bold"),
+    strip.text      = element_text(size = 10, face = "bold"),
+    legend.position = "bottom",
+    axis.text.x     = element_text(angle = 45, hjust = 1)
+  )
 # Once a brick of data is loaded, it is possible to walk through one day at a time
 
 # Animate using gganimate to show the months as the time steps
-p_map <- ggplot(data = sextant_1998_monthly, aes(x = lon, y = lat)) +
-  geom_raster(aes(fill = mean_spm)) +
-  annotation_borders(fill = "black", colour = "lightgreen") +
-  coord_quickmap(xlim = lon_range, ylim = lat_range) +
-  # facet_wrap(~month) +
-  labs(title = "SEXTANT SPM data for 1998", x = "Longitude", y = "Latitude") +
-  theme_minimal() +
-  scale_fill_viridis_c(option = "D")
+# p_map <- ggplot(data = sextant_2020_monthly, aes(x = lon, y = lat)) +
+#   geom_raster(aes(fill = mean_spm)) +
+#   annotation_borders(fill = "black", colour = "lightgreen") +
+#   coord_quickmap(xlim = lon_range, ylim = lat_range) +
+#   # facet_wrap(~month) +
+#   labs(title = "SEXTANT SPM data for 2020", x = "Longitude", y = "Latitude") +
+#   theme_minimal() +
+#   scale_fill_viridis_c(option = "D")
 
 # Add animation
 animated_plot <- p_map +
@@ -522,11 +604,9 @@ animated_plot <- p_map +
 
 # Render the animation
 animate(animated_plot, fps = 10, duration = 10, 
-        renderer = gifski_renderer(file = "animations/sextant_1998.gif",
+        renderer = gifski_renderer(file = "Graphiques/SEXTANT/beaux graphs/sextant_2020.gif",
                                    width = 1200,    # Increase width in pixels
                                    height = 1000))   # Increase height in pixels
-
-
 
 # pixel area --------------------------------------------------------------
 

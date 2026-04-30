@@ -772,11 +772,11 @@ sextant_1998_2025_SPM$scaled_mean_spm <- sextant_1998_2025_SPM$mean_spm * adjust
 
 # en échelle normale
 ggplot() +
-  geom_point(
+  geom_line(
     data = Y6442010_depuis_2000,
     aes(x = date, y = débit, color = "Débit"), size = 0.5
   ) +
-  geom_point(
+  geom_line(
     data = sextant_1998_2025_SPM,
     aes(x = date, y = scaled_mean_spm, color = "SPM"), size = 0.5
   ) +
@@ -786,7 +786,7 @@ ggplot() +
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension (en g/m³)")
   ) +
   labs(
-    title = "Débit du Var au pont Napoléon et concentration en matière en suspension entre 1998 et 2025 avec le produit Sextant",
+    title = "Débit du Var au pont Napoléon et concentration moyenne en matière en suspension entre 1998 et 2025 avec le produit Sextant OC5",
     x = "Date"
   ) +
   theme_minimal() +

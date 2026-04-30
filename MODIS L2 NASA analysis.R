@@ -39,6 +39,7 @@ library(maptiles)
 library(tidyterra)
 library(patchwork)
 library(giscoR) # Hi-res coastlines
+library(ggspatial)  # pour la flèche nord et l'échelle
 
 # function ---------------------------------------------------------------
 
@@ -190,19 +191,19 @@ study_area_df_2024 <- study_area_df_2024 |>
   mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
         SPM_Nechad = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
 
-# OR we can try : 
-# SPM[mg l−1]= a + b * ρsurf,645
-# ρsurf,645 = sur_refl_b01_1
-# a=289.29, b=2.1 # For starting
-study_area_df_2024 <- study_area_df_2024 |> 
-  filter(sur_refl_b01_1 >= 0 ) |> 
-  mutate(SPM_formule = 0 + 2.1 * sur_refl_b01_1)
-
 # plotting -----------------------------------------------------------
 
 # we have to choose some dates and look at what data look like : 
 study_area_df_04_03_2024 <- study_area_df_2024 |> 
   filter(date == "2024-03-04")
+
+# image avec des sortes de bandes
+study_area_df_01_06_2024 <- study_area_df_2024 |> 
+  filter(date == "2024-06-01")
+
+# image claire
+study_area_df_17_06_2024 <- study_area_df_2024 |> 
+  filter(date == "2024-06-17")
 
 study_area_df_25_11_2016 <- study_area_df_clean_2016 |> 
   filter(date == "2016-11-25")
@@ -225,47 +226,60 @@ coastline_giscoR <- gisco_get_coastallines(resolution = "01")
 countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # set the maximum values
-max_spm <- max(study_area_df_04_03_2024$SPM_Morin_Var, na.rm = TRUE)
+max_spm <- max(study_area_df_17_06_2024$sur_refl_b01_1, na.rm = TRUE)
 
-# Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_17_06_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = SPM_Morin_Var)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 17 juin 2024",
+    subtitle = "Réflectance de MODIS à la bande 1 (645 nm)",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_17_06_2024$lon),
+    ylim   = range(study_area_df_17_06_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Morin_Var.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/réflectance/sans filtrage des images contaminées/fig_MODIS_SPM_17_06_2024_reflectance_b1.png", pl_map, height = 9, width = 14)
 
 ## Morin Paillon -------------------------------------------------------------------
 
@@ -278,84 +292,112 @@ ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_202
 max_spm <- max(study_area_df_04_03_2024$SPM_Morin_Paillon, na.rm = TRUE)
 
 # Créer le graphique
+
 pl_map <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Morin_Paillon)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Morin et al. (Paillon) appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Morin_Paillon.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Morin_Paillon.png", pl_map, height = 9, width = 14)
 
 ## Teng MO -------------------------------------------------------------------
 
 max_spm <- max(study_area_df_04_03_2024$SPM_Teng_MO, na.rm = TRUE)
 
-# Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map1 <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_MO)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Teng et al. pour les eaux riches en matière organique appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
@@ -366,40 +408,54 @@ ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024
 max_spm <- max(study_area_df_04_03_2024$SPM_Teng_MM, na.rm = TRUE)
 
 # Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map2 <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_MM)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Teng et al. pour les eaux riches en matière minérale appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
@@ -409,45 +465,71 @@ ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024
 
 max_spm <- max(study_area_df_04_03_2024$SPM_Teng_extrm_MM, na.rm = TRUE)
 
-# Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map3 <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_extrm_MM)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Teng et al. pour les eaux très riches en matière minérale appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_extrem_MM.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Teng_extrem_MM.png", pl_map, height = 9, width = 14)
+
+## patchwork Teng ----------------------------------------------------------
+
+# Côte à côte
+pl_map1 / pl_map2 | pl_map3 +
+  plot_annotation(
+    tag_levels = "A",
+    title    = "Cartes de concentration en MES",
+    theme    = theme(
+      plot.title    = element_text(face = "bold", size = 18, hjust = 0.5),
+      plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50")
+    )
+  )
 
 ## Tsapanou -------------------------------------------------------------------
 
@@ -458,128 +540,110 @@ pl_map <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Tsapanou)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Tsapanou et al. appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
-
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Tsapanou.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Tsapanou.png", pl_map, height = 9, width = 14)
 
 ## Nechad -------------------------------------------------------------------
 
 max_spm <- max(study_area_df_04_03_2024$SPM_Nechad, na.rm = TRUE)
 
-# Créer le graphique
 pl_map <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Nechad)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),
+    limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Nechad appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Nechad.png", pl_map, height = 9, width = 14)
-
-## Formule -------------------------------------------------------------------
-
-max_spm <- max(study_area_df_04_03_2024$SPM_formule, na.rm = TRUE)
-
-# Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
-  ggplot() +
-  annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = SPM_formule)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
-  scale_fill_viridis_c(
-    option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
-  ) +
-  guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
-    title.position = "top",
-    title.hjust = 0.5
-  )) +
-  labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
-  ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024$lon), 
-    ylim = range(study_area_df_04_03_2024$lat), 
-    expand = FALSE
-  ) +
-  theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
-  )
-
-# Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_2024_formule.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Nechad.png", pl_map, height = 9, width = 14)
 
 ## Doxaran -------------------------------------------------------------------
 
@@ -588,48 +652,64 @@ ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_04_03_202
 study_area_df_04_03_2024_1 <- study_area_df_04_03_2024 |>
   filter(SPM_Doxaran <= 2000)
 
-# set the maximum values
-max_spm <- max(study_area_df_04_03_2024_1$SPM_Doxaran, na.rm = TRUE)
+# Utiliser le 99e percentile pour éviter que les valeurs extrêmes écrasent l'échelle
+max_spm <- quantile(study_area_df_04_03_2024$SPM_Doxaran, 0.99, na.rm = TRUE)
 
-# Créer le graphique
-pl_map <- study_area_df_04_03_2024_1 %>%
+# Optionnel : voir la distribution pour choisir le bon seuil
+summary(study_area_df_04_03_2024$SPM_Doxaran)
+hist(study_area_df_04_03_2024$SPM_Doxaran, breaks = 50)
+
+pl_map <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Doxaran)) +
-  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  annotation_north_arrow(
+    location = "tr",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
   scale_fill_viridis_c(
     option = "plasma",
-    name = "SPM [mg/l]",
-    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+    name   = expression("MES (g m"^{-3}*")"),
+    limits = c(0, max_spm),
+    oob    = scales::squish  # ← les valeurs > max_spm sont ramenées au max
+    #   au lieu d'être mises en NA
   ) +
   guides(fill = guide_colorbar(
-    barwidth = 20,
-    barheight = 2,
+    barwidth       = 20,
+    barheight      = 2,
     title.position = "top",
-    title.hjust = 0.5
+    title.hjust    = 0.5
   )) +
   labs(
-    x = "Longitude (°E)",
-    y = "Latitude (°N)",
-    fill = "SPM [mg/l]"
+    title    = "Concentration en matières en suspension — 04 mars 2024",
+    subtitle = "Algorithme de Doxaran et al. appliqué aux données MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
   ) +
-  coord_sf(                                   
-    xlim = range(study_area_df_04_03_2024_1$lon), 
-    ylim = range(study_area_df_04_03_2024_1$lat), 
+  coord_sf(
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
+  theme_bw() +
   theme(
-    panel.border = element_rect(colour = "black", fill = NA),
-    legend.position = "top",
-    legend.box = "vertical",
-    legend.title = element_text(size = 20),
-    legend.text = element_text(size = 18),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
   )
 
-# Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran_1.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran.png", 
+       pl_map, height = 9, width = 14)
 
 # SPM prediction vs in situ data -------------------------------------------------------
 
@@ -1571,72 +1651,127 @@ seuil_95_Teng_extrm_MM <- quantile(study_area_df_2024$SPM_Teng_extrm_MM, 0.95, n
 seuil_95_Doxaran <- quantile(study_area_df_2024$SPM_Doxaran, 0.95, na.rm = TRUE)
 seuil_95_Tsapanou <- quantile(study_area_df_2024$SPM_Tsapanou, 0.95, na.rm = TRUE)
 seuil_95_Nechad <- quantile(study_area_df_2024$SPM_Nechad, 0.95, na.rm = TRUE)
-seuil_95_formule <- quantile(study_area_df_2024$SPM_formule, 0.95, na.rm = TRUE)
 seuil_95_Morin_Var <- quantile(study_area_df_2024$SPM_Morin_Var, 0.95, na.rm = TRUE)
 seuil_95_Morin_Paillon <- quantile(study_area_df_2024$SPM_Morin_Paillon, 0.95, na.rm = TRUE)
 
-cat("Seuil 95ème percentile :", seuil_95_Teng_MO, "g/m³\n") # 226.9015 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Teng_MM, "g/m³\n") # 1133.327 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Teng_extrm_MM, "g/m³\n") # 2895.589 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Doxaran, "g/m³\n") # 7159468 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Tsapanou, "g/m³\n") # 131.9241 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Nechad, "g/m³\n") # 39.96857 g/m³
-cat("Seuil 95ème percentile :", seuil_95_formule, "g/m³\n") # 0.7955696 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Morin_Var, "g/m³\n") # 36.84141 g/m³
-cat("Seuil 95ème percentile :", seuil_95_Morin_Paillon, "g/m³\n") # 16.88488 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Teng_MO, "g/m³\n") # 43.21933 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Teng_MM, "g/m³\n") # 386.1905 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Teng_extrm_MM, "g/m³\n") # 808.5443 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Doxaran, "g/m³\n") # 207136.5 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Tsapanou, "g/m³\n") # 38.54169 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Nechad, "g/m³\n") # 5.552708 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Morin_Var, "g/m³\n") # 10.56593 g/m³
+cat("Seuil 95ème percentile :", seuil_95_Morin_Paillon, "g/m³\n") # 4.028886 g/m³
 
 # Stats du panache par jour
-study_area_df_2024_95 <- study_area_df_2024 |> 
-  group_by(date) |> 
-  summarise(
-    # Teng_MO
-    pixel_count_Teng_MO = sum(SPM_Teng_MO >= seuil_95_Teng_MO, na.rm = TRUE),
-    mean_spm_Teng_MO = mean(SPM_Teng_MO[SPM_Teng_MO >= seuil_95_Teng_MO], na.rm = TRUE),
-    median_spm_Teng_MO = median(SPM_Teng_MO[SPM_Teng_MO >= seuil_95_Teng_MO], na.rm = TRUE),
-    aire_panache_km2_Teng_MO = pixel_count_Teng_MO * aire_pixel_km2,
-    # Teng_MM
-    pixel_count_Teng_MM = sum(SPM_Teng_MM >= seuil_95_Teng_MM, na.rm = TRUE),
-    mean_spm_Teng_MM = mean(SPM_Teng_MM[SPM_Teng_MM >= seuil_95_Teng_MM], na.rm = TRUE),
-    median_spm_Teng_MM = median(SPM_Teng_MM[SPM_Teng_MM >= seuil_95_Teng_MM], na.rm = TRUE),
-    aire_panache_km2_Teng_MM = pixel_count_Teng_MM * aire_pixel_km2,
-    # Teng_extreme_MM
-    pixel_count_Teng_extrm_MM = sum(SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM, na.rm = TRUE),
-    mean_spm_Teng_extrm_MM = mean(SPM_Teng_extrm_MM[SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM], na.rm = TRUE),
-    median_spm_Teng_extrm_MM = median(SPM_Teng_extrm_MM[SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM], na.rm = TRUE),
-    aire_panache_km2_Teng_extrm_MM = pixel_count_Teng_extrm_MM * aire_pixel_km2,
-    # Doxaran
-    pixel_count_Doxaran = sum(SPM_Doxaran >= seuil_95_Doxaran, na.rm = TRUE),
-    mean_spm_Doxaran = mean(SPM_Doxaran[SPM_Doxaran >= seuil_95_Doxaran], na.rm = TRUE),
-    median_spm_Doxaran = median(SPM_Doxaran[SPM_Doxaran >= seuil_95_Doxaran], na.rm = TRUE),
-    aire_panache_km2_Doxaran = pixel_count_Doxaran * aire_pixel_km2,
-    # Tsapanou
-    pixel_count_Tsapanou = sum(SPM_Tsapanou >= seuil_95_Tsapanou, na.rm = TRUE),
-    mean_spm_Tsapanou = mean(SPM_Tsapanou[SPM_Tsapanou >= seuil_95_Tsapanou], na.rm = TRUE),
-    median_spm_Tsapanou = median(SPM_Tsapanou[SPM_Tsapanou >= seuil_95_Tsapanou], na.rm = TRUE),
-    aire_panache_km2_Tsapanou = pixel_count_Tsapanou * aire_pixel_km2,
-    # Nechad
-    pixel_count_Nechad = sum(SPM_Nechad >= seuil_95_Nechad, na.rm = TRUE),
-    mean_spm_Nechad = mean(SPM_Nechad[SPM_Nechad >= seuil_95_Nechad], na.rm = TRUE),
-    median_spm_Nechad = median(SPM_Nechad[SPM_Nechad >= seuil_95_Nechad], na.rm = TRUE),
-    aire_panache_km2_Nechad = pixel_count_Nechad * aire_pixel_km2,
-    # Formule Robert
-    pixel_count_formule = sum(SPM_formule >= seuil_95_formule, na.rm = TRUE),
-    mean_spm_formule = mean(SPM_formule[SPM_formule >= seuil_95_formule], na.rm = TRUE),
-    median_spm_formule = median(SPM_formule[SPM_formule >= seuil_95_formule], na.rm = TRUE),
-    aire_panache_km2_formule = pixel_count_formule * aire_pixel_km2,
-    # Morin Var
-    pixel_count_Morin_Var = sum(SPM_Morin_Var >= seuil_95_Morin_Var, na.rm = TRUE),
-    mean_spm_Morin_Var = mean(SPM_Morin_Var[SPM_Morin_Var >= seuil_95_Morin_Var], na.rm = TRUE),
-    median_spm_Morin_Var = median(SPM_Morin_Var[SPM_Morin_Var >= seuil_95_Morin_Var], na.rm = TRUE),
-    aire_panache_km2_Morin_Var = pixel_count_Morin_Var * aire_pixel_km2,
-    # Morin Paillon
-    pixel_count_Morin_Paillon = sum(SPM_Morin_Paillon >= seuil_95_Morin_Paillon, na.rm = TRUE),
-    mean_spm_Morin_Paillon = mean(SPM_Morin_Paillon[SPM_Morin_Paillon >= seuil_95_Morin_Paillon], na.rm = TRUE),
-    median_spm_Morin_Paillon = median(SPM_Morin_Paillon[SPM_Morin_Paillon >= seuil_95_Morin_Paillon], na.rm = TRUE),
-    aire_panache_km2_Morin_Paillon = pixel_count_Morin_Paillon * aire_pixel_km2
+# study_area_df_2024_95 <- study_area_df_2024 |>
+#   group_by(date) |>
+#   summarise(
+#     # Teng_MO
+#     pixel_count_Teng_MO = sum(SPM_Teng_MO >= seuil_95_Teng_MO, na.rm = TRUE),
+#     mean_spm_Teng_MO = mean(SPM_Teng_MO[SPM_Teng_MO >= seuil_95_Teng_MO], na.rm = TRUE),
+#     median_spm_Teng_MO = median(SPM_Teng_MO[SPM_Teng_MO >= seuil_95_Teng_MO], na.rm = TRUE),
+#     aire_panache_km2_Teng_MO = pixel_count_Teng_MO * aire_pixel_km2,
+#     # Teng_MM
+#     pixel_count_Teng_MM = sum(SPM_Teng_MM >= seuil_95_Teng_MM, na.rm = TRUE),
+#     mean_spm_Teng_MM = mean(SPM_Teng_MM[SPM_Teng_MM >= seuil_95_Teng_MM], na.rm = TRUE),
+#     median_spm_Teng_MM = median(SPM_Teng_MM[SPM_Teng_MM >= seuil_95_Teng_MM], na.rm = TRUE),
+#     aire_panache_km2_Teng_MM = pixel_count_Teng_MM * aire_pixel_km2,
+#     # Teng_extreme_MM
+#     pixel_count_Teng_extrm_MM = sum(SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM, na.rm = TRUE),
+#     mean_spm_Teng_extrm_MM = mean(SPM_Teng_extrm_MM[SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM], na.rm = TRUE),
+#     median_spm_Teng_extrm_MM = median(SPM_Teng_extrm_MM[SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM], na.rm = TRUE),
+#     aire_panache_km2_Teng_extrm_MM = pixel_count_Teng_extrm_MM * aire_pixel_km2,
+#     # Doxaran
+#     pixel_count_Doxaran = sum(SPM_Doxaran >= seuil_95_Doxaran, na.rm = TRUE),
+#     mean_spm_Doxaran = mean(SPM_Doxaran[SPM_Doxaran >= seuil_95_Doxaran], na.rm = TRUE),
+#     median_spm_Doxaran = median(SPM_Doxaran[SPM_Doxaran >= seuil_95_Doxaran], na.rm = TRUE),
+#     aire_panache_km2_Doxaran = pixel_count_Doxaran * aire_pixel_km2,
+#     # Tsapanou
+#     pixel_count_Tsapanou = sum(SPM_Tsapanou >= seuil_95_Tsapanou, na.rm = TRUE),
+#     mean_spm_Tsapanou = mean(SPM_Tsapanou[SPM_Tsapanou >= seuil_95_Tsapanou], na.rm = TRUE),
+#     median_spm_Tsapanou = median(SPM_Tsapanou[SPM_Tsapanou >= seuil_95_Tsapanou], na.rm = TRUE),
+#     aire_panache_km2_Tsapanou = pixel_count_Tsapanou * aire_pixel_km2,
+#     # Nechad
+#     pixel_count_Nechad = sum(SPM_Nechad >= seuil_95_Nechad, na.rm = TRUE),
+#     mean_spm_Nechad = mean(SPM_Nechad[SPM_Nechad >= seuil_95_Nechad], na.rm = TRUE),
+#     median_spm_Nechad = median(SPM_Nechad[SPM_Nechad >= seuil_95_Nechad], na.rm = TRUE),
+#     aire_panache_km2_Nechad = pixel_count_Nechad * aire_pixel_km2,
+#     # Morin Var
+#     pixel_count_Morin_Var = sum(SPM_Morin_Var >= seuil_95_Morin_Var, na.rm = TRUE),
+#     mean_spm_Morin_Var = mean(SPM_Morin_Var[SPM_Morin_Var >= seuil_95_Morin_Var], na.rm = TRUE),
+#     median_spm_Morin_Var = median(SPM_Morin_Var[SPM_Morin_Var >= seuil_95_Morin_Var], na.rm = TRUE),
+#     aire_panache_km2_Morin_Var = pixel_count_Morin_Var * aire_pixel_km2,
+#     # Morin Paillon
+#     pixel_count_Morin_Paillon = sum(SPM_Morin_Paillon >= seuil_95_Morin_Paillon, na.rm = TRUE),
+#     mean_spm_Morin_Paillon = mean(SPM_Morin_Paillon[SPM_Morin_Paillon >= seuil_95_Morin_Paillon], na.rm = TRUE),
+#     median_spm_Morin_Paillon = median(SPM_Morin_Paillon[SPM_Morin_Paillon >= seuil_95_Morin_Paillon], na.rm = TRUE),
+#     aire_panache_km2_Morin_Paillon = pixel_count_Morin_Paillon * aire_pixel_km2
+#   )
+
+pixels_panache_2024 <- study_area_df_2024 |>
+  mutate(
+    SPM_panache_Teng_MO       = ifelse(SPM_Teng_MO >= seuil_95_Teng_MO, SPM_Teng_MO, NA),
+    SPM_panache_Teng_MM       = ifelse(SPM_Teng_MM >= seuil_95_Teng_MM, SPM_Teng_MM, NA),
+    SPM_panache_Teng_extrm_MM = ifelse(SPM_Teng_extrm_MM >= seuil_95_Teng_extrm_MM, SPM_Teng_extrm_MM, NA),
+    SPM_panache_Doxaran       = ifelse(SPM_Doxaran >= seuil_95_Doxaran, SPM_Doxaran, NA),
+    SPM_panache_Tsapanou      = ifelse(SPM_Tsapanou >= seuil_95_Tsapanou, SPM_Tsapanou, NA),
+    SPM_panache_Nechad        = ifelse(SPM_Nechad >= seuil_95_Nechad, SPM_Nechad, NA),
+    SPM_panache_Morin_Var     = ifelse(SPM_Morin_Var >= seuil_95_Morin_Var, SPM_Morin_Var, NA),
+    SPM_panache_Morin_Paillon = ifelse(SPM_Morin_Paillon >= seuil_95_Morin_Paillon, SPM_Morin_Paillon, NA)
   )
 
+save(study_area_df_2024_95, file = "data/MODIS L2 NASA/study_area_df_2024_95.Rdata")
+
 ## graphiques --------------------------------------------------------------
+
+# pour savoir si ça identifie correctement les panaches il faut que je plotte 
+# le seuil au 95ème percentile pour une journée
+
+# Filtrer un jour
+# pixels_04_03_2024 <- pixels_panache_2024 |> filter(date == "2024-03-04")
+
+pixels_01_04_2024 <- pixels_panache_2024 |> filter(date == "2024-04-01")
+
+# Créer le graphique
+pl_map <- pixels_01_04_2024 %>%
+  ggplot() +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = SPM_panache_Nechad)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) + # ← ici
+  scale_fill_viridis_c(
+    option = "plasma",
+    name = "SPM [mg/l]",
+    limits = c(0, max_spm)  # Utilise max_spm calculé précédemment
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth = 20,
+    barheight = 2,
+    title.position = "top",
+    title.hjust = 0.5
+  )) +
+  labs(
+    x = "Longitude (°E)",
+    y = "Latitude (°N)",
+    fill = "SPM [mg/l]"
+  ) +
+  coord_sf(                                   
+    xlim = range(study_area_df_04_03_2024_95$lon), 
+    ylim = range(study_area_df_04_03_2024_95$lat), 
+    expand = FALSE
+  ) +
+  theme(
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "top",
+    legend.box = "vertical",
+    legend.title = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18)
+  )
+
+# Save as desired
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/95ème percentile/fig_MODIS_SPM_01_04_2024_Nechad_95.png", pl_map, height = 9, width = 14)
 
 ### plotter tout en même temps ----------------------------------------------
 
@@ -1649,7 +1784,6 @@ ggplot() +
   # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Doxaran, color = "Doxaran")) +
   # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Tsapanou, color = "Tsapanou")) +
   # geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Nechad, color = "Nechad")) +
-  geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_formule, color = "Formule")) +
   geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Morin_Var, color = "Morin Var")) +
   geom_point(data = study_area_df_2024_95, aes(x= date, y = mean_spm_Morin_Paillon, color = "Morin Paillon")) +
   labs(
@@ -1670,11 +1804,7 @@ ggplot() +
   )
   
   
-  
-  
-             
-
-### Teng MO -----------------------------------------------------------------
+#### Teng MO -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_MO, All_debit_2024$debit_cumule)
 
@@ -1689,18 +1819,24 @@ ggplot() +
   scale_y_continuous(
     # limits = c(0, 250),   # ← min et max de l'axe Y
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en g/m³)")
-  ) +
-  labs(title = "Évolution de la concentration moyenne en MES et du débit cumulé vu par le produit MODIS L2",
-       caption = "Algorithme développé par Teng et al., 2025 pour les eaux riches en MO",
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
-  )
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en g/m³)") +
+      labs(
+      title    = "Prédiction de l'extension des panaches turbides et du débit cumulé",
+      subtitle = "Algorithme développé par Teng et al., 2025 pour les eaux riches en Matière Organique",
+      x        = expression(SPM[Morin] ~ (mg ~ L^{-1})),
+      y        = expression(SPM["in situ"] ~ (mg ~ L^{-1}))
+    ) +
+      theme(
+        plot.title       = element_text(face = "bold", size = 16, hjust = 0.5),
+        plot.subtitle    = element_text(size = 14, hjust = 0.5, color = "grey50"),
+        axis.title       = element_text(face = "bold"),
+        axis.text        = element_text(color = "grey30"),
+        panel.grid.minor = element_blank(),
+        panel.border     = element_rect(color = "grey70")
+      ))
+    
 
-### Teng MM -----------------------------------------------------------------
+#### Teng MM -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_MM, All_debit_2024$debit_cumule)
 
@@ -1710,23 +1846,34 @@ ggplot() +
   geom_line(data = All_debit_2024, 
             aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
   geom_line(data = study_area_df_2024_95, 
-            aes(x = date, y = scaled_aire_panache_km2_Teng_MM, color = "Aire des panaches"), size = 0.3) +
+            aes(x = date, y = scaled_aire_panache_km2_Teng_MO, color = "Aire des panaches"), size = 0.3) +
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_y_continuous(
-    # limits = c(0, 250),   # ← min et max de l'axe Y
     name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, 
+                        name = "Aire des panaches (en km²)")  # ← parenthèse fermée ici
+  ) +                                                          # ← et ici
+  labs(
+    title    = "Prédiction de l'extension des panaches turbides et du débit cumulé",
+    subtitle = "Algorithme développé par Teng et al., 2025 pour les eaux riches en Matière Organique",
+    x        = NULL,
+    color    = NULL
   ) +
-  labs(title = "Évolution de la taille des panaches turbides et du débit cumulé vu par le produit MODIS L2",
-       caption = "Algorithme développé par Teng et al., 2025 pour les eaux riches en MM",
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+  theme_bw() +
+  theme(
+    plot.title        = element_text(face = "bold", size = 13, margin = margin(b = 10)),
+    plot.subtitle     = element_text(size = 11, color = "grey50", margin = margin(b = 10)),
+    axis.title.y      = element_text(size = 13, margin = margin(r = 10)),
+    axis.title.y.right = element_text(size = 13, margin = margin(l = 10)),
+    axis.text         = element_text(size = 11, color = "grey30"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    panel.grid.minor  = element_blank(),
+    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position   = "top",
+    legend.text       = element_text(size = 11)
   )
 
-### Teng extrêmement riche en MM -----------------------------------------------------------------
+#### Teng extrêmement riche en MM -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Teng_extrm_MM, All_debit_2024$debit_cumule)
 
@@ -1752,7 +1899,7 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-### Doxaran -----------------------------------------------------------------
+#### Doxaran -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Doxaran, All_debit_2024$debit_cumule)
 
@@ -1778,7 +1925,7 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-### Doxaran -----------------------------------------------------------------
+#### Tsapanou -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Tsapanou, All_debit_2024$debit_cumule)
 
@@ -1804,7 +1951,7 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-### Nechad -----------------------------------------------------------------
+#### Nechad -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Nechad, All_debit_2024$debit_cumule)
 
@@ -1830,33 +1977,7 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-### formule -----------------------------------------------------------------
-
-adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_formule, All_debit_2024$debit_cumule)
-
-study_area_df_2024_95$scaled_aire_panache_km2_formule <- study_area_df_2024_95$aire_panache_km2_formule * adjust_factors$diff + adjust_factors$adjust
-
-ggplot() +
-  geom_line(data = All_debit_2024, 
-            aes(x = date, y = debit_cumule, color = "Débit cumulé"), size = 0.3) +
-  geom_line(data = study_area_df_2024_95, 
-            aes(x = date, y = scaled_aire_panache_km2_formule, color = "Aire des panaches"), size = 0.3) +
-  scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
-  scale_y_continuous(
-    # limits = c(0, 250),   # ← min et max de l'axe Y
-    name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches (en km²)")
-  ) +
-  labs(title = "Évolution des panaches et du débit du Var vu par le produit MMDIS L2",
-       caption = "Algorithme développé par formule et al., ... pour les eaux très riches en MM",
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
-  )
-
-### Morin Var -----------------------------------------------------------------
+#### Morin Var -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Morin_Var, All_debit_2024$debit_cumule)
 
@@ -1882,7 +2003,7 @@ ggplot() +
     date_labels = "%Y"       
   )
 
-### Morin Paillon -----------------------------------------------------------------
+#### Morin Paillon -----------------------------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(study_area_df_2024_95$aire_panache_km2_Morin_Paillon, All_debit_2024$debit_cumule)
 
@@ -1907,3 +2028,148 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
+
+# Comparaison sextant vs MODIS data ---------------------------------------
+
+## plume area --------------------------------------------------------------
+
+SEXTANT_2024_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+  filter(date >= as.Date("2024-01-01"), date <= as.Date("2024-12-31"))
+
+ggplot() +
+  geom_line(data = SEXTANT_2024_spm_95,
+            aes(x = date, y = aire_panache_km2, color = "SEXTANT OC5"),
+            linewidth = 0.5, alpha = 0.8) +
+  geom_line(data = study_area_df_2024_95,
+            aes(x = date, y = aire_panache_km2_Morin_Paillon, color = "MODIS — Morin Paillon"),
+            linewidth = 0.5, alpha = 0.8) +
+  scale_color_manual(
+    values = c("SEXTANT OC5" = "deepskyblue3", "MODIS — Morin Paillon" = "maroon1")
+  ) +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b",
+    expand      = expansion(mult = c(0.01, 0.01))
+  ) +
+  labs(
+    title    = "Extension des panaches turbides en 2024",
+    subtitle = "Comparaison SEXTANT OC5 vs MODIS L2 — Algorithme Morin et al.",
+    x        = NULL,
+    y        = expression("Aire des panaches (km"^2*")"),
+    color    = NULL,
+    caption  = "Source : SEXTANT OC5 | MODIS-Aqua | Seuil : 95ème percentile"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 14, hjust = 0,
+                                     margin = margin(b = 4)),
+    plot.subtitle     = element_text(size = 12, color = "grey50", hjust = 0,
+                                     margin = margin(b = 10)),
+    plot.caption      = element_text(size = 12, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 12, margin = margin(r = 10)),
+    axis.text         = element_text(size = 11, color = "grey30"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    axis.ticks        = element_line(color = "grey70"),
+    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor  = element_blank(),
+    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position   = "top",
+    legend.text       = element_text(size = 11),
+    legend.key.width  = unit(1.5, "cm")  # allonge les traits dans la légende
+  )
+
+
+# reflectance analysis -------------------------------------------------------------------------
+
+## 2024 --------------------------------------------------------------------
+
+reflectance_2024 <- study_area_df_2024 |> 
+  summarise(
+    moy_reflec_b1 = mean(sur_refl_b01_1),
+    moy_reflec_b2 = mean(sur_refl_b02_1),
+    std_reflec_b1 = sd(sur_refl_b01_1),
+    std_reflec_b2 = sd(sur_refl_b02_1),
+    .by = date)
+
+adjust_factors <- sec_axis_adjustement_factors(reflectance_2024$moy_reflec_b1, All_debit_2024$debit_cumule)
+
+reflectance_2024$scaled_moy_reflec_b1 <- reflectance_2024$moy_reflec_b1 * adjust_factors$diff + adjust_factors$adjust
+
+# Calcul de la corrélation entre débit et la réflectance
+merged_data <- merge(
+  All_debit_2024,
+  reflectance_2024,
+  by = "date",
+  all = FALSE
+)
+
+correlation <- cor(merged_data$debit_cumule, merged_data$moy_reflec_b1, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$debit_cumule, merged_data$moy_reflec_b1, method = "spearman")$p.value
+
+
+ggplot() +
+  geom_line(data = reflectance_2024,
+            aes(x = date, y = scaled_moy_reflec_b1, color = "Réflectance MODIS"),
+            linewidth = 0.5, alpha = 0.8) +
+  geom_line(data = All_debit_2024,
+            aes(x = date, y = debit_cumule, color = "Débit cumulé"),
+            linewidth = 0.5, alpha = 0.8) +
+  scale_color_manual(
+    values = c("Réflectance MODIS" = "maroon1", "Débit cumulé" = "darkolivegreen3")
+  ) +
+  scale_y_continuous(
+    name = "Débit (m³/s)",
+    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Réflectance (en %)")
+  ) +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b",
+    expand      = expansion(mult = c(0.01, 0.01))
+  ) +
+  # Annotation pour la corrélation (en haut à droite)
+  annotate(
+    "text",
+    x = max(c(All_debit_2024$date, reflectance_2024$date), na.rm = TRUE),
+    y = max(c(All_debit_2024$débit, reflectance_2024$moy_reflec_b1), na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  labs(
+    title    = "Réflectance moyenne de la bande 1 MODIS contre débit liquide cumulé",
+    subtitle = "Débit liquide et réflectance MODIS (645 nm)",
+    x        = NULL,
+    y        = "Réflectance (%)",
+    color    = NULL,
+    caption  = "Source : Hydro France | MODIS-Aqua"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 14, hjust = 0,
+                                     margin = margin(b = 4)),
+    plot.subtitle     = element_text(size = 12, color = "grey50", hjust = 0,
+                                     margin = margin(b = 10)),
+    plot.caption      = element_text(size = 12, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 12, margin = margin(r = 10)),
+    axis.text         = element_text(size = 11, color = "grey30"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    axis.ticks        = element_line(color = "grey70"),
+    panel.grid.major  = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor  = element_blank(),
+    panel.border      = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position   = "top",
+    legend.text       = element_text(size = 11),
+    legend.key.width  = unit(1.5, "cm")  # allonge les traits dans la légende
+  )
+
+unique(study_area_df_2024$date)
+
+
+

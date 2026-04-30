@@ -38,14 +38,14 @@ flow_comp <- function(mouth_info){
   }
   
   # Load river flow data
-  load("data/Hydro France/All_debit_2025.Rdata")  # charge ton objet débit
-  flow_df <- All_debit_2025 # adapte le nom de l'objet si besoin
+  load("data/Hydro France/All_debit_2024.Rdata")  # charge ton objet débit
+  flow_df <- All_debit_2024 # adapte le nom de l'objet si besoin
 
   # Load panache time series based on river mouth name
-  load("data/MSI/SPM/95ème percentile/MSI_2025_SPM_95.Rdata")  # charge ton objet SPM
-  plume_daily <- MSI_2025_SPM_95 |>  
-    dplyr::select(date, aire_panache_km2) |> 
-    mutate(aire_panache_km2 = ifelse(aire_panache_km2 > 20000, NA, aire_panache_km2))
+  load("data/MODIS L2 NASA/study_area_df_2024_95.Rdata")  # charge ton objet SPM
+  plume_daily <- study_area_df_2024_95 |>  
+    dplyr::select(date, aire_panache_km2_Morin_Paillon) |> 
+    mutate(aire_panache_km2_Morin_Paillon = ifelse(aire_panache_km2_Morin_Paillon > 20000, NA, aire_panache_km2_Morin_Paillon))
   
   # Combine
   flow_plume_df <- left_join(plume_daily, flow_df, join_by(date)) |> 
@@ -64,19 +64,19 @@ flow_comp <- function(mouth_info){
   
   # Compare panache size against river flow
   flow_plume_stats_all <- flow_plume_df |> 
-    summarise(r = cor(debit_cumule, aire_panache_km2, use = "pairwise.complete.obs"))
+    summarise(r = cor(debit_cumule, aire_panache_km2_Morin_Paillon, use = "pairwise.complete.obs"))
   
   # Lagged correlations
   flow_plume_lag_cor <- tibble(
     lag = 0:30,
-    cor = map_dbl(0:30, ~ cor(flow_plume_df$debit_cumule, lag(flow_plume_df$aire_panache_km2, .), use = "pairwise.complete.obs"))
+    cor = map_dbl(0:30, ~ cor(flow_plume_df$debit_cumule, lag(flow_plume_df$aire_panache_km2_Morin_Paillon, .), use = "pairwise.complete.obs"))
   )
   
   # Plot river flow
   # flow_plot <- ggplot(flow_plume_df, aes(x = date, y = debit_cumule)) +
   #   # geom_ribbon(aes(ymin = (flow-(flow/2)), ymax = flow+flow/2)) +
   #   geom_line(color = "blue") +
-  #   labs(y = "debit_cumule du Var (m^3 s-1)", x = NULL) +
+  #   labs(y = "debit_cumule du Paillon (m^3 s-1)", x = NULL) +
   #   scale_x_date(expand = 0) +
   #   theme(panel.border = element_rect(fill = NA, colour = "black"))
   flow_plot <- ggplot(flow_plume_df, aes(x = date, y = debit_cumule)) +
@@ -87,17 +87,17 @@ flow_comp <- function(mouth_info){
     theme(panel.border = element_rect(fill = NA, colour = "black"))
 
   # Panache size
-  panache_plot <- ggplot(flow_plume_df, aes(x = date, y = aire_panache_km2)) +
+  panache_plot <- ggplot(flow_plume_df, aes(x = date, y = aire_panache_km2_Morin_Paillon)) +
     geom_line( color = "darkcyan") +
     labs(y = "Aire du panache (km²)", x = NULL) +
     scale_x_date(expand = 0) +
     theme(panel.border = element_rect(fill = NA, colour = "black"))
   
   # panache_plot
-  r_val <- round(cor(flow_plume_df$debit_cumule, flow_plume_df$aire_panache_km2, 
+  r_val <- round(cor(flow_plume_df$debit_cumule, flow_plume_df$aire_panache_km2_Morin_Paillon, 
                      use = "complete.obs"), 3)
   
-  flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = debit_cumule, y = aire_panache_km2)) +
+  flow_plume_cor_plot <- ggplot(flow_plume_df, aes(x = debit_cumule, y = aire_panache_km2_Morin_Paillon)) +
     geom_bin2d(bins = 100) +
     scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
     geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
@@ -150,7 +150,7 @@ flow_comp <- function(mouth_info){
                                 vjust = 1.5)
   full_plot <- ggpubr::ggarrange(ts_plot, cor_plot, ncol = 2, nrow = 1)
   full_plot_title <- ggpubr::ggarrange(flow_plume_title, full_plot, ncol = 1, nrow = 2, heights = c(0.05, 1)) + ggpubr::bgcolor("white")
-  ggsave(filename = "Graphiques/MSI/SPM/analyse temporelle/cor_plot_flow_plume_debit_cumule_MSI_2025_seuilde2025.png", full_plot, width = 12, height = 6, dpi = 600)
+  ggsave(filename = "Graphiques/MODIS L2 NASA/lag plot/cor_plot_flow_plume_debit_cumule_MODIS_2024_Morin_Paillon.png", full_plot, width = 12, height = 6, dpi = 600)
 }
 
 # Calculate the linear trends for river flow and panache size
