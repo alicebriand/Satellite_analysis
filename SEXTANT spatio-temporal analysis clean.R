@@ -106,7 +106,7 @@ load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
-## SPM ---------------------------------------------------------------------
+## direction ---------------------------------------------------------------
 
 SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 SEXTANT_1999_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
@@ -311,7 +311,9 @@ cat("Résolution lat :", round(res_lat_km, 3), "km\n")
 aire_pixel_km2 <- res_lon_km * res_lat_km
 cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 
-# define 95ème percentile -------------------------------------------------
+# SPM ---------------------------------------------------------------------
+
+## define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
 seuil_95 <- quantile(SEXTANT_1998_2025_spm_pixels$analysed_spim, 0.95, na.rm = TRUE)
@@ -331,7 +333,7 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
 
 save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 
-# plotting ----------------------------------------------------------------
+## plotting ----------------------------------------------------------------
 
 # en échelle normale
 
@@ -504,9 +506,9 @@ ggplot(data = data_log_spm, aes(x = date, y = mean_spm)) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
 
-# Comparison --------------------------------------------------------------
+## Comparison --------------------------------------------------------------
 
-## mean MES / liquid flow rate --------------------------------------------------
+### mean MES / liquid flow rate --------------------------------------------------
 
 # mise à l'échelle
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$mean_spm, Y6442010_depuis_2000$débit)
@@ -593,7 +595,7 @@ ggplot() +
     date_labels = "%Y"
   )
 
-## median MES / liquid flow rate --------------------------------------------------
+### median MES / liquid flow rate --------------------------------------------------
 
 # mise à l'échelle
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$median_spm, Y6442010_depuis_2000$débit)
@@ -680,7 +682,7 @@ ggplot() +
     date_labels = "%Y"
   )
 
-## Plume extension / liquid flow rate --------------------------------------------------
+### Plume extension / liquid flow rate --------------------------------------------------
 
 # mise à l'échelle
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
@@ -766,6 +768,11 @@ ggplot() +
     date_breaks = "5 year",
     date_labels = "%Y"
   )
+
+# CHL ---------------------------------------------------------------------
+
+
+
 
 
 # Example plot with hi-res coast ------------------------------------------

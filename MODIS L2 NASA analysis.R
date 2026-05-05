@@ -150,6 +150,10 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
 
 # data analysis -----------------------------------------------------------
 
+# we first start to exclude negative reflectance
+study_area_df_2024 <- study_area_df_2024 |>  
+  filter(sur_refl_b01_1 > 0, sur_refl_b02_1 > 0)
+
 # It is a single equation, we can apply it directly to the data.frame with mutate()
 # SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
 # and values come from? I do not find them in the literature?
@@ -178,18 +182,16 @@ mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
 # http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
 # Though this is for LandSat 8
 # SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
-# A = 289.29 g m−3 , B = 2.10 g m−3 and C = 0.1686
-study_area_df_2024 <- study_area_df_2024 |> 
-  mutate(SPM_Tsapanou = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686)))+2.10)
-# This produces too many negative values...
+# A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
+study_area_df_2024 <- study_area_df_2024 |>
+  mutate(SPM_Tsapanou = ((366.53 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.0324))))
+# this produce a lot of negative values
 
 # So we digress to the Nechad formula of 
-# SPM = ((A * Rrs)/(1-(Rrs/C)))+B
-# A ≈ 200-230, C ≈ 0.15-⁣0.17 B ≈0# Just as a starting guess
-study_area_df_2024 <- study_area_df_2024 |> 
-  filter(sur_refl_b01_1 >= 0 ) |> 
-  mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
-        SPM_Nechad = ((200 * Rrs_b01_01)/(1-(Rrs_b01_01/0.17)))+0)
+# SPM = ((A * Rhow)/(1-(Rhow/C)))+B
+# A = 289.29, C = 0.1686, B = 2.10 
+study_area_df_2024 <- study_area_df_2024 |>
+  mutate(SPM_Nechad = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686))) + 2.10)
 
 # plotting -----------------------------------------------------------
 
@@ -586,7 +588,7 @@ pl_map <- study_area_df_04_03_2024 %>%
     axis.text        = element_text(size = 12)
   )
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Tsapanou.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Tsapanou_new.png", pl_map, height = 9, width = 14)
 
 ## Nechad -------------------------------------------------------------------
 
