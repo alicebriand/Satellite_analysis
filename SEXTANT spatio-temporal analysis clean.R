@@ -23,6 +23,7 @@ library(ggpmisc)
 library(doParallel); registerDoParallel(cores = parallel::detectCores()-2)
 library(ggpubr)  # Pour stat_cor()
 library(scales)
+library(ggspatial)
 
 
 # Get satellite download function
@@ -103,72 +104,75 @@ load_SEXTANT_chl_pixels <- function(file_name, lon_range, lat_range){
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+load("data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
+load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
+load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
 
 ## direction ---------------------------------------------------------------
 
-SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_1999_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2000_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2001_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2002_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2003_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2004_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2005_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2006_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2007_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2008_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2009_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2010_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2013_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2014_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2015_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2016_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2017_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2018_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2019_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2020_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2021_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2022_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-
-SEXTANT_1998_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_1999_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2000_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2001_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2002_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2003_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2004_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2005_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2006_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2007_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2008_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2009_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2010_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2013_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2014_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2015_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2016_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2017_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2018_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2019_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2020_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2021_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2022_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2023_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2024_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2025_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_1998_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_1999_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2000_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2001_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2002_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2003_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2004_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2005_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2006_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2007_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2008_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2009_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2010_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2011_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2012_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2013_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2014_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2015_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2016_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2017_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2018_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2019_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2020_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2021_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2022_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# 
+# SEXTANT_1998_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_1999_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1999/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2000_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2000/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2001_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2001/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2002_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2002/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2003_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2003/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2004_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2004/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2005_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2005/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2006_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2006/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2007_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2007/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2008_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2008/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2009_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2009/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2010_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2010/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2011_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2011/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2012_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2012/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2013_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2013/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2014_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2014/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2015_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2015/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2016_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2016/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2017_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2017/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2018_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2018/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2019_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2019/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2020_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2020/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2021_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2022_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2023_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2024_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2025_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
 ### to define threshold with percentile 95 --------------------------------------------------------
 
@@ -219,48 +223,76 @@ SEXTANT_2025_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DA
 
 #### CHL ---------------------------------------------------------------------
 
-SEXTANT_1998_chl_pixels <- plyr::ldply(SEXTANT_1998_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_1999_chl_pixels <- plyr::ldply(SEXTANT_1999_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2000_chl_pixels <- plyr::ldply(SEXTANT_2000_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2001_chl_pixels <- plyr::ldply(SEXTANT_2001_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2002_chl_pixels <- plyr::ldply(SEXTANT_2002_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2003_chl_pixels <- plyr::ldply(SEXTANT_2003_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2004_chl_pixels <- plyr::ldply(SEXTANT_2004_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2005_chl_pixels <- plyr::ldply(SEXTANT_2005_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2006_chl_pixels <- plyr::ldply(SEXTANT_2006_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2007_chl_pixels <- plyr::ldply(SEXTANT_2007_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2008_chl_pixels <- plyr::ldply(SEXTANT_2008_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2009_chl_pixels <- plyr::ldply(SEXTANT_2009_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2010_chl_pixels <- plyr::ldply(SEXTANT_2010_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2011_chl_pixels <- plyr::ldply(SEXTANT_2011_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2012_chl_pixels <- plyr::ldply(SEXTANT_2012_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2013_chl_pixels <- plyr::ldply(SEXTANT_2013_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2014_chl_pixels <- plyr::ldply(SEXTANT_2014_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2015_chl_pixels <- plyr::ldply(SEXTANT_2015_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2016_chl_pixels <- plyr::ldply(SEXTANT_2016_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2017_chl_pixels <- plyr::ldply(SEXTANT_2017_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2018_chl_pixels <- plyr::ldply(SEXTANT_2018_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2019_chl_pixels <- plyr::ldply(SEXTANT_2019_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2020_chl_pixels <- plyr::ldply(SEXTANT_2020_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2021_chl_pixels <- plyr::ldply(SEXTANT_2021_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2022_chl_pixels <- plyr::ldply(SEXTANT_2022_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2023_chl_pixels <- plyr::ldply(SEXTANT_2023_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2024_chl_pixels <- plyr::ldply(SEXTANT_2024_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-SEXTANT_2025_chl_pixels <- plyr::ldply(SEXTANT_2025_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_1998_chl_pixels <- plyr::ldply(SEXTANT_1998_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_1999_chl_pixels <- plyr::ldply(SEXTANT_1999_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2000_chl_pixels <- plyr::ldply(SEXTANT_2000_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2001_chl_pixels <- plyr::ldply(SEXTANT_2001_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2002_chl_pixels <- plyr::ldply(SEXTANT_2002_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2003_chl_pixels <- plyr::ldply(SEXTANT_2003_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2004_chl_pixels <- plyr::ldply(SEXTANT_2004_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2005_chl_pixels <- plyr::ldply(SEXTANT_2005_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2006_chl_pixels <- plyr::ldply(SEXTANT_2006_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2007_chl_pixels <- plyr::ldply(SEXTANT_2007_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2008_chl_pixels <- plyr::ldply(SEXTANT_2008_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2009_chl_pixels <- plyr::ldply(SEXTANT_2009_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2010_chl_pixels <- plyr::ldply(SEXTANT_2010_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2011_chl_pixels <- plyr::ldply(SEXTANT_2011_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2012_chl_pixels <- plyr::ldply(SEXTANT_2012_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2013_chl_pixels <- plyr::ldply(SEXTANT_2013_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2014_chl_pixels <- plyr::ldply(SEXTANT_2014_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2015_chl_pixels <- plyr::ldply(SEXTANT_2015_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2016_chl_pixels <- plyr::ldply(SEXTANT_2016_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2017_chl_pixels <- plyr::ldply(SEXTANT_2017_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2018_chl_pixels <- plyr::ldply(SEXTANT_2018_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2019_chl_pixels <- plyr::ldply(SEXTANT_2019_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2020_chl_pixels <- plyr::ldply(SEXTANT_2020_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2021_chl_pixels <- plyr::ldply(SEXTANT_2021_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2022_chl_pixels <- plyr::ldply(SEXTANT_2022_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2023_chl_pixels <- plyr::ldply(SEXTANT_2023_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2024_chl_pixels <- plyr::ldply(SEXTANT_2024_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# SEXTANT_2025_chl_pixels <- plyr::ldply(SEXTANT_2025_dir_chl, load_SEXTANT_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# 
+# # Combine and save
+# SEXTANT_1998_2025_chl_pixels <- rbind(SEXTANT_1998_chl_pixels, SEXTANT_1999_chl_pixels, SEXTANT_2000_chl_pixels,
+#                                       SEXTANT_2001_chl_pixels, SEXTANT_2002_chl_pixels, SEXTANT_2003_chl_pixels,
+#                                       SEXTANT_2004_chl_pixels, SEXTANT_2005_chl_pixels, SEXTANT_2006_chl_pixels,
+#                                       SEXTANT_2007_chl_pixels, SEXTANT_2008_chl_pixels, SEXTANT_2009_chl_pixels,
+#                                       SEXTANT_2010_chl_pixels, SEXTANT_2011_chl_pixels, SEXTANT_2012_chl_pixels,
+#                                       SEXTANT_2013_chl_pixels, SEXTANT_2014_chl_pixels, SEXTANT_2015_chl_pixels,
+#                                       SEXTANT_2016_chl_pixels, SEXTANT_2017_chl_pixels, SEXTANT_2018_chl_pixels,
+#                                       SEXTANT_2019_chl_pixels, SEXTANT_2020_chl_pixels, SEXTANT_2021_chl_pixels,
+#                                       SEXTANT_2022_chl_pixels, SEXTANT_2023_chl_pixels,SEXTANT_2024_chl_pixels,
+#                                       SEXTANT_2025_chl_pixels)
+# 
+# save(SEXTANT_1998_2025_chl_pixels, file = "data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
 
-# Combine and save
-SEXTANT_1998_2025_chl_pixels <- rbind(SEXTANT_1998_chl_pixels, SEXTANT_1999_chl_pixels, SEXTANT_2000_chl_pixels,
-                                      SEXTANT_2001_chl_pixels, SEXTANT_2002_chl_pixels, SEXTANT_2003_chl_pixels,
-                                      SEXTANT_2004_chl_pixels, SEXTANT_2005_chl_pixels, SEXTANT_2006_chl_pixels,
-                                      SEXTANT_2007_chl_pixels, SEXTANT_2008_chl_pixels, SEXTANT_2009_chl_pixels,
-                                      SEXTANT_2010_chl_pixels, SEXTANT_2011_chl_pixels, SEXTANT_2012_chl_pixels,
-                                      SEXTANT_2013_chl_pixels, SEXTANT_2014_chl_pixels, SEXTANT_2015_chl_pixels,
-                                      SEXTANT_2016_chl_pixels, SEXTANT_2017_chl_pixels, SEXTANT_2018_chl_pixels,
-                                      SEXTANT_2019_chl_pixels, SEXTANT_2020_chl_pixels, SEXTANT_2021_chl_pixels,
-                                      SEXTANT_2022_chl_pixels, SEXTANT_2023_chl_pixels,SEXTANT_2024_chl_pixels,
-                                      SEXTANT_2025_chl_pixels)
+## paramètres journaliers --------------------------------------------------
 
-save(SEXTANT_1998_2025_chl_pixels, file = "data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
+# combien de valeurs négatives
+sum(SEXTANT_1998_2025_spm_pixels$analysed_spim < 0, na.rm = TRUE)
+# [1] 21080
+
+# supprimer seulement les valeurs négatives
+SEXTANT_1998_2025_spm_clean <- SEXTANT_1998_2025_spm_pixels |>
+  filter(analysed_spim >= 0 | is.na(analysed_spim))
+
+SEXTANT_1998_2025_spm_clean <- SEXTANT_1998_2025_spm_clean |> 
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# paramètres journaliers
+SEXTANT_1998_2025_spm_mean <- SEXTANT_1998_2025_spm_clean |>
+  mutate(date = as.Date(date)) |>
+  summarise(
+    mean_spm   = mean(analysed_spim, na.rm = TRUE),
+    median_spm = median(analysed_spim, na.rm = TRUE),
+    sd_spm     = sd(analysed_spim, na.rm = TRUE),
+    .by = date
+  )
 
 # pixel area --------------------------------------------------------------
 
@@ -769,11 +801,933 @@ ggplot() +
     date_labels = "%Y"
   )
 
+
+
 # CHL ---------------------------------------------------------------------
 
+## paramètres journaliers --------------------------------------------------
+
+# combien de valeurs négatives
+sum(SEXTANT_1998_2025_chl_pixels$analysed_chl_a < 0, na.rm = TRUE)
+# [1] 19808
+
+# supprimer seulement les valeurs négatives
+SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |>
+  filter(analysed_chl_a >= 0, analysed_chl_a <= 20 | is.na(analysed_chl_a))
+
+SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_clean |> 
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# paramètres journaliers
+SEXTANT_1998_2025_chl_mean <- SEXTANT_1998_2025_chl_clean |>
+  mutate(date = as.Date(date)) |>
+  summarise(
+    mean_chl   = mean(analysed_chl_a, na.rm = TRUE),
+    median_chl = median(analysed_chl_a, na.rm = TRUE),
+    sd_chl     = sd(analysed_chl_a, na.rm = TRUE),
+    .by = date
+  )
+
+## climatologie ------------------------------------------------------------
+
+# on choisit une période de 20 ans (1998 - 2017)
+SEXTANT_1998_2017 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("1998-01-01"), date <= as.Date("2017-12-31"))
+
+SEXTANT_1998_2017_stat <- SEXTANT_1998_2017 |>
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# climatologie annuelle
+SEXTANT_1998_2017_chl_year <- SEXTANT_1998_2017_stat |> 
+  group_by(year) |> 
+  summarise(mean_chl_year_clim = mean(analysed_chl_a, na.rm = TRUE), 
+            median_chl_year_clim = median(analysed_chl_a, na.rm = TRUE),
+            sd_chl_year_clim = sd(analysed_chl_a, na.rm = TRUE))
+
+# climatologie mensuelle
+SEXTANT_1998_2017_chl_month <- SEXTANT_1998_2017_stat |> 
+  group_by(month) |>
+  summarise(mean_chl_month_clim = mean(analysed_chl_a, na.rm = TRUE), 
+            median_chl_month_clim = median(analysed_chl_a, na.rm = TRUE),
+            sd_chl_month_clim = sd(analysed_chl_a, na.rm = TRUE))
+
+# climatologie journanlière
+SEXTANT_1998_2017_chl_doy <- SEXTANT_1998_2017_stat |>
+  group_by(doy) |> 
+  summarise(mean_chl_doy_clim = mean(analysed_chl_a, na.rm = TRUE), 
+            median_chl_doy_clim = median(analysed_chl_a, na.rm = TRUE),
+            sd_chl_doy_clim = sd(analysed_chl_a, na.rm = TRUE))
+
+# créer une climatologie à partir d'une TS journalière
+sextant_chl_climatology_doy <- ts2clm(data = SEXTANT_1998_2025_chl_mean, x = date, 
+                                      y = mean_chl, climatologyPeriod = c("1998-01-01", "2017-12-31"), 
+                                      windowHalfWidth = 3, smoothPercentileWidth = 15 )
+
+# anomalie mensuelle
+sextant_1998_2025_chl_monthly_anom <- SEXTANT_1998_2025_chl_clean |> 
+  mutate(date = floor_date(date, "month")) |> 
+  # filter(date >= as.character.Date("1998-01-01"), date <= as.Date ("2025-12-31")) |> 
+  summarise(mean_chl_month = mean(analysed_chl_a, na.rm = TRUE), .by = c("date", "year", "month")) |>
+  left_join(SEXTANT_1998_2017_chl_month, by = c("month")) |> 
+  mutate(chl_month_anomaly = mean_chl_month - mean_chl_month_clim)
+
+## plotting ----------------------------------------------------------------
+
+### cartographie --------------------------------------------------
+
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+# on choisit des jours précis (valeurs aberrantes, jours de crues, jours sans crues)
+
+# valeur moyenne haute
+SEXTANT_1998_2025_chl_2025_02_23 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("2025-02-23"), date <= as.Date("2025-02-23"))
+
+# crues
+SEXTANT_1998_2025_chl_2020_10_03 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("2020-10-03"), date <= as.Date("2020-10-03"))
+
+# le 05-11-2011 très forte crue (débit de 910 m3/s du Var) + sur les images MODIS 
+# nuages
+SEXTANT_1998_2025_chl_2020_11_05 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("2020-11-05"), date <= as.Date("2020-11-05"))
+
+# le 10-11-2011 on voit un panache sur les images MODIS
+SEXTANT_1998_2025_chl_2020_11_10 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("2020-11-10"), date <= as.Date("2020-11-10"))
+
+# plot
+ggplot(data = SEXTANT_1998_2025_chl_2020_11_10) +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = analysed_chl_a)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = expression("Concentration en chlorophylle a (µg.L"^{-1}*")")  # ← écriture scientifique
+    # limits = c(0, max_spm)
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 20,
+    barheight      = 2,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  labs(
+    title    = "Concentration en chlorophylle a — 10 novembre 2011",
+    subtitle = "Produit SEXTANT OC5",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
+  ) +
+  coord_sf(
+    xlim   = range(SEXTANT_1998_2025_chl_2020_11_10$lon),
+    ylim   = range(SEXTANT_1998_2025_chl_2020_11_10$lat),
+    expand = FALSE
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
+  )
+
+### paramètres journaliers --------------------------------------------------
+
+# Calcul du modèle linéaire
+model_sextant_chl_1998_2017 <- lm(median_chl ~ date, data = SEXTANT_1998_2025_chl_mean)
+p_value_sextant_chl_1998_2017 <- summary(model_sextant_chl_1998_2017 )$coefficients[2, 4]
+intercept_sextant_chl_1998_2017 <- coef(model_sextant_chl_1998_2017 )[1]
+slope_sextant_chl_1998_2017 <- coef(model_sextant_chl_1998_2017 )[2]
+
+# Création du graphique
+ggplot(data = SEXTANT_1998_2025_chl_mean, aes(x = date, y = median_chl)) +
+  # Points avec style épuré
+  # geom_ribbon(
+  #   aes(ymin = mean_chl - sd_chl, ymax = mean_chl + sd_chl),
+  #   fill = "chartreuse3",
+  #   alpha = 0.3
+  # ) +
+  geom_point(
+    size = 2,
+    shape = 21,
+    fill = "chartreuse3",
+    color = "white",
+    stroke = 0.5,
+    # alpha = 0.85
+  ) +
+  # Ligne de régression avec intervalle de confiance
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    color = "darkslateblue",
+    fill = "darkslateblue",
+    alpha = 0.15,
+    linewidth = 1.5
+  ) +
+  # Annotation pour l'équation et la p-value (en haut à droite)
+  annotate(
+    "text",
+    x = max(SEXTANT_1998_2025_chl_mean$date, na.rm = TRUE),
+    y = max(SEXTANT_1998_2025_chl_mean$median_chl, na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 1,  # Alignement en haut
+    label = paste0(
+      "y = ", round(intercept_sextant_chl_1998_2017, 3), " ", round(slope_sextant_chl_1998_2017, 7), " × x",
+      "\n", "p ", ifelse(p_value_sextant_chl_1998_2017 < 0.001, "< 0.001", format(p_value_sextant_chl_1998_2017, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    fontface = "italic",
+    family = "serif"
+  ) +
+  # Titre et labels
+  labs(
+    title = "Évolution de la concentration médiane journalière en chlorophylle a dans la zone d'étude",
+    subtitle = "Produit SEXTANT OC5 (1998-2025)",
+    x = "Date",
+    y = expression("Concentration en chlorophylle a (µg.L"^{-1}*")")
+  ) +
+  # Thème sobre et élégant
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50"),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "grey30"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    plot.margin = margin(1, 1, 1, 1, "cm")  # Marges ajustées pour éviter le chevauchement
+  ) +
+  # Échelle des dates
+  scale_x_date(
+    date_breaks = "5 years",
+    date_labels = "%Y")
+# +
+  # # Zoom sur l'axe Y sans supprimer les données
+  # coord_cartesian(ylim = c(-1, 2))
+
+### climatologie --------------------------------------------------
+
+# create a line plot of the yearly climatology of chl
+ggplot(SEXTANT_1998_2017_chl_year, aes(x = year, y = mean_chl_year_clim)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_chl_year_clim - sd_chl_year_clim,
+      ymax = mean_chl_year_clim + sd_chl_year_clim
+    ),
+    fill = "chartreuse3", alpha = 0.2
+  ) +
+  geom_line(aes(color = "Climatologie annuelle"), linewidth = 0.8) +
+  geom_point(aes(color = "Climatologie annuelle"), size = 2.5) +
+  scale_color_manual(
+    values = c("Climatologie annuelle" = "chartreuse3")
+  # ) +
+  # scale_x_continuous(
+  #   breaks = 1:12,
+  #   labels = c("Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+  #              "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
+  ) +
+  labs(
+    title   = "Climatologie annuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 13, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+# create a line plot of the monthly climatology of chl
+ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_chl_month_clim - sd_chl_month_clim,
+      ymax = mean_chl_month_clim + sd_chl_month_clim
+    ),
+    fill = "chartreuse3", alpha = 0.2
+  ) +
+  geom_line(aes(color = "Climatologie mensuelle"), linewidth = 0.8) +
+  geom_point(aes(color = "Climatologie mensuelle"), size = 2.5) +
+  scale_color_manual(
+    values = c("Climatologie mensuelle" = "chartreuse3")
+    ) +
+    scale_x_continuous(
+      breaks = 1:12,
+      labels = c("Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+                 "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
+  ) +
+  labs(
+    title   = "Climatologie mensuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 13, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+# create a line plot of the daily climatology of chl
+ggplot(SEXTANT_1998_2017_chl_doy, aes(x = doy, y = mean_chl_doy_clim)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_chl_doy_clim - sd_chl_doy_clim,
+      ymax = mean_chl_doy_clim + sd_chl_doy_clim
+    ),
+    fill = "chartreuse3", alpha = 0.2
+  ) +
+  geom_line(aes(color = "Climatologie journalière"), linewidth = 0.8) +
+  geom_point(aes(color = "Climatologie journalière"), size = 2.5) +
+  scale_color_manual(
+    values = c("Climatologie journalière" = "chartreuse3")
+  ) +
+  # scale_x_continuous(
+  #   breaks = 1:12,
+  #   labels = c("Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+  #              "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
+  # ) +
+  labs(
+    title   = "Climatologie journalière de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 13, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+# anomalie mensuelle
+model_sextant_chl_anom <- lm(chl_month_anomaly ~ date, data = sextant_1998_2025_chl_monthly_anom)
+p_value_sextant_chl_anom <- summary(model_sextant_chl_anom)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_chl_anom <- coef(model_sextant_chl_anom)[1]
+slope_sextant_chl_anom <- coef(model_sextant_chl_anom)[2]
+
+# Créer le graphique
+ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_anomaly)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.5) +
+  geom_ribbon(
+    aes(ymin = pmin(chl_month_anomaly, 0), ymax = 0),
+    fill = "steelblue", alpha = 0.3
+  ) +
+  geom_ribbon(
+    aes(ymin = 0, ymax = pmax(chl_month_anomaly, 0)),
+    fill = "tomato", alpha = 0.3
+  ) +
+  geom_line(aes(color = "Anomalie mensuelle"), linewidth = 0.5, alpha = 0.7) +
+  geom_smooth(
+    aes(color = "Tendance linéaire", fill = "Tendance linéaire"),
+    method = "lm", se = TRUE, alpha = 0.15, linewidth = 1
+  ) +
+  annotate(
+    "text",
+    x = min(sextant_1998_2025_chl_monthly_anom$date, na.rm = TRUE),
+    y = max(sextant_1998_2025_chl_monthly_anom$chl_month_anomaly, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_sextant_chl_anom, 3), " ", round(slope_sextant_chl_anom, 7), " × x",
+      "\np = ", ifelse(p_value_sextant_chl_anom < 0.001, "< 0.001", format(p_value_sextant_chl_anom, digits = 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 8,
+    color = "grey20",
+    fontface = "italic"
+  ) +
+  scale_color_manual(
+    values = c("Anomalie mensuelle" = "grey30", "Tendance linéaire" = "firebrick")
+  ) +
+  scale_fill_manual(
+    values = c("Tendance linéaire" = "firebrick"),
+    guide  = "none"
+  ) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(
+    title   = "Anomalie mensuelle de la concentration en chlorophylle a (1998–2025) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2017"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title         = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption       = element_text(size = 11, color = "grey50", hjust = 0),
+    axis.title.y       = element_text(size = 13, margin = margin(r = 10)),
+    axis.title.x       = element_text(size = 13, margin = margin(t = 10)),
+    axis.text          = element_text(size = 12, color = "grey30"),
+    axis.text.x        = element_text(angle = 45, hjust = 1),
+    axis.ticks         = element_line(color = "grey70"),
+    panel.grid.major   = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor   = element_blank(),
+    panel.border       = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position    = "top",
+    legend.text        = element_text(size = 11)
+  )
+
+### patchwork ----------------------------------------------------------------
+
+# --- Graphique 1 : climatologie mensuelle ---
+p1 <- ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
+  geom_ribbon(
+    aes(
+      ymin = mean_chl_month_clim - sd_chl_month_clim,
+      ymax = mean_chl_month_clim + sd_chl_month_clim
+    ),
+    fill = "chartreuse3", alpha = 0.2
+  ) +
+  geom_line(aes(color = "Climatologie mensuelle"), linewidth = 0.8) +
+  geom_point(aes(color = "Climatologie mensuelle"), size = 2.5) +
+  scale_color_manual(
+    values = c("Climatologie mensuelle" = "chartreuse3")
+  ) +
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = c("Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+               "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
+  ) +
+  labs(
+    title   = "Climatologie mensuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 13, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+# Extraire le modèle linéaire
+model_sextant_chl_anom <- lm(chl_month_anomaly ~ date, data = sextant_1998_2025_chl_monthly_anom)
+p_value_sextant_chl_anom <- summary(model_sextant_chl_anom)$coefficients[2, 4]  # p-value pour la pente
+intercept_sextant_chl_anom <- coef(model_sextant_chl_anom)[1]
+slope_sextant_chl_anom <- coef(model_sextant_chl_anom)[2]
+
+# --- Graphique 2 : anomalie mensuelle ---
+p2 <- ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_anomaly)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.5) +
+  geom_ribbon(
+    aes(ymin = pmin(chl_month_anomaly, 0), ymax = 0),
+    fill = "steelblue", alpha = 0.3
+  ) +
+  geom_ribbon(
+    aes(ymin = 0, ymax = pmax(chl_month_anomaly, 0)),
+    fill = "tomato", alpha = 0.3
+  ) +
+  geom_line(aes(color = "Anomalie mensuelle"), linewidth = 0.5, alpha = 0.7) +
+  geom_smooth(
+    aes(color = "Tendance linéaire", fill = "Tendance linéaire"),
+    method = "lm", se = TRUE, alpha = 0.15, linewidth = 1
+  ) +
+  annotate(
+    "text",
+    x = min(sextant_1998_2025_chl_monthly_anom$date, na.rm = TRUE),
+    y = max(sextant_1998_2025_chl_monthly_anom$chl_month_anomaly, na.rm = TRUE) * 0.95,
+    label = paste0(
+      "y = ", round(intercept_sextant_chl_anom, 3), " ", round(slope_sextant_chl_anom, 7), " × x",
+      "\np = ", ifelse(p_value_sextant_chl_anom < 0.001, "< 0.001", format(p_value_sextant_chl_anom, digits = 3))
+    ),
+    hjust = 0, vjust = 1,
+    size = 6,
+    color = "grey20",
+    fontface = "italic"
+  ) +
+  scale_color_manual(
+    values = c("Anomalie mensuelle" = "grey30", "Tendance linéaire" = "firebrick")
+  ) +
+  scale_fill_manual(
+    values = c("Tendance linéaire" = "firebrick"),
+    guide  = "none"
+  ) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(
+    title   = "Anomalie mensuelle de la concentration en chlorophylle a (1998–2025) — Sextant OC5",
+    x       = NULL,
+    y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    color   = NULL,
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2017"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title         = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption       = element_text(size = 11, color = "grey50", hjust = 0),
+    axis.title.y       = element_text(size = 13, margin = margin(r = 10)),
+    axis.title.x       = element_text(size = 13, margin = margin(t = 10)),
+    axis.text          = element_text(size = 12, color = "grey30"),
+    axis.text.x        = element_text(angle = 45, hjust = 1),
+    axis.ticks         = element_line(color = "grey70"),
+    panel.grid.major   = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor   = element_blank(),
+    panel.border       = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position    = "top",
+    legend.text        = element_text(size = 11)
+  )
+
+p1 / p2 +
+  plot_annotation(
+    title   = "Concentration en chlorophylle a — Sextant OC5",
+    caption = "Source : Sextant OC5",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+## correlation MES / Chl a -------------------------------------------------------------
+
+# Fusionner tes deux jeux de données par date
+data_merged <- inner_join(
+  SEXTANT_1998_2025_chl_mean,
+  sextant_1998_2025_SPM,
+  by = "date"
+)
+
+# Corrélation globale
+cor.test(data_merged$mean_chl, data_merged$mean_spm, 
+         method = "spearman")  # Spearman car distributions asymétriques
+
+# Visualisation
+ggplot(data_merged, aes(x = mean_spm, y = mean_chl)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "loess") +  # loess pour capturer la non-linéarité
+  labs(x = "MES (mg/L)", y = "Chlorophylle a (µg/L)")
 
 
+## série temporelle --------------------------------------------------------
 
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_chl_mean$mean_chl, sextant_1998_2025_SPM$mean_spm)
+
+sextant_1998_2025_SPM$scaled_mean_spm <- sextant_1998_2025_SPM$mean_spm * adjust_factors$diff + adjust_factors$adjust
+
+correlation <- cor(data_merged$mean_chl, data_merged$mean_spm, method = "spearman", use = "complete.obs")
+p_value <- cor.test(data_merged$mean_chl, data_merged$mean_spm, method = "spearman")$p.value
+
+ggplot() +
+  geom_ribbon(
+    data = SEXTANT_1998_2025_chl_mean,
+    aes(
+      x    = date,
+      ymin = (mean_chl - sd_chl),
+      ymax = (mean_chl + sd_chl)
+    ),
+    fill = "chartreuse3", alpha = 0.2
+  ) +
+  geom_line(
+    data = SEXTANT_1998_2025_chl_mean,
+    aes(x = date, y = scaled_mean_chl, color = "CHL"), size = 0.5
+  ) +
+  # Ribbon SPM — x manquant + ymin/ymax pas scalés car SPM est sur axe principal
+  geom_ribbon(
+    data = sextant_1998_2025_SPM,
+    aes(
+      x    = date,
+      ymin = (mean_spm - std_spm) * adjust_factors$diff + adjust_factors$adjust,,
+      ymax = (mean_spm + std_spm) * adjust_factors$diff + adjust_factors$adjust,
+    ),
+    fill = "red3", alpha = 0.2
+  ) +
+  geom_line(
+    data = sextant_1998_2025_SPM,
+    aes(x = date, y = mean_spm, color = "SPM"), size = 0.5
+  ) +
+  scale_color_manual(values = c("CHL" = "chartreuse3", "SPM" = "red3")) +
+  scale_y_continuous(
+    name = expression("Concentration en MES (g.m"^{-3}*")"),
+    limits = c(-5, 15),
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    )
+  ) +
+  labs(
+    title = "Concentration en chlorophylle a et en matière en suspension (1998–2025) — Sextant OC5",
+    x = "Date",
+    caption = "Source : Sextant OC5"
+  ) +
+  annotate(
+    "text",
+    x = max(c(SEXTANT_1998_2025_chl_mean$date, sextant_1998_2025_SPM$date), na.rm = TRUE),
+    y = max(c(SEXTANT_1998_2025_chl_mean$mean_chl, sextant_1998_2025_SPM$mean_spm), na.rm = TRUE),
+    hjust = 1,  # Alignement à droite
+    vjust = 0,  # Alignement en haut
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    ),
+    size = 8,
+    color = "grey20",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 11, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.title.x     = element_text(size = 13, margin = margin(t = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+
+# Analyse par seuil de turbidité ------------------------------------------
+
+data_merged <- data_merged |>
+  mutate(
+    Turbidité = case_when(
+      mean_spm < quantile(mean_spm, 0.33, na.rm = TRUE) ~ "Faible",
+      mean_spm < quantile(mean_spm, 0.66, na.rm = TRUE) ~ "Modérée",
+      TRUE                                               ~ "Forte"
+    ),
+    # Définir l'ordre des niveaux
+    Turbidité = factor(Turbidité, levels = c("Faible", "Modérée", "Forte"))
+  )
+
+# Boxplot comparatif
+ggplot(data_merged, aes(x = Turbidité, y = mean_chl, fill = Turbidité)) +
+  geom_boxplot() +
+  labs(x = "Classe de turbidité", y = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"))
+
+
+# Test statistique
+kruskal.test(mean_chl ~ Turbidité, data = data_merged)  # non-paramétrique
+
+# Test de Kruskal-Wallis
+kw_test <- kruskal.test(mean_chl ~ Turbidité, data = data_merged)
+
+# Extraire la statistique et la p-value
+kw_stat <- kw_test$statistic
+kw_pvalue <- kw_test$p.value
+
+
+ggplot(data_merged, aes(x = Turbidité, y = mean_chl, fill = Turbidité)) +
+  geom_boxplot() +
+  labs(
+    x = "Classe de turbidité",
+    y = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
+    title = "Comparaison de la concentration moyenne en chlorophylle-a par classe de turbidité"
+  ) +
+  annotate(
+    "text",
+    x = 1.5,  # Position horizontale (ajustez selon le nombre de catégories)
+    y = Inf,   # Position verticale (en haut du graphique)
+    label = paste0(
+      "Test de Kruskal-Wallis: χ² = ", round(kw_stat, 2),
+      "\n", "p ", ifelse(kw_pvalue < 0.001, "< 0.001", format(kw_pvalue, digits = 3))
+    ),
+    vjust = 1.5,  # Ajuste la position verticale du texte
+    hjust = 0.5,  # Centre le texte horizontalement
+    size = 8,     # Taille du texte
+    color = "black",
+    family = "serif",
+    fontface = "italic"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
+    plot.caption     = element_text(size = 11, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 13, margin = margin(r = 10)),
+    axis.title.x     = element_text(size = 13, margin = margin(t = 10)),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey70"),
+    panel.grid.major = element_line(color = "grey92", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70", linewidth = 0.5),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11)
+  )
+
+# analyse saisonnière ------------------------------------
+
+data_merged <- data_merged |>
+  mutate(
+    month = month(date),
+    saison = case_when(
+      month %in% c(12, 1, 2)  ~ "Hiver",
+      month %in% c(3, 4, 5)   ~ "Printemps",
+      month %in% c(6, 7, 8)   ~ "Été",
+      month %in% c(9, 10, 11) ~ "Automne"
+    )
+  )
+
+# Corrélation par saison
+data_merged |>
+  group_by(saison) |>
+  summarise(
+    cor_spearman = cor(mean_chl, mean_spm, method = "spearman", use = "complete.obs"),
+    p_value = cor.test(mean_chl, mean_spm, method = "spearman")$p.value
+  )
+
+# Visualisation
+ggplot(data_merged, aes(x = mean_spm, y = mean_chl, color = saison)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "loess", se = FALSE) +
+  facet_wrap(~saison)
+
+
+# lag correlation ---------------------------------------------------------
+
+# Cross-corrélation pour identifier le délai optimal
+ccf_result <- ccf(
+  data_merged$mean_spm, 
+  data_merged$mean_chl, 
+  lag.max = 30,  # tester jusqu'à 30 jours de décalage
+  na.action = na.pass,
+  main = "Cross-corrélation MES – Chlorophylle a"
+)
+
+# Le lag avec la corrélation maximale indique le délai de réponse
+
+
+# analyse spatiale --------------------------------------------------------
+
+# comment la relation évolue avec la distance à l'embouchure
+
+# Calculer la distance de chaque pixel à l'embouchure
+# (coordonnées de l'embouchure à adapter)
+lon_embouchure <- 7.199082
+lat_embouchure <- 43.654709
+
+SEXTANT_chl_spm_pixels <- SEXTANT_1998_2025_chl_clean |>
+  mutate(date = as.Date(date)) |>
+  inner_join(
+    SEXTANT_1998_2025_spm_clean |> mutate(date = as.Date(date)),
+    by = c("date", "lon", "lat")
+  )
+
+data_pixels <- SEXTANT_chl_spm_pixels |>
+  mutate(
+    distance_km = sqrt((lon - lon_embouchure)^2 + 
+                         (lat - lat_embouchure)^2) * 111,
+    zone = cut(distance_km, 
+               breaks = c(0, 10, 20, 40, Inf),
+               labels = c("0-10 km", "10-20 km", "20-40 km", ">40 km"))
+  )
+
+# Corrélation chl ~ MES par classe de distance
+data_pixels |>
+  group_by(zone) |>
+  summarise(cor = cor(analysed_chl_a, analysed_spim, 
+                      method = "spearman", use = "complete.obs"))
+
+# Moyenne CHL par pixel (position fixe dans l'espace)
+chl_mean_par_pixel <- data_pixels |>
+  group_by(lon, lat, distance_km, zone) |>
+  summarise(
+    mean_chl = mean(analysed_chl_a, na.rm = TRUE),
+    mean_spm = mean(analysed_spim,   na.rm = TRUE),   # ← adapter
+    .groups = "drop"
+  )
+
+# Visualisation du gradient spatial
+ggplot(chl_mean_par_pixel, aes(x = distance_km, y = mean_chl)) +
+  geom_point(alpha = 0.3, color = "chartreuse3") +
+  geom_smooth(method = "loess", color = "darkgreen") +
+  labs(
+    x = "Distance à l'embouchure (km)",
+    y = expression("Chlorophylle a moyenne (µg.L"^{-1}*")")
+  ) +
+  theme_bw()
+
+# test de la significativité de chaque corrélation
+# data_pixels |>
+#   group_by(zone) |>
+#   summarise(
+#     cor_spearman = cor(analysed_chl_a, analysed_spim,
+#                        method = "spearman", use = "complete.obs"),
+#     p_value = cor.test(analysed_chl_a, analysed_spim,
+#                        method = "spearman")$p.value,
+#     n = n()
+#   )
+
+data_pixels |>
+  group_by(zone) |>
+  summarise(
+    cor_spearman = cor(analysed_chl_a, analysed_spim,
+                       method = "spearman", use = "complete.obs"),
+    # Calcul manuel de la p-value via approximation t (valide pour grands n)
+    n = n(),
+    t_stat  = cor_spearman * sqrt((n - 2) / (1 - cor_spearman^2)),
+    p_value = 2 * pt(-abs(t_stat), df = n - 2),
+    p_label = ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+  ) |>
+  select(zone, cor_spearman, n, p_label)
+
+# Stocker les résultats
+cor_par_zone <- data_pixels |>
+  group_by(zone) |>
+  summarise(
+    cor_spearman = cor(analysed_chl_a, analysed_spim,
+                       method = "spearman", use = "complete.obs"),
+    n       = n(),
+    t_stat  = cor_spearman * sqrt((n - 2) / (1 - cor_spearman^2)),
+    p_value = 2 * pt(-abs(t_stat), df = n - 2),
+    p_label = ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3)),
+    .groups = "drop"
+  )
+
+ggplot(cor_par_zone, aes(x = zone, y = cor_spearman, fill = zone)) +
+  geom_col() +
+  geom_text(
+    aes(label = paste0("r = ", round(cor_spearman, 3),
+                       "\np ", p_label,
+                       "\nn = ", formatC(n, format = "d", big.mark = " "))),
+    vjust = -0.5, size = 4
+  ) +
+  scale_fill_brewer(palette = "YlOrRd") +
+  scale_y_continuous(limits = c(0, 0.85)) +
+  labs(
+    title    = "Corrélation de Spearman CHL ~ MES par zone de distance",
+    subtitle = "Décroissance de la corrélation avec l'éloignement de l'embouchure",
+    x        = "Zone de distance",
+    y        = "Corrélation de Spearman"
+  ) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+# Visualiser le gradient de corrélation pixel par pixel
+
+# Corrélation par pixel (chaque position lon/lat)
+cor_par_pixel <- data_pixels |>
+  group_by(lon, lat, distance_km) |>
+  summarise(
+    cor_spearman = cor(analysed_chl_a, analysed_spim,
+                       method = "spearman", use = "complete.obs"),
+    n = n(),
+    .groups = "drop"
+  ) |>
+  filter(n >= 30)  # garder seulement les pixels avec assez d'observations
+
+# Carte de la corrélation spatiale
+ggplot(cor_par_pixel, aes(x = lon, y = lat, fill = cor_spearman)) +
+  geom_tile() +
+  scale_fill_gradientn(
+    colours = c("blue", "white", "red"),
+    limits  = c(-1, 1),
+    name    = "Corrélation\nSpearman"
+  ) +
+  labs(
+    title = "Corrélation spatiale CHL ~ MES",
+    x = "Longitude", y = "Latitude"
+  ) +
+  theme_bw() +
+  coord_fixed()  # pour ne pas déformer la carte
+
+# Visualiser la décroissance de la corrélation avec la distance
+ggplot(cor_par_pixel, aes(x = distance_km, y = cor_spearman)) +
+  geom_point(alpha = 0.3, color = "grey50") +
+  geom_smooth(method = "loess", color = "darkblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(
+    x = "Distance à l'embouchure (km)",
+    y = "Corrélation de Spearman (CHL ~ MES)",
+    title = "Décroissance de la corrélation CHL–MES avec la distance"
+  ) +
+  theme_bw()
+
+# analyse par saison
+data_pixels |>
+  mutate(
+    month  = month(date),
+    saison = case_when(
+      month %in% c(12, 1, 2)  ~ "Hiver",
+      month %in% c(3, 4, 5)   ~ "Printemps",
+      month %in% c(6, 7, 8)   ~ "Été",
+      month %in% c(9, 10, 11) ~ "Automne"
+    )
+  ) |>
+  group_by(zone, saison) |>
+  summarise(
+    cor_spearman = cor(analysed_chl_a, analysed_spim,
+                       method = "spearman", use = "complete.obs"),
+    .groups = "drop"
+  ) |>
+  # Visualisation en heatmap
+  ggplot(aes(x = saison, y = zone, fill = cor_spearman)) +
+  geom_tile() +
+  geom_text(aes(label = round(cor_spearman, 2)), size = 5) +
+  scale_fill_gradientn(
+    colours = c("white" , "blue", "red"),
+    limits  = c(0, 1),
+    name    = "Corrélation\nSpearman"
+  ) +
+  labs(
+    title = "Corrélation CHL ~ MES par zone et par saison",
+    x = "Saison", y = "Zone de distance"
+  ) +
+  theme_bw()
 
 # Example plot with hi-res coast ------------------------------------------
 
