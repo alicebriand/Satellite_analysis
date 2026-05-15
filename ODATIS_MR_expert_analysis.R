@@ -16,6 +16,7 @@ library(ggplot2)
 library(rnaturalearth)
 library(ggspatial)
 library(classInt)
+library(patchwork)
 
 # load data ---------------------------------------------------------------
 
@@ -464,19 +465,19 @@ ggplot(seuils_df, aes(x = capteur, y = seuil, fill = label)) +
   geom_text(
     aes(label = label_val),
     position = position_dodge(width = 0.75),
-    vjust = -0.4, size = 3, fontface = "bold"
+    vjust = -0.4, size = 4, fontface = "bold"
   ) +
   scale_fill_manual(values = couleurs_algo, name = "Algo - Correction") +
   labs(
-    title    = "Seuils au 95ème percentile — comparaison capteurs & algorithmes",
+    title    = "Seuils au 95ème centile — comparaison capteurs & algorithmes",
     subtitle = "G = Général | R = Régional | AC = Acolite | PO = Polymer | NS = NirSwir",
     x        = NULL,
-    y        = "Seuil SPM (g/m³)"
+    y        = expression ("Seuil MES (g. m"^{-3}*")")
   ) +
-  theme_minimal(base_size = 13) +
+  theme_minimal(base_size = 15) +
   theme(
     plot.title    = element_text(face = "bold", size = 13),
-    plot.subtitle = element_text(size = 9, color = "grey50"),
+    plot.subtitle = element_text(size = 13, color = "grey50"),
     legend.position = "bottom",
     panel.grid.major.x = element_blank()
   )
@@ -1023,13 +1024,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p1 <- ggplot() +
   geom_point(data = MERIS_SPM_G_AC_sub_95_deb,
              aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MERIS_SPM_G_AC_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MERIS_SPM_G_AC_sub_95_deb$date, na.rm = TRUE),
@@ -1039,31 +1040,32 @@ ggplot() +
       "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
-    size = 8,
+    size = 9,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit" = "blue", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithmee : G | Correction Atmosphérique : Acolite"
   ) +
   theme_bw() +
   theme(
     plot.title       = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption     = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y     = element_text(size = 11, margin = margin(r = 10)),
+    plot.caption     = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y     = element_text(size = 15, margin = margin(r = 10)),
     axis.text        = element_text(size = 10, color = "grey30"),
     axis.text.x      = element_text(angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey70"),
@@ -1111,47 +1113,48 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p2 <- ggplot() +
   geom_point(data = MERIS_SPM_G_PO_sub_95_deb,
              aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MERIS_SPM_G_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MERIS_SPM_G_PO_sub_95_deb$date, na.rm = TRUE),
     y = max(MERIS_SPM_G_PO_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit" = "blue", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : G | Correction atmosphérique : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1201,13 +1204,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p3 <- ggplot() +
   geom_point(data = MERIS_SPM_R_AC_sub_95_deb,
              aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MERIS_SPM_R_AC_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MERIS_SPM_R_AC_sub_95_deb$date, na.rm = TRUE),
@@ -1219,29 +1222,30 @@ ggplot() +
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit" = "blue", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Correction atmosphérique : Acolite"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1291,47 +1295,48 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p4 <- ggplot() +
   geom_point(data = MERIS_SPM_R_PO_sub_95_deb,
              aes(x = date, y = débit, color = "Débit"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MERIS_SPM_R_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MERIS_SPM_R_PO_sub_95_deb$date, na.rm = TRUE),
     y = max(MERIS_SPM_R_PO_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
-  scale_color_manual(values = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan")) +
-  scale_fill_manual(values  = c("Débit" = "steelblue4", "Aire des panaches" = "darkcyan"),
+  scale_color_manual(values = c("Débit" = "blue", "Aire des panaches" = "darkcyan")) +
+  scale_fill_manual(values  = c("Débit" = "blue", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var — MERIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Correction atmosphérique : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1344,8 +1349,33 @@ ggplot() +
     legend.text       = element_text(size = 10)
   )
 
+### patchwork ---------------------------------------------------------------
 
+(p1 / p2) | (p3 / p4) +
+  plot_annotation(
+    title   = "Débit liquide du Var et extension des panaches turbides",
+    caption = "Source : MERIS - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
 
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2) | (p3 / p4)
+
+combined + plot_annotation(
+  title      = "Débit liquide du Var et extension des panaches turbides",
+  caption = "Source : MERIS - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 ## MODIS_SPM_G_NS_sub ------------------------------------------------------
 
@@ -1384,47 +1414,48 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p1 <- ggplot() +
   geom_point(data = MODIS_SPM_G_NS_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MODIS_SPM_G_NS_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MODIS_SPM_G_NS_sub_95_deb$date, na.rm = TRUE),
     y = max(MODIS_SPM_G_NS_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : NirSwir | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : G | Correction atmosphérique : NirSwir"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1474,13 +1505,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p2 <- ggplot() +
   geom_point(data = MODIS_SPM_G_PO_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MODIS_SPM_G_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MODIS_SPM_G_PO_sub_95_deb$date, na.rm = TRUE),
@@ -1492,29 +1523,30 @@ ggplot() +
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : NirSwir | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithm : G | Correction atmosphérique : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1563,47 +1595,48 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p3 <- ggplot() +
   geom_point(data = MODIS_SPM_R_NS_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MODIS_SPM_R_NS_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MODIS_SPM_R_NS_sub_95_deb$date, na.rm = TRUE),
     y = max(MODIS_SPM_R_NS_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : NirSwir | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Correction atmosphérique : NirSwir"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1653,13 +1686,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p4 <- ggplot() +
   geom_point(data = MODIS_SPM_R_PO_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   geom_point(data = MODIS_SPM_R_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.4) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(MODIS_SPM_R_PO_sub_95_deb$date, na.rm = TRUE),
@@ -1671,29 +1704,30 @@ ggplot() +
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — MODIS (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Atmospheric correction : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1706,7 +1740,31 @@ ggplot() +
     legend.text       = element_text(size = 10)
   )
 
+(p1 / p2) | (p3 / p4) +
+  plot_annotation(
+    title   = "Débit liquide cumulé et extension des panaches turbides",
+    caption = "Source : MODIS - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
 
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2) | (p3 / p4)
+
+combined + plot_annotation(
+  title      = "Débit liquide du Var et extension des panaches turbides",
+  caption = "Source : MODIS - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 
 
@@ -1747,13 +1805,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p1 <- ggplot() +
   geom_point(data = OLCI_SPM_G_AC_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 2, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   geom_point(data = OLCI_SPM_G_AC_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 2, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(OLCI_SPM_G_AC_sub_95_deb$date, na.rm = TRUE),
@@ -1765,29 +1823,30 @@ ggplot() +
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : G | Correction atmosphérique : Acolite"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1837,47 +1896,48 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p2 <- ggplot() +
   geom_point(data = OLCI_SPM_G_PO_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   geom_point(data = OLCI_SPM_G_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(OLCI_SPM_G_PO_sub_95_deb$date, na.rm = TRUE),
     y = max(OLCI_SPM_G_PO_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : G | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : G | Correction atmosphérique : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -1927,13 +1987,13 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p3 <- ggplot() +
   geom_point(data = OLCI_SPM_R_AC_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   geom_point(data = OLCI_SPM_R_AC_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(OLCI_SPM_R_AC_sub_95_deb$date, na.rm = TRUE),
@@ -1945,29 +2005,30 @@ ggplot() +
     hjust = 0, vjust = 1,
     size = 8,
     color = "grey20",
-    fontface = "italic"
+    fontface = "italic",
+    family = "serif"
   ) +   # ← le + manquait ici !
   scale_color_manual(values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan")) +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Acolite | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Correction atmosphérique : Acolite"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -2017,20 +2078,20 @@ rho <- round(as.numeric(cor_result$estimate), 3)
 p_value <- cor_result$p.value
 
 # 3. Plotting
-ggplot() +
+p4 <- ggplot() +
   geom_point(data = OLCI_SPM_R_PO_sub_95_deb,
              aes(x = date, y = debit_cumule, color = "Débit cumulé"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   geom_point(data = OLCI_SPM_R_PO_sub_95_deb,
              aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-             size = 1.5, alpha = 0.6) +
+             size = 2, alpha = 0.4) +
   annotate(
     "text",
     x = min(OLCI_SPM_R_PO_sub_95_deb$date, na.rm = TRUE),
     y = max(OLCI_SPM_R_PO_sub_95_deb$scaled_aire_panache, na.rm = TRUE) * 0.95,
     label = paste0(
       "ρ = ", rho,
-      "\np = ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", round(p_value, 3))
     ),
     hjust = 0, vjust = 1,
     size = 8,
@@ -2041,23 +2102,23 @@ ggplot() +
   scale_fill_manual(values  = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
                     guide = "none") +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name = expression("Débit (m"^3*".s"^-1*")"),
     expand = expansion(mult = c(0.02, 0.08)),
     sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff,
                         name = "Aire des panaches (en km²)")
   ) +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   labs(
-    title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
+    # title   = "Aire des panaches et débit liquide moyen journalier du Var, du Paillon et du Magnan — OLCI (ODATIS-MR)",
     x       = NULL,
     color   = NULL,
-    caption = "Source : ODATIS — MR Expert Product | Algorithm : R | Atmospheric correction : Polymer | Seuil au 95ème percentile"
+    caption = "ODATIS MR Expert | Algorithme : R | Correction atmosphérique : Polymer"
   ) +
   theme_bw() +
   theme(
     plot.title        = element_text(size = 13, face = "bold", margin = margin(b = 10)),
-    plot.caption      = element_text(size = 8, color = "grey50", hjust = 0),
-    axis.title.y      = element_text(size = 14, margin = margin(r = 10)),  # axe Y gauche
+    plot.caption      = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.title.y      = element_text(size = 15, margin = margin(r = 10)),  # axe Y gauche
     axis.title.y.right = element_text(size = 14, margin = margin(l = 10)), # axe Y droite
     axis.title.x      = element_text(size = 14, margin = margin(t = 10)),  # axe X
     axis.text         = element_text(size = 10, color = "grey30"),
@@ -2069,6 +2130,32 @@ ggplot() +
     legend.position   = "top",
     legend.text       = element_text(size = 10)
   )
+
+(p1 / p2) | (p3 / p4) +
+  plot_annotation(
+    title   = "Débit liquide cumulé et extension des panaches turbides",
+    caption = "Source : OLCI - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2) | (p3 / p4)
+
+combined + plot_annotation(
+  title      = "Débit liquide du Var et extension des panaches turbides",
+  caption = "Source : OLCI - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 # ODATIS MR Expert vs Sextant ----------------------------------------------
 
@@ -2773,7 +2860,8 @@ OLCI_SPM_G_PO_sub_no_flood <- OLCI_SPM_G_PO_sub |>
 
 # graph -------------------------------------------------------------------
 
-world_hr <- ne_countries(scale = "medium", returnclass = "sf")
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # spatial plotting --------------------------------------------------------
 
@@ -2781,27 +2869,33 @@ world_hr <- ne_countries(scale = "medium", returnclass = "sf")
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p1 <- ggplot() +
   geom_tile(data = MERIS_SPM_G_AC_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
-    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  # borders("world", colour = "grey30", linewidth = 0.4) +
+  # coord_fixed(
+  #   ratio = 1.2,
+  #   xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+  #   ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  # ) +
+  coord_sf(
+    xlim   = range(MERIS_SPM_G_AC_sub_small_flood$lon),
+    ylim   = range(MERIS_SPM_G_AC_sub_small_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 09 février 2009",
-    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    subtitle = "Algorithme : G | Correction atmosphérique : Acolite",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "Source : ODATIS MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -2837,7 +2931,7 @@ ggplot() +
     ) +
   labs(
     title    = "Concentration en MES — 25 janvier 2009",
-    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    subtitle = "Algorithme : G | Correction atmosphérique : Acolite",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
     caption  = "Source : ODATIS — MR Expert Product"
@@ -2876,7 +2970,7 @@ ggplot() +
   ) +
   labs(
     title    = "Concentration en MES — 16 février 2009",
-    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Acolite",
+    subtitle = "Algorithme : G | Correction atmosphérique : Acolite",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
     caption  = "Source : ODATIS — MR Expert Product"
@@ -2900,27 +2994,33 @@ ggplot() +
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p2 <- ggplot() +
   geom_tile(data = MERIS_SPM_G_PO_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
-    ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  # borders("world", colour = "grey30", linewidth = 0.4) +
+  # coord_fixed(
+  #   ratio = 1.2,
+  #   xlim = range(MERIS_SPM_G_AC_sub_small_flood$lon, na.rm = TRUE),
+  #   ylim = range(MERIS_SPM_G_AC_sub_small_flood$lat, na.rm = TRUE)
+  # ) +
+  coord_sf(
+    xlim   = range(MERIS_SPM_G_PO_sub_big_flood$lon),
+    ylim   = range(MERIS_SPM_G_PO_sub_big_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 09 février 2009",
-    subtitle = "Produit MERIS | Algorithm : G | Correction atmosphérique : Polymer",
+    subtitle = "Algorithme : G | Correction atmosphérique : Polymer",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "Source : ODATIS MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -2936,6 +3036,34 @@ ggplot() +
     legend.title     = element_text(size = 10, face = "bold"),
     legend.text      = element_text(size = 9)
   )
+
+# patchwork
+
+(p1 / p2) +
+  plot_annotation(
+    title   = "Concentration en MES - 09 février 2009",
+    caption = "Source : MERIS - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2)
+
+combined + plot_annotation(
+  title   = "Concentration en MES - 09 février 2009",
+  caption = "Source : MERIS - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 ### Small flood ---------------------------------------------------------------
 
@@ -3019,27 +3147,28 @@ ggplot() +
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p1 <- ggplot() +
   geom_tile(data = MODIS_SPM_G_NS_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-NS_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(MODIS_SPM_G_NS_sub_small_flood$lon, na.rm = TRUE),
-    ylim = range(MODIS_SPM_G_NS_sub_small_flood$lat, na.rm = TRUE)
+  coord_sf(
+    xlim   = range(MODIS_SPM_G_NS_sub_big_flood$lon),
+    ylim   = range(MODIS_SPM_G_NS_sub_big_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 23 décembre 2019",
     subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : NirSwir",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "ODATIS MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -3138,27 +3267,27 @@ ggplot() +
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p2 <- ggplot() +
   geom_tile(data = MODIS_SPM_G_PO_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(MODIS_SPM_G_PO_sub_small_flood$lon, na.rm = TRUE),
-    ylim = range(MODIS_SPM_G_PO_sub_small_flood$lat, na.rm = TRUE)
+  coord_sf(
+    xlim   = range(MODIS_SPM_G_PO_sub_big_flood$lon),
+    ylim   = range(MODIS_SPM_G_PO_sub_big_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 23 décembre 2019",
     subtitle = "Produit MODIS | Algorithm : G | Correction atmosphérique : Polymer",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "Source : ODATIS MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -3174,6 +3303,34 @@ ggplot() +
     legend.title     = element_text(size = 10, face = "bold"),
     legend.text      = element_text(size = 9)
   )
+
+# patchwork
+
+(p1 / p2) +
+  plot_annotation(
+    title   = "Concentration en MES - 23 décembre 2019",
+    caption = "Source : MODIS - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2)
+
+combined + plot_annotation(
+  title   = "Concentration en MES - 23 décembre 2019",
+  caption = "Source : MERIS - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 ### Small flood ---------------------------------------------------------------
 
@@ -3257,27 +3414,27 @@ ggplot() +
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p1 <- ggplot() +
   geom_tile(data = OLCI_SPM_G_AC_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-AC_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(OLCI_SPM_G_AC_sub_big_flood$lon, na.rm = TRUE),
-    ylim = range(OLCI_SPM_G_AC_sub_big_flood$lat, na.rm = TRUE)
+  coord_sf(
+    xlim   = range(MODIS_SPM_G_PO_sub_big_flood$lon),
+    ylim   = range(MODIS_SPM_G_PO_sub_big_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 23 décembre 2019",
     subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Acolite",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "ODATIS — MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -3376,27 +3533,27 @@ ggplot() +
 
 ### Big flood ---------------------------------------------------------------
 
-ggplot() +
+p2 <- ggplot() +
   geom_tile(data = OLCI_SPM_G_PO_sub_big_flood, 
             aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   annotation_north_arrow(location = "tr") +
   scale_fill_viridis_c(
     name     = "MES (g/m³)",
     option   = "turbo",
     na.value = "transparent"
   ) +
-  borders("world", colour = "grey30", linewidth = 0.4) +
-  coord_fixed(
-    ratio = 1.2,
-    xlim = range(OLCI_SPM_G_PO_sub_big_flood$lon, na.rm = TRUE),
-    ylim = range(OLCI_SPM_G_PO_sub_big_flood$lat, na.rm = TRUE)
+  coord_sf(
+    xlim   = range(OLCI_SPM_G_PO_sub_big_flood$lon),
+    ylim   = range(OLCI_SPM_G_PO_sub_big_flood$lat),
+    expand = FALSE
   ) +
   labs(
     title    = "Concentration en MES — 23 décembre 2019",
     subtitle = "Produit OLCI | Algorithm : G | Correction atmosphérique : Polymer",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)",
-    caption  = "Source : ODATIS — MR Expert Product"
+    caption  = "ODATIS — MR Expert"
   ) +
   theme_bw() +
   theme(
@@ -3412,6 +3569,34 @@ ggplot() +
     legend.title     = element_text(size = 10, face = "bold"),
     legend.text      = element_text(size = 9)
   )
+
+# patchwork
+
+(p1 / p2) +
+  plot_annotation(
+    title   = "Concentration en MES - 23 décembre 2019",
+    caption = "Source : OLCI - ODATIS MR",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+# Stocker le patchwork complet dans un objet
+combined <- (p1 / p2)
+
+combined + plot_annotation(
+  title   = "Concentration en MES - 23 décembre 2019",
+  caption = "Source : OLCI - ODATIS MR",
+  tag_levels = "a",          # ← "a" pour a,b,c,d — "A" pour A,B,C,D — "1" pour 1,2,3,4
+  tag_prefix = "(",          # ← optionnel : ajoute "(" avant
+  tag_suffix = ")",          # ← optionnel : ajoute ")" après → donne (a), (b)...
+  theme      = theme(
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+    plot.tag     = element_text(size = 12, face = "bold")   # ← style des lettres
+  )
+)
 
 ### Small flood ---------------------------------------------------------------
 

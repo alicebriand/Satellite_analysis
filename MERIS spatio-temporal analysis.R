@@ -172,8 +172,8 @@ cat("Seuil 95ème percentile :", seuil_95, "g/m³\n")
 # Seuil 95ème percentile : 0.4910305 g/m³
 
 # Stats du panache par jour
-MERIS_2002_2012_spm_95 <- MERIS_2002_2012_spm_pixels |> 
-  group_by(date) |> 
+MERIS_2002_2012_spm_95 <- MERIS_2002_2012_spm_pixels |>
+  group_by(date) |>
   summarise(
     pixel_count = sum(`SPM-G-PO_mean` >= seuil_95, na.rm = TRUE),
     mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),

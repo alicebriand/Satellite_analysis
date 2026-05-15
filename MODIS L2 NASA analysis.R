@@ -279,7 +279,7 @@ pl_map <- study_area_df_17_06_2024 %>%
     axis.title       = element_text(size = 14),
     axis.text        = element_text(size = 12)
   )
-
+                              
 # Save as desired
 ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/réflectance/sans filtrage des images contaminées/fig_MODIS_SPM_17_06_2024_reflectance_b1.png", pl_map, height = 9, width = 14)
 

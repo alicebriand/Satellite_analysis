@@ -363,7 +363,7 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |>
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
-save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
+# save(SEXTANT_1998_2025_spm_95, file = "data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
 
 ## plotting ----------------------------------------------------------------
 
@@ -799,6 +799,365 @@ ggplot() +
   scale_x_date(
     date_breaks = "5 year",
     date_labels = "%Y"
+  )
+
+
+# Gangloff SPM ------------------------------------------------------------
+
+## zones emboîtées ----------------------------------------------------------
+
+# définir les coordonnées de l'embouchure du Var (comme SEXTANT OC5 chla)
+lon_embouchure <- 7.199082
+lat_embouchure <- 43.654709
+
+# définir des zones emboîtées de tailles croissantes autour de l'embouchure
+rayons_km <- c(5, 10, 20, 40, 70, 100)  # en km
+
+# Convertir en degrés
+rayons_deg <- rayons_km / 111
+
+# Calculer le percentile 95 pour chaque zone emboîtée
+seuils_zones <- lapply(rayons_deg, function(r) {
+  
+  pixels_zone <- SEXTANT_1998_2025_spm_clean |>
+    filter(
+      lon >= lon_embouchure - r & lon <= lon_embouchure + r,
+      lat >= lat_embouchure - r & lat <= lat_embouchure + r
+    )
+  
+  aire_km2 <- nrow(distinct(pixels_zone, lon, lat)) * aire_pixel_km2
+  seuil    <- quantile(pixels_zone$analysed_spim, 0.95, na.rm = TRUE)
+  
+  data.frame(rayon_km = r * 111, aire_km2 = aire_km2, seuil_95 = seuil)
+})
+
+seuils_zones_df <- bind_rows(seuils_zones)
+print(seuils_zones_df)
+
+# Visualiser le plateau
+ggplot(seuils_zones_df, aes(x = aire_km2, y = seuil_95)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_line() +
+  geom_hline(yintercept = seuil_95, linetype = "dashed", color = "red") +
+  labs(
+    title = "Détermination du seuil de détection du panache turbide",
+    subtitle = "Percentile 95 par zone emboîtée autour de l'embouchure",
+    x = "Aire de la zone (km²)",
+    y = "Percentile 95 des MES (g/m³)"
+  ) +
+  theme_bw()
+
+# Le seuil retenu est la valeur du plateau (zone > ~5000 km²)
+seuil_retenu <- seuils_zones_df |>
+  filter(aire_km2 > 2459) |>
+  summarise(seuil = mean(seuil_95)) |>
+  pull(seuil)
+
+cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
+# 0.94 g/m³
+
+## ROPP --------------------------------------------------------------------
+
+# Pixels où le panache est présent dans au moins 5% des images
+n_images_total <- n_distinct(SEXTANT_1998_2025_spm_clean$date)
+
+ROPP <- SEXTANT_1998_2025_spm_clean |>
+  group_by(lon, lat) |>
+  summarise(
+    freq_above_seuil = sum(analysed_spim >= seuil_retenu, na.rm = TRUE) / n_images_total,
+    .groups = "drop"
+  ) |>
+  filter(freq_above_seuil >= 0.05)   # au moins 5% des images
+
+cat("Nombre de clean dans la ROPP :", nrow(ROPP), "\n")
+
+## filtrer les images avec trop de clean manquants ------------------------
+
+# Garder seulement les images avec > 80% de clean valides sur la ROPP
+clean_ROPP <- SEXTANT_1998_2025_spm_clean |>
+  semi_join(ROPP, by = c("lon", "lat"))
+
+images_valides <- clean_ROPP |>
+  group_by(date) |>
+  summarise(
+    n_clean_valides = sum(!is.na(analysed_spim)),
+    n_clean_total   = n(),
+    pct_valide       = n_clean_valides / n_clean_total,
+    .groups = "drop"
+  ) |>
+  filter(pct_valide >= 0.80)
+
+cat("Images valides :", nrow(images_valides), "/", n_distinct(SEXTANT_1998_2025_spm_clean$date), "\n")
+
+
+# Diagnostics à faire absolument
+cat("Seuil retenu :", seuil_retenu, "\n")
+cat("Nombre de pixels dans la ROPP :", nrow(ROPP), "\n")
+cat("Images valides :", nrow(images_valides), "\n")
+cat("Jours avec panache > 0 :", sum(SEXTANT_panache_metrics$aire_panache_km2 > 0), "\n")
+
+# Distribution des aires de panache
+summary(SEXTANT_panache_metrics$aire_panache_km2)
+hist(SEXTANT_panache_metrics$aire_panache_km2, breaks = 50)
+
+# Distribution du débit 3j associé
+summary(SEXTANT_panache_metrics$debit_3j_mean)
+
+## stat panache ------------------------------------------------------------
+
+# Statistiques du panache par jour
+SEXTANT_panache_metrics <- SEXTANT_1998_2025_spm_clean |>
+  filter(date %in% images_valides$date) |>
+  semi_join(ROPP, by = c("lon", "lat")) |>
+  group_by(date) |>
+  summarise(
+    # Aire d'extension
+    pixel_count = sum(analysed_spim >= seuil_retenu, na.rm = TRUE),
+    aire_panache_km2 = pixel_count * aire_pixel_km2,
+    # Concentrations
+    mean_spm         = mean(analysed_spim[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    max_spm          = max(analysed_spim[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    median_spm       = median(analysed_spim[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    # Points extrêmes
+    lat_sud          = min(lat[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    lon_ouest        = min(lon[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    lon_est          = max(lon[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    # Centroïde
+    centroid_lon     = mean(lon[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    centroid_lat     = mean(lat[analysed_spim >= seuil_retenu], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# plotting ----------------------------------------------------------------
+
+# correlation river flow and plume extension ------------------------------
+
+debit_lags <- Y6442010_depuis_2000 |>
+  arrange(date) |>
+  select(date, débit) |> 
+  mutate(
+    debit_j1     = lag(débit, 1),             # j-1 seulement
+    debit_2j     = (lag(débit, 1) + lag(débit, 2)) / 2,       # moyenne j-1, j-2
+    debit_3j     = (lag(débit, 1) + lag(débit, 2) + lag(débit, 3)) / 3
+  )
+
+# Jointure et nettoyage
+SEXTANT_panache_metrics <- SEXTANT_panache_metrics |>
+  inner_join(debit_lags |> select(date, débit, debit_j1, debit_2j, debit_3j), by = "date") |>
+  filter(
+    aire_panache_km2 > 0,
+    débit > 0,
+    is.finite(débit)
+  ) |>
+    mutate(
+    panache_log  = log10(aire_panache_km2),
+    debit_j0_log = log10(débit),
+    debit_j1_log = log10(debit_j1),
+    debit_2j_log = log10(debit_2j),
+    debit_3j_log = log10(debit_3j)
+  )
+
+# # Tout est déjà dans SEXTANT_panache_metrics, pas besoin de rejoindre !
+SEXTANT_panache_metrics |>
+  filter(aire_panache_km2 > 0) |>
+  summarise(
+    r_j0 = cor(log10(aire_panache_km2), debit_j0_log, use = "complete.obs", method = "spearman"),
+    r_j1 = cor(log10(aire_panache_km2), debit_j1_log, use = "complete.obs", method = "spearman"),
+    r_2j = cor(log10(aire_panache_km2), debit_2j_log, use = "complete.obs", method = "spearman"),
+    r_3j = cor(log10(aire_panache_km2), debit_3j_log, use = "complete.obs", method = "spearman")
+  )
+
+# Ensuite compare les trois modèles
+modele_j0 <- lm(panache_log ~ debit_j0_log, data = SEXTANT_panache_metrics)
+modele_j1 <- lm(panache_log ~ debit_j1_log, data = SEXTANT_panache_metrics)
+modele_2j <- lm(panache_log ~ debit_2j_log, data = SEXTANT_panache_metrics)
+modele_3j <- lm(panache_log ~ debit_3j_log, data = SEXTANT_panache_metrics)
+
+tibble(
+  lag       = c("j-1", "j-1 à j-2", "j-1 à j-3"),
+  R2        = c(summary(modele_j1)$r.squared,
+                summary(modele_2j)$r.squared,
+                summary(modele_3j)$r.squared)
+)
+
+# Ensuite compare les trois modèles
+modele_j0 <- lm(panache_log ~ débit, data = SEXTANT_panache_metrics)
+modele_j1 <- lm(panache_log ~ debit_j1, data = SEXTANT_panache_metrics)
+modele_2j <- lm(panache_log ~ debit_2j, data = SEXTANT_panache_metrics)
+modele_3j <- lm(panache_log ~ debit_3j, data = SEXTANT_panache_metrics)
+
+tibble(
+  lag       = c("j-1", "j-1 à j-2", "j-1 à j-3"),
+  R2        = c(summary(modele_j1)$r.squared,
+                summary(modele_2j)$r.squared,
+                summary(modele_3j)$r.squared)
+)
+
+## modèle log - log --------------------------------------------------------
+
+# Modèle linéaire en log-log → relation puissance
+modele_log <- lm(panache_log ~ debit_j0_log, data = SEXTANT_panache_metrics)
+r2     <- summary(modele_log)$r.squared
+print(r2)
+pente  <- coef(modele_log)[2]
+ordonnee <- coef(modele_log)[1]
+
+# Équation puissance : aire = 10^ordonnee * débit^pente
+# à afficher dans le graphique
+label_eq <- paste0(
+  "Aire = ", round(10^ordonnee, 3), " × Q^", round(pente, 2),
+  "\nR² = ", round(r2, 2)
+)
+
+# Graphique log-log avec droite de régression
+ggplot(SEXTANT_panache_metrics, aes(x = débit, y = aire_panache_km2)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,            # régression sur les axes log
+              color = "black", se = FALSE, linewidth = 0.8) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", 
+           x = min(SEXTANT_panache_metrics$debit_log, na.rm = TRUE) * 1.5,
+           y = max(SEXTANT_panache_metrics$aire_panache_km2, na.rm = TRUE) * 0.7,
+           label = label_eq, hjust = 1.1, vjust = 2, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    y = "Aire du panache (km²)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  )
+
+## Modèle semi-log : log10(aire) ~ débit --------------------------------------------------------
+
+modele_semilog <- lm(panache_log ~ débit, data = SEXTANT_panache_metrics)
+r2       <- summary(modele_semilog)$r.squared
+print(r2)
+pente    <- coef(modele_semilog)[2]
+ordonnee <- coef(modele_semilog)[1]
+
+label_eq <- paste0(
+  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(SEXTANT_panache_metrics, aes(x = débit, y = aire_panache_km2)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  # geom_smooth(method = "lm", formula = y ~ x,
+  #             color = "black", se = FALSE, linewidth = 0.8) +
+  scale_y_log10(labels = scales::comma) +
+  annotate("text",
+           x = max(SEXTANT_panache_metrics$débit, na.rm = TRUE) * 0.7,
+           y = min(SEXTANT_panache_metrics$aire_panache_km2, na.rm = TRUE) * 3,
+           label = label_eq, hjust = 0.5, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    y = "Aire du panache (km²)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  )
+
+# corrélation MES mean et débit -------------------------------------------
+
+modele <- lm(débit ~ mean_spm, data = SEXTANT_panache_metrics)
+r2       <- summary(modele)$r.squared
+print(r2)
+pente    <- coef(modele)[2]
+ordonnee <- coef(modele)[1]
+
+label_eq <- paste0(
+  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(SEXTANT_panache_metrics, aes(x = débit, y = mean_spm)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,
+              color = "black", se = FALSE, linewidth = 0.8) +
+  annotate("text",
+           x = max(SEXTANT_panache_metrics$débit, na.rm = TRUE) * 0.7,
+           y = min(SEXTANT_panache_metrics$mean_spm, na.rm = TRUE) * 3,
+           label = label_eq, hjust = 0.5, vjust = 2, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    y = expression("Concentration en MES (g m"^{-3}*")")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  )
+
+# corrélation MES max et débit -------------------------------------------
+
+modele <- lm(débit ~ max_spm, data = SEXTANT_panache_metrics)
+r2       <- summary(modele)$r.squared
+print(r2)
+pente    <- coef(modele)[2]
+ordonnee <- coef(modele)[1]
+
+label_eq <- paste0(
+  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(SEXTANT_panache_metrics, aes(x = débit, y = max_spm)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,
+              color = "black", se = FALSE, linewidth = 0.8) +
+  annotate("text",
+           x = max(SEXTANT_panache_metrics$débit, na.rm = TRUE) * 0.7,
+           y = min(SEXTANT_panache_metrics$mean_spm, na.rm = TRUE) * 3,
+           label = label_eq, hjust = 0.5, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    y = expression("Concentration maximale en MES (g m"^{-3}*")")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
   )
 
 
