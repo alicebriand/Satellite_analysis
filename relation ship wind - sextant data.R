@@ -19,6 +19,7 @@ library(ggpubr)  # Pour stat_cor()
 library(scales)
 library(ggspatial)
 library(effectsize)
+library(moments)
 
 # SEXTANT -----------------------------------------------------------------
 
@@ -513,8 +514,8 @@ panache_vent |>
   ) |> 
   print(width =  Inf)
 
-ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
-       aes(x = FFM, y = dist_ouest_km, color = wind_type, shape = wind_type)) +
+p1 <- ggplot(panache_vent |> filter(!is.na(dist_sud_km)),
+       aes(x = FFM, y = dist_sud_km, color = wind_type, shape = wind_type)) +
   geom_point(alpha = 0.5, size = 2) +
   scale_color_manual(
     values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),  # tiret, pas espace
@@ -526,8 +527,8 @@ ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
   ) +
   labs(
     x = expression("Vitesse du vent (m.s"^{-1}*")"),
-    y = "Distance d'extension ouest du panache (km)",
-    title = "Réponse du panache turbide du Var aux conditions de vent"
+    y = "Distance d'extension sud (km)",
+    # title = "Réponse du panache turbide du Var aux conditions de vent"
     ) +
   theme_bw(base_size = 14) +
   theme(
@@ -539,6 +540,46 @@ ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
     plot.title        = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
     plot.subtitle     = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
     panel.grid.minor  = element_blank()
+  )
+
+p2 <- ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
+             aes(x = FFM, y = dist_ouest_km, color = wind_type, shape = wind_type)) +
+  geom_point(alpha = 0.5, size = 2) +
+  scale_color_manual(
+    values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),  # tiret, pas espace
+    name = "Direction du vent"
+  ) +
+  scale_shape_manual(
+    values = c("Nord-Ouest" = 16, "Est" = 17),                 # tiret, pas espace
+    name = "Direction du vent"
+  ) +
+  labs(
+    x = expression("Vitesse du vent (m.s"^{-1}*")"),
+    y = "Distance d'extension ouest (km)",
+    # title = "Réponse du panache turbide du Var aux conditions de vent"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position   = "top",
+    legend.title      = element_text(face = "bold", family = "serif"),
+    legend.text       = element_text(family = "serif"),
+    axis.title        = element_text(face = "bold", family = "serif"),
+    axis.text         = element_text(color = "grey30", family = "serif"),
+    plot.title        = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle     = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    panel.grid.minor  = element_blank()
+  )
+
+# patchwork
+
+(p1 / p2) +
+  plot_annotation(
+    title   = "Réponse du panache turbide du Var aux conditions de vent",
+    caption = "Source : Sextant OC5",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
   )
 
 # ── 4. (Bonus) Figure 8a adaptée : aire du panache vs débit coloré par vent ─
@@ -601,7 +642,7 @@ panache_vent |>
 
 # les vents d'Est semblent étendrent plus le panache au sud mais pas de beaucoup
 # Est, médiane = 13.8 et Nord Ouest, médiane = 11.6
-# Pour l'extension à l'Ouest, les vents d'Est semblent étendrent de manière plus 
+# Pour l'extension à l'Ouest, les vents d'Est semblent étendrent de manière plus
 # importante vers l'Ouest
 # Est, médiane = 13.3 et Nord Ouest, médiane = 6
 
@@ -665,9 +706,22 @@ ggplot(panache_vent, aes(x = wind_type, y = dist_ouest_km,
   )
 
 
+# on test la distribution des médianes
 
+# Visualiser les deux distributions
+ggplot(panache_vent, aes(x = dist_ouest_km, fill = wind_type)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_manual(values = c("Nord-Ouest" = "steelblue", "Est" = "tomato")) +
+  theme_bw()
 
-
+# Comparer forme et dispersion
+panache_vent |>
+  group_by(wind_type) |>
+  summarise(
+    sd       = round(sd(dist_ouest_km,                    na.rm = TRUE), 1),
+    skewness = round(moments::skewness(dist_ouest_km,     na.rm = TRUE), 2),
+    IQR      = round(IQR(dist_ouest_km,                   na.rm = TRUE), 1)
+  )
 
 
 
