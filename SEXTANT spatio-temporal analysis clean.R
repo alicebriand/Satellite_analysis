@@ -109,6 +109,9 @@ load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+load("~/Vent/data/wind_1994_2007.Rdata")
+load("~/Vent/data/wind_2007_2025.Rdata")
+load("~/Vent/data/wind_2008_2025.Rdata")
 
 ## direction ---------------------------------------------------------------
 

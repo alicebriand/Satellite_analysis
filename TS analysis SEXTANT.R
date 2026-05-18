@@ -59,6 +59,8 @@ load("data/SEXTANT/CHL/sextant_1998_2025_CHL.Rdata")
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 load("data/SEXTANT/SPM/sextant_2015_2025_SPM.Rdata")
 load("data/SEXTANT/SPM/sextant_2001_2020_SPM.Rdata")
+load("data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
 # climatology of MES -------------------------------------------------------------
 

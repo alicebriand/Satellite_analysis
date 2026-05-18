@@ -658,7 +658,7 @@ aire_pixel_km2 <- res_lon_km * res_lat_km
 cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 
 # Ajouter l'aire du panache dans ton df
-SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_spatial |> 
+SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_pixels |> 
   mutate(aire_panache_km2 = pixel_count * aire_pixel_km2)
 
 # define 95ème percentile -------------------------------------------------
