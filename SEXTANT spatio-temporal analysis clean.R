@@ -24,6 +24,7 @@ library(doParallel); registerDoParallel(cores = parallel::detectCores()-2)
 library(ggpubr)  # Pour stat_cor()
 library(scales)
 library(ggspatial)
+library(patchwork)
 
 
 # Get satellite download function
@@ -351,13 +352,13 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 ## define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
-seuil_95 <- quantile(SEXTANT_1998_2025_spm_pixels$analysed_spim, 0.95, na.rm = TRUE)
+seuil_95 <- quantile(SEXTANT_1998_2025_spm_clean$analysed_spim, 0.95, na.rm = TRUE)
 cat("Seuil 95ème percentile :", seuil_95, "g/m³\n")
 
 # seuil = 0.94 g/m³
 
 # Stats du panache par jour
-SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_pixels |> 
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_clean |> 
   group_by(date) |> 
   summarise(
     pixel_count = sum(analysed_spim >= seuil_95, na.rm = TRUE),
@@ -809,60 +810,63 @@ ggplot() +
 
 ## zones emboîtées ----------------------------------------------------------
 
-# définir les coordonnées de l'embouchure du Var (comme SEXTANT OC5 chla)
-lon_embouchure <- 7.199082
-lat_embouchure <- 43.654709
+# # définir les coordonnées de l'embouchure du Var (comme SEXTANT OC5 chla)
+# lon_embouchure <- 7.199082
+# lat_embouchure <- 43.654709
+# 
+# # définir des zones emboîtées de tailles croissantes autour de l'embouchure
+# rayons_km <- c(5, 10, 20, 40, 70, 100)  # en km
+# 
+# # Convertir en degrés
+# rayons_deg <- rayons_km / 111
+# 
+# # Calculer le percentile 95 pour chaque zone emboîtée
+# seuils_zones <- lapply(rayons_deg, function(r) {
+#   
+#   pixels_zone <- SEXTANT_1998_2025_spm_clean |>
+#     filter(
+#       lon >= lon_embouchure - r & lon <= lon_embouchure + r,
+#       lat >= lat_embouchure - r & lat <= lat_embouchure + r
+#     )
+#   
+#   aire_km2 <- nrow(distinct(pixels_zone, lon, lat)) * aire_pixel_km2
+#   seuil    <- quantile(pixels_zone$analysed_spim, 0.95, na.rm = TRUE)
+#   
+#   data.frame(rayon_km = r * 111, aire_km2 = aire_km2, seuil_95 = seuil)
+# })
+# 
+# seuils_zones_df <- bind_rows(seuils_zones)
+# print(seuils_zones_df)
+# 
+# # Visualiser le plateau
+# ggplot(seuils_zones_df, aes(x = aire_km2, y = seuil_95)) +
+#   geom_point(size = 3, color = "steelblue") +
+#   geom_line() +
+#   geom_hline(yintercept = seuil_95, linetype = "dashed", color = "red") +
+#   labs(
+#     title = "Détermination du seuil de détection du panache turbide",
+#     subtitle = "Percentile 95 par zone emboîtée autour de l'embouchure",
+#     x = "Aire de la zone (km²)",
+#     y = "Percentile 95 des MES (g/m³)"
+#   ) +
+#   theme_bw()
+# 
+# # Le seuil retenu est la valeur du plateau (zone > ~5000 km²)
+# seuil_retenu <- seuils_zones_df |>
+#   filter(aire_km2 > 2459) |>
+#   summarise(seuil = mean(seuil_95)) |>
+#   pull(seuil)
+# 
+# cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
+# # 0.94 g/m³
 
-# définir des zones emboîtées de tailles croissantes autour de l'embouchure
-rayons_km <- c(5, 10, 20, 40, 70, 100)  # en km
-
-# Convertir en degrés
-rayons_deg <- rayons_km / 111
-
-# Calculer le percentile 95 pour chaque zone emboîtée
-seuils_zones <- lapply(rayons_deg, function(r) {
-  
-  pixels_zone <- SEXTANT_1998_2025_spm_clean |>
-    filter(
-      lon >= lon_embouchure - r & lon <= lon_embouchure + r,
-      lat >= lat_embouchure - r & lat <= lat_embouchure + r
-    )
-  
-  aire_km2 <- nrow(distinct(pixels_zone, lon, lat)) * aire_pixel_km2
-  seuil    <- quantile(pixels_zone$analysed_spim, 0.95, na.rm = TRUE)
-  
-  data.frame(rayon_km = r * 111, aire_km2 = aire_km2, seuil_95 = seuil)
-})
-
-seuils_zones_df <- bind_rows(seuils_zones)
-print(seuils_zones_df)
-
-# Visualiser le plateau
-ggplot(seuils_zones_df, aes(x = aire_km2, y = seuil_95)) +
-  geom_point(size = 3, color = "steelblue") +
-  geom_line() +
-  geom_hline(yintercept = seuil_95, linetype = "dashed", color = "red") +
-  labs(
-    title = "Détermination du seuil de détection du panache turbide",
-    subtitle = "Percentile 95 par zone emboîtée autour de l'embouchure",
-    x = "Aire de la zone (km²)",
-    y = "Percentile 95 des MES (g/m³)"
-  ) +
-  theme_bw()
-
-# Le seuil retenu est la valeur du plateau (zone > ~5000 km²)
-seuil_retenu <- seuils_zones_df |>
-  filter(aire_km2 > 2459) |>
-  summarise(seuil = mean(seuil_95)) |>
-  pull(seuil)
-
-cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
-# 0.94 g/m³
+seuil_retenu <- 0.94
 
 ## ROPP --------------------------------------------------------------------
 
 # Pixels où le panache est présent dans au moins 5% des images
 n_images_total <- n_distinct(SEXTANT_1998_2025_spm_clean$date)
+# 10130
 
 ROPP <- SEXTANT_1998_2025_spm_clean |>
   group_by(lon, lat) |>
@@ -873,44 +877,59 @@ ROPP <- SEXTANT_1998_2025_spm_clean |>
   filter(freq_above_seuil >= 0.05)   # au moins 5% des images
 
 cat("Nombre de clean dans la ROPP :", nrow(ROPP), "\n")
+# 410
 
-## filtrer les images avec trop de clean manquants ------------------------
-
-# Garder seulement les images avec > 80% de clean valides sur la ROPP
-clean_ROPP <- SEXTANT_1998_2025_spm_clean |>
-  semi_join(ROPP, by = c("lon", "lat"))
-
-images_valides <- clean_ROPP |>
-  group_by(date) |>
-  summarise(
-    n_clean_valides = sum(!is.na(analysed_spim)),
-    n_clean_total   = n(),
-    pct_valide       = n_clean_valides / n_clean_total,
-    .groups = "drop"
-  ) |>
-  filter(pct_valide >= 0.80)
-
-cat("Images valides :", nrow(images_valides), "/", n_distinct(SEXTANT_1998_2025_spm_clean$date), "\n")
-
-
-# Diagnostics à faire absolument
-cat("Seuil retenu :", seuil_retenu, "\n")
-cat("Nombre de pixels dans la ROPP :", nrow(ROPP), "\n")
-cat("Images valides :", nrow(images_valides), "\n")
-cat("Jours avec panache > 0 :", sum(SEXTANT_panache_metrics$aire_panache_km2 > 0), "\n")
-
-# Distribution des aires de panache
-summary(SEXTANT_panache_metrics$aire_panache_km2)
-hist(SEXTANT_panache_metrics$aire_panache_km2, breaks = 50)
-
-# Distribution du débit 3j associé
-summary(SEXTANT_panache_metrics$debit_3j_mean)
+ggplot(ROPP) +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = freq_above_seuil)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  annotation_north_arrow(
+    location = "tr",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = "Fréquence au-dessus du seuil",
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 20,
+    barheight      = 2,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  labs(
+    title    = "Région d'occurrence des panaches turbides (ROPP)",
+    # subtitle = "Pixels où la concentration en MES dépasse le seuil dans au moins 5% des images MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
+  ) +
+  coord_sf(
+    xlim        = range(ROPP$lon),
+    ylim        = range(ROPP$lat),
+    expand      = FALSE,
+    default_crs = sf::st_crs(4326)
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
+  )
 
 ## stat panache ------------------------------------------------------------
 
 # Statistiques du panache par jour
 SEXTANT_panache_metrics <- SEXTANT_1998_2025_spm_clean |>
-  filter(date %in% images_valides$date) |>
   semi_join(ROPP, by = c("lon", "lat")) |>
   group_by(date) |>
   summarise(
@@ -929,7 +948,11 @@ SEXTANT_panache_metrics <- SEXTANT_1998_2025_spm_clean |>
     centroid_lon     = mean(lon[analysed_spim >= seuil_retenu], na.rm = TRUE),
     centroid_lat     = mean(lat[analysed_spim >= seuil_retenu], na.rm = TRUE),
     .groups = "drop"
-  )
+  ) |> 
+  filter(pixel_count > 0)
+
+cat("Jours avec panache détecté :", nrow(SEXTANT_panache_metrics), "\n")
+# 10092
 
 # plotting ----------------------------------------------------------------
 
@@ -1026,7 +1049,7 @@ ggplot(SEXTANT_panache_metrics, aes(x = débit, y = aire_panache_km2)) +
            family = "serif",
            fontface = "italic") +
   labs(
-    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
     y = "Aire du panache (km²)"
   ) +
   theme_bw(base_size = 14) +
@@ -1092,7 +1115,7 @@ pente    <- coef(modele)[2]
 ordonnee <- coef(modele)[1]
 
 label_eq <- paste0(
-  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "MES = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
   "\nR² = ", round(r2, 2)
 )
 
@@ -1101,26 +1124,26 @@ ggplot(SEXTANT_panache_metrics, aes(x = débit, y = mean_spm)) +
   geom_smooth(method = "lm", formula = y ~ x,
               color = "black", se = FALSE, linewidth = 0.8) +
   annotate("text",
-           x = max(SEXTANT_panache_metrics$débit, na.rm = TRUE) * 0.7,
-           y = min(SEXTANT_panache_metrics$mean_spm, na.rm = TRUE) * 3,
-           label = label_eq, hjust = 0.5, vjust = 2, size = 8, color = "grey20",
-           family = "serif",
+           x        = Inf,
+           y        = Inf,
+           label    = label_eq,
+           hjust    = 1.1,   # ancré à droite
+           vjust    = 6,   # ancré en haut
+           size     = 8,
+           color    = "grey20",
+           family   = "serif",
            fontface = "italic") +
   labs(
-    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
-    y = expression("Concentration en MES (g m"^{-3}*")")
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
+    y = expression("Concentration moyenne en MES (g m"^{-3}*")")
   ) +
   theme_bw(base_size = 14) +
   theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
-    axis.title = element_text(face = "bold", family = "serif"),
-    axis.text = element_text(color = "grey30", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
     panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "grey70"),
-    legend.position = "top",
-    legend.title = element_text(face = "bold"),
-    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+    panel.border     = element_rect(color = "grey70"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
 # corrélation MES max et débit -------------------------------------------
@@ -1132,7 +1155,7 @@ pente    <- coef(modele)[2]
 ordonnee <- coef(modele)[1]
 
 label_eq <- paste0(
-  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "MES = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
   "\nR² = ", round(r2, 2)
 )
 
@@ -1147,7 +1170,7 @@ ggplot(SEXTANT_panache_metrics, aes(x = débit, y = max_spm)) +
            family = "serif",
            fontface = "italic") +
   labs(
-    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
     y = expression("Concentration maximale en MES (g m"^{-3}*")")
   ) +
   theme_bw(base_size = 14) +
@@ -1197,11 +1220,11 @@ SEXTANT_1998_2025_chl_mean <- SEXTANT_1998_2025_chl_clean |>
 
 ## climatologie ------------------------------------------------------------
 
-# on choisit une période de 20 ans (1998 - 2017)
-SEXTANT_1998_2017 <- SEXTANT_1998_2025_chl_clean |> 
-  filter(date >= as.Date("1998-01-01"), date <= as.Date("2017-12-31"))
+# on choisit une période de longue (1998 - 2025)
+SEXTANT_1998_2025 <- SEXTANT_1998_2025_chl_clean |> 
+  filter(date >= as.Date("1998-01-01"), date <= as.Date("2025-12-31"))
 
-SEXTANT_1998_2017_stat <- SEXTANT_1998_2017 |>
+SEXTANT_1998_2025_stat <- SEXTANT_1998_2025_chl_clean |>
   mutate(
     date = as.Date(date),  
     year = year(date),     
@@ -1210,21 +1233,21 @@ SEXTANT_1998_2017_stat <- SEXTANT_1998_2017 |>
   )
 
 # climatologie annuelle
-SEXTANT_1998_2017_chl_year <- SEXTANT_1998_2017_stat |> 
+SEXTANT_1998_2025_chl_year <- SEXTANT_1998_2025_stat |> 
   group_by(year) |> 
   summarise(mean_chl_year_clim = mean(analysed_chl_a, na.rm = TRUE), 
             median_chl_year_clim = median(analysed_chl_a, na.rm = TRUE),
             sd_chl_year_clim = sd(analysed_chl_a, na.rm = TRUE))
 
 # climatologie mensuelle
-SEXTANT_1998_2017_chl_month <- SEXTANT_1998_2017_stat |> 
+SEXTANT_1998_2025_chl_month <- SEXTANT_1998_2025_stat |> 
   group_by(month) |>
   summarise(mean_chl_month_clim = mean(analysed_chl_a, na.rm = TRUE), 
             median_chl_month_clim = median(analysed_chl_a, na.rm = TRUE),
             sd_chl_month_clim = sd(analysed_chl_a, na.rm = TRUE))
 
 # climatologie journanlière
-SEXTANT_1998_2017_chl_doy <- SEXTANT_1998_2017_stat |>
+SEXTANT_1998_2025_chl_doy <- SEXTANT_1998_2025_stat |>
   group_by(doy) |> 
   summarise(mean_chl_doy_clim = mean(analysed_chl_a, na.rm = TRUE), 
             median_chl_doy_clim = median(analysed_chl_a, na.rm = TRUE),
@@ -1238,9 +1261,9 @@ sextant_chl_climatology_doy <- ts2clm(data = SEXTANT_1998_2025_chl_mean, x = dat
 # anomalie mensuelle
 sextant_1998_2025_chl_monthly_anom <- SEXTANT_1998_2025_chl_clean |> 
   mutate(date = floor_date(date, "month")) |> 
-  # filter(date >= as.character.Date("1998-01-01"), date <= as.Date ("2025-12-31")) |> 
+  filter(date >= as.character.Date("2015-01-01"), date <= as.Date ("2025-12-31")) |>
   summarise(mean_chl_month = mean(analysed_chl_a, na.rm = TRUE), .by = c("date", "year", "month")) |>
-  left_join(SEXTANT_1998_2017_chl_month, by = c("month")) |> 
+  left_join(SEXTANT_1998_2025_chl_month, by = c("month")) |> 
   mutate(chl_month_anomaly = mean_chl_month - mean_chl_month_clim)
 
 ## plotting ----------------------------------------------------------------
@@ -1397,7 +1420,7 @@ ggplot(data = SEXTANT_1998_2025_chl_mean, aes(x = date, y = median_chl)) +
 ### climatologie --------------------------------------------------
 
 # create a line plot of the yearly climatology of chl
-ggplot(SEXTANT_1998_2017_chl_year, aes(x = year, y = mean_chl_year_clim)) +
+ggplot(SEXTANT_1998_2025_chl_year, aes(x = year, y = mean_chl_year_clim)) +
   geom_ribbon(
     aes(
       ymin = mean_chl_year_clim - sd_chl_year_clim,
@@ -1416,11 +1439,11 @@ ggplot(SEXTANT_1998_2017_chl_year, aes(x = year, y = mean_chl_year_clim)) +
   #              "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie annuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    title   = "Climatologie annuelle de la concentration en chlorophylle a — Sextant OC5",
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -1437,7 +1460,7 @@ ggplot(SEXTANT_1998_2017_chl_year, aes(x = year, y = mean_chl_year_clim)) +
   )
 
 # create a line plot of the monthly climatology of chl
-ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
+ggplot(SEXTANT_1998_2025_chl_month, aes(x = month, y = mean_chl_month_clim)) +
   geom_ribbon(
     aes(
       ymin = mean_chl_month_clim - sd_chl_month_clim,
@@ -1456,11 +1479,11 @@ ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
                  "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    title   = "Climatologie mensuelle de la concentration en chlorophylle a — Sextant OC5",
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -1477,7 +1500,7 @@ ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
   )
 
 # create a line plot of the daily climatology of chl
-ggplot(SEXTANT_1998_2017_chl_doy, aes(x = doy, y = mean_chl_doy_clim)) +
+ggplot(SEXTANT_1998_2025_chl_doy, aes(x = doy, y = mean_chl_doy_clim)) +
   geom_ribbon(
     aes(
       ymin = mean_chl_doy_clim - sd_chl_doy_clim,
@@ -1496,11 +1519,11 @@ ggplot(SEXTANT_1998_2017_chl_doy, aes(x = doy, y = mean_chl_doy_clim)) +
   #              "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   # ) +
   labs(
-    title   = "Climatologie journalière de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    title   = "Climatologie journalière de la concentration en chlorophylle a — Sextant OC5",
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -1543,7 +1566,7 @@ ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_anomaly))
     x = min(sextant_1998_2025_chl_monthly_anom$date, na.rm = TRUE),
     y = max(sextant_1998_2025_chl_monthly_anom$chl_month_anomaly, na.rm = TRUE) * 0.95,
     label = paste0(
-      "y = ", round(intercept_sextant_chl_anom, 3), " ", round(slope_sextant_chl_anom, 7), " × x",
+      "y = ", round(intercept_sextant_chl_anom, 3), " + ", round(slope_sextant_chl_anom, 7), " × x",
       "\np = ", ifelse(p_value_sextant_chl_anom < 0.001, "< 0.001", format(p_value_sextant_chl_anom, digits = 3))
     ),
     hjust = 0, vjust = 1,
@@ -1564,7 +1587,7 @@ ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_anomaly))
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2017"
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2025"
   ) +
   theme_bw() +
   theme(
@@ -1585,7 +1608,7 @@ ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_anomaly))
 ### patchwork ----------------------------------------------------------------
 
 # --- Graphique 1 : climatologie mensuelle ---
-p1 <- ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim)) +
+p1 <- ggplot(SEXTANT_1998_2025_chl_month, aes(x = month, y = mean_chl_month_clim)) +
   geom_ribbon(
     aes(
       ymin = mean_chl_month_clim - sd_chl_month_clim,
@@ -1604,11 +1627,11 @@ p1 <- ggplot(SEXTANT_1998_2017_chl_month, aes(x = month, y = mean_chl_month_clim
                "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de la concentration en chlorophylle a (1998–2017) — Sextant OC5",
+    title   = "Climatologie mensuelle de la concentration en chlorophylle a — Sextant OC5",
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 1998–2017 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998–2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -1668,11 +1691,11 @@ p2 <- ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_ano
   ) +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
   labs(
-    title   = "Anomalie mensuelle de la concentration en chlorophylle a (1998–2025) — Sextant OC5",
+    title   = "Anomalie mensuelle de la concentration en chlorophylle a — Sextant OC5",
     x       = NULL,
     y       = expression("Concentration en chlorophylle a (µg.L"^{-1}*")"),
     color   = NULL,
-    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2017"
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998–2025"
   ) +
   theme_bw() +
   theme(
@@ -1690,7 +1713,7 @@ p2 <- ggplot(sextant_1998_2025_chl_monthly_anom, aes(x = date, y = chl_month_ano
     legend.text        = element_text(size = 11)
   )
 
-p1 / p2 +
+(p1 / p2) +
   plot_annotation(
     title   = "Concentration en chlorophylle a — Sextant OC5",
     caption = "Source : Sextant OC5",
@@ -2111,4 +2134,115 @@ ggplot() +
   coord_sf(xlim = range(SEXTANT_one$lon), ylim = range(SEXTANT_one$lat), expand = FALSE) +
   scale_fill_viridis_c(option = "turbo", na.value = "transparent") +
   theme_minimal()
+
+
+# SPM arrival  ------------------------------------------------------------
+
+# on veut calculer l'arrivée de SPM globale par le Var depuis 1998 avec SEXTANT
+
+# 1) définir une région d'étude plus petite
+
+SEXTANT_Var <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(lon <= 7.324913, lon >= 7.102015,
+         lat <= 43.722139, lat >= 43.454884)
+
+# 2) appliquer une formule pour convertir la concentration en MES en masse
+
+
+
+# 3) calculer la masse globale de MES exportée par le Var au cours des 25 dernières années
+
+
+# cartographie ------------------------------------------------------------
+
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+SEXTANT_2024 <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(date >= as.Date("2024-04-12"), date <= as.Date("2024-04-18"))
+
+library(ggpubr)
+
+# Créer un graphique par jour
+dates_semaine <- seq(as.Date("2024-04-12"), as.Date("2024-04-12"), by = "day")
+lettres <- c("a)", "b)", "c)", "d)", "e)", "f)", "g)")
+
+plots <- map2(dates_semaine, lettres, function(d, lettre) {
+  
+  df_jour <- SEXTANT_2024 |> filter(date == d)
+  
+  ggplot() +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    geom_tile(data = df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    scale_fill_viridis_c(
+      option   = "plasma",
+      name     = expression("MES (g m"^{-3}*")"),
+      limits   = c(0, max_spm),
+      na.value = "transparent"
+    ) +
+    labs(
+      title = paste0(lettre, " ", format(d, "%d %B %Y")),
+      x = NULL, y = NULL
+    ) +
+    coord_sf(
+      xlim        = range(SEXTANT_2024$lon),
+      ylim        = range(SEXTANT_2024$lat),
+      expand      = FALSE,
+      default_crs = sf::st_crs(4326)
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title       = element_text(face = "bold", size = 11),
+      panel.border     = element_rect(colour = "black", fill = NA),
+      panel.grid.minor = element_blank(),
+      legend.position  = "none",  # légende commune en dessous
+      axis.text        = element_text(size = 7)
+    )
+})
+
+# Légende commune
+legende <- get_legend(
+  plots[[1]] +
+    guides(fill = guide_colorbar(
+      barwidth       = 15,
+      barheight      = 1,
+      title.position = "top",
+      title.hjust    = 0.5
+    )) +
+    theme(legend.position = "bottom",
+          legend.title    = element_text(size = 11),
+          legend.text     = element_text(size = 9))
+)
+
+# Assembler
+figure <- ggarrange(
+  plotlist = plots,
+  ncol     = 4,
+  nrow     = 2,
+  legend   = "none"
+)
+
+# Ajouter titre général et légende
+ggarrange(
+  figure,
+  legende,
+  ncol    = 1,
+  heights = c(10, 1)
+) |>
+  annotate_figure(
+    top = text_grob(
+      "Distribution spatiale des MES — semaine du 12 au 18 avril 2024",
+      face = "bold", size = 13
+    ),
+    bottom = text_grob(
+      "SEXTANT OC5",
+      color = "grey50", size = 10
+    )
+  )
+
+# spatial climatology -----------------------------------------------------
+
+
+
 

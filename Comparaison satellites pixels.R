@@ -122,7 +122,7 @@ SEXTANT_stats <- SEXTANT_1998_2025_spm_pixels |>
   group_by(date) |>
   summarise(
     pixels_valides = sum(!is.na(analysed_spim)),
-    pixels_totaux = n(),
+    pixels_totaux = 1820,
     couverture = pixels_valides / pixels_totaux,
     produit = "SEXTANT"
   )
@@ -133,7 +133,7 @@ MODIS_stats <- MODIS_2002_2024_spm_pixels |>
   group_by(date) |>
   summarise(
     pixels_valides = sum(!is.na(`SPM-G-NS_mean`)),
-    pixels_totaux = n(),
+    pixels_totaux = 25976,
     couverture = pixels_valides / pixels_totaux,
     produit = "MODIS"
   )
@@ -412,7 +412,7 @@ comparaison |>
   ) +
   scale_x_continuous(breaks = c(1, 10, 20, 31), expand = c(0, 0)) +
   labs(
-    title    = "Couverture journalière par produit — 2022",
+    title    = "Couverture journalière par produit — 2024",
     # subtitle = "Gris = aucune donnée ce jour-là",
     x = "Jour du mois", y = NULL
   ) +
@@ -780,3 +780,271 @@ length(files_sextant)  # doit être ~366
 cat("Pixels SEXTANT sur Nice :", nrow(test), "\n")
 # 1820
 # vs pixels_grille OLCI/MODIS = 25976
+
+
+# cartographie ------------------------------------------------------------
+
+# on observe une différence pour certains jours dans la cartographie entre OLCI
+# et MODIS, en effet, pour MODIS il mnaque des données à la côte
+
+# Exemples sur le jour du 12/01/2024 : 
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+# OLCI
+
+OLCI_12_01_2024 <- OLCI_2016_2024_spm_pixels |> 
+  filter(date == "2024-01-12")
+
+max_spm <- max(OLCI_12_01_2024$`SPM-G-PO_mean`, na.rm = TRUE)
+
+pl_map <- OLCI_12_01_2024 %>%
+  ggplot() +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    limits = c(0, max_spm)
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 20,
+    barheight      = 2,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  labs(
+    title    = "Concentration en matières en suspension — 12 janvier 2024",
+    subtitle = "OLCI - Correction atmosphérique = Polymer",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
+  ) +
+  coord_sf(
+    xlim   = range(OLCI_12_01_2024$lon),
+    ylim   = range(OLCI_12_01_2024$lat),
+    expand = FALSE,
+    default_crs = sf::st_crs(4326)
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
+  )
+
+ggsave("~/Satellite_analysis/Graphiques/OLCI/spatial/OLCI_12_01_2024.png", pl_map, height = 9, width = 14)
+
+# MODIS
+MODIS_12_01_2024 <- MODIS_2002_2024_spm_pixels |> 
+  filter(date == "2024-01-12")
+
+max_spm <- max(MODIS_12_01_2024$`SPM-G-NS_mean`, na.rm = TRUE)
+
+pl_map <- MODIS_12_01_2024 %>%
+  ggplot() +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = `SPM-G-NS_mean`)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  
+  # Flèche nord
+  annotation_north_arrow(
+    location = "tr",          # top-right
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    limits = c(0, max_spm)
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 20,
+    barheight      = 2,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  labs(
+    title    = "Concentration en matières en suspension — 12 janvier 2024",
+    subtitle = "MODIS - Correction atmosphérique = NirSwir",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
+  ) +
+  coord_sf(
+    xlim   = range(MODIS_12_01_2024$lon),
+    ylim   = range(MODIS_12_01_2024$lat),
+    expand = FALSE,
+    default_crs = sf::st_crs(4326)
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
+  )
+
+ggsave("~/Satellite_analysis/Graphiques/MODIS/spatial/MODIS_12_01_2024.png", pl_map, height = 9, width = 14)
+
+# On se demande si c'est sytématique 
+
+library(sf)
+library(dplyr)
+
+# 1. Créer un masque côtier -----------------------------------------------
+# Récupérer la côte
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+
+# Créer une grille de référence depuis OLCI (tous les pixels uniques)
+grille_ref <- OLCI_2016_2024_spm_pixels |>
+  distinct(lon, lat) |>
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+# Calculer la distance à la côte pour chaque pixel (en mètres)
+# Attention : opération lente, à faire une seule fois
+dist_cote <- st_distance(grille_ref, coastline_giscoR |> st_union())
+
+grille_ref$dist_cote_km <- as.numeric(dist_cote) / 1000
+
+# Définir les zones
+grille_ref <- grille_ref |>
+  mutate(
+    zone = case_when(
+      dist_cote_km <= 5  ~ "0-5 km",
+      dist_cote_km <= 15 ~ "5-15 km",
+      dist_cote_km <= 30 ~ "15-30 km",
+      TRUE               ~ "> 30 km"
+    )
+  )
+
+# Récupérer les coordonnées avec la zone
+grille_zones <- grille_ref |>
+  st_drop_geometry() |>
+  bind_cols(grille_ref |> st_coordinates() |> as.data.frame() |> rename(lon = X, lat = Y))
+
+# Sauvegarder pour ne pas recalculer
+save(grille_zones, file = "data/grille_zones_cote.RData")
+
+# 2. Joindre la zone à chaque produit -------------------------------------
+
+OLCI_zones <- OLCI_2016_2024_spm_pixels |>
+  filter(date >= "2024-01-01", date <= "2024-12-31") |>
+  left_join(grille_zones, by = c("lon", "lat"))
+
+MODIS_zones <- MODIS_2002_2024_spm_pixels |>
+  filter(date >= "2024-01-01", date <= "2024-12-31") |>
+  left_join(grille_zones, by = c("lon", "lat"))
+
+# 3. Couverture par zone et par produit -----------------------------------
+
+couverture_zone <- bind_rows(
+  OLCI_zones |>
+    group_by(zone, date) |>
+    summarise(
+      couverture = sum(!is.na(`SPM-G-PO_mean`)) / n(),
+      produit = "OLCI",
+      .groups = "drop"
+    ),
+  MODIS_zones |>
+    group_by(zone, date) |>
+    summarise(
+      couverture = sum(!is.na(`SPM-G-NS_mean`)) / n(),
+      produit = "MODIS",
+      .groups = "drop"
+    )
+) |>
+  mutate(zone = factor(zone, levels = c("0-5 km", "5-15 km", "15-30 km", "> 30 km")))
+
+# ou
+
+couverture_zone_modis <- MODIS_zones |>
+  filter(!is.na(zone)) |>  # exclure terre et pixels sans zone
+  group_by(zone, date) |>
+  summarise(
+    couverture = sum(!is.na(`SPM-G-NS_mean`)) / n(),
+    .groups = "drop"
+  ) |>
+  mutate(zone = factor(zone, levels = c("0-5 km", "5-15 km", "15-30 km", "> 30 km")))
+
+# 4. Visualisation --------------------------------------------------------
+
+p2 <- ggplot(couverture_zone_modis,
+       aes(x = zone, y = couverture)) +
+  geom_boxplot(width = 0.5, alpha = 0.8, outlier.shape = NA,
+               fill = "#d95f02", color = "#993c1d") +
+  geom_jitter(width = 0.15, alpha = 0.15, size = 0.8, color = "#d95f02") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    # title    = "Couverture valide MODIS par distance à la côte — 2024",
+    # subtitle = "Un biais côtier se manifeste si la couverture décroît vers la zone 0–5 km",
+    x        = "Distance à la côte",
+    y        = "Couverture valide"
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(
+    plot.title    = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "grey50", size = 11),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "grey93")
+  )
+
+# Visualiser la distribution spatiale des zones
+p1 <- grille_zones |>
+  ggplot(aes(x = lon, y = lat, color = zone)) +
+  geom_point(size = 0.5) +
+  scale_color_brewer(palette = "RdYlGn") +
+  coord_fixed() +
+  theme_minimal()
+
+(p1 | p2) +
+  plot_annotation(
+    title   = "Couverture valide de MODIS par rapport à la distance à la côte",
+    caption = "Source : MODIS",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+# Combien de pixels MODIS sans zone assignée ?
+MODIS_zones |>
+  filter(date == "2024-07-22") |>
+  count(is.na(zone))
+
+# Visualiser où sont ces pixels sans zone
+MODIS_zones |>
+  filter(is.na(zone)) |>
+  distinct(lon, lat) |>
+  ggplot(aes(x = lon, y = lat)) +
+  geom_point(size = 0.5, color = "red") +
+  theme_minimal()
+
+# Ces pixels sans zone ont-ils des valeurs SPM valides ?
+MODIS_zones |>
+  filter(date == "2024-07-22") |>
+  group_by(is.na(zone)) |>
+  summarise(n_valides = sum(!is.na(`SPM-G-NS_mean`)))

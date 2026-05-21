@@ -64,100 +64,120 @@ load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
 # climatology of MES -------------------------------------------------------------
 
-# on ajoute au df la date avec l'année, le mois et le jour de l'année
-sextant_1998_2025_SPM_TS <- sextant_1998_2025_SPM |> 
-  # filter(analysed_spim >= 0) |> # There appear to be some erroneuos negative values in the data
-  # summarise(mean_spm = mean(analysed_spim, na.rm = TRUE), .by = "date") |> 
-  mutate(year = year(date),
-         month = month(date),
-         doy = yday(date))
+# combien de valeurs négatives
+sum(SEXTANT_1998_2025_spm_pixels$analysed_spim < 0, na.rm = TRUE)
+# [1] 21080
 
-# on choisit la période de la climatologie (ici 2001/2020)
-sextant_2001_2020_SPM_climatology <- sextant_1998_2025_SPM_TS %>% 
-  dplyr::filter(date >= as.Date("2001-01-01"), date <= as.Date("2020-12-31")) # 20 ans
+# supprimer seulement les valeurs négatives
+SEXTANT_1998_2025_spm_clean <- SEXTANT_1998_2025_spm_pixels |>
+  filter(analysed_spim >= 0 | is.na(analysed_spim))
 
-# on crée la climatologie annuelle
-sextant_2001_2020_SPM_climatology_year <- sextant_2001_2020_SPM_climatology %>% 
-  summarise(spm_year_clim = mean(mean_spm, na.rm = TRUE), .by = "year")
-
-# climatologie mensuelle
-sextant_2001_2020_SPM_climatology_month <- sextant_2001_2020_SPM_climatology %>%
-  group_by(month) %>%
-  summarise(
-    spm_month_clim = mean(mean_spm, na.rm = TRUE),
-    spm_month_clim_std = sd(mean_spm, na.rm = TRUE)
+SEXTANT_1998_2025_spm_clean <- SEXTANT_1998_2025_spm_clean |> 
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
   )
 
+# on choisit une période de longue (1998 - 2025)
+SEXTANT_1998_2025 <- SEXTANT_1998_2025_spm_clean |> 
+  filter(date >= as.Date("1998-01-01"), date <= as.Date("2025-12-31"))
+
+SEXTANT_1998_2025_stat <- SEXTANT_1998_2025_spm_clean |>
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# climatologie annuelle
+SEXTANT_1998_2025_spm_year <- SEXTANT_1998_2025_stat |> 
+  group_by(year) |> 
+  summarise(mean_spm_year_clim = mean(analysed_spim, na.rm = TRUE), 
+            median_spm_year_clim = median(analysed_spim, na.rm = TRUE),
+            sd_spm_year_clim = sd(analysed_spim, na.rm = TRUE))
+
+# climatologie mensuelle
+SEXTANT_1998_2025_spm_month <- SEXTANT_1998_2025_stat |> 
+  group_by(month) |>
+  summarise(mean_spm_month_clim = mean(analysed_spim, na.rm = TRUE), 
+            median_spm_month_clim = median(analysed_spim, na.rm = TRUE),
+            sd_spm_month_clim = sd(analysed_spim, na.rm = TRUE))
+
 # climatologie journalière
-sextant_2001_2020_SPM_climatology_day <- sextant_2001_2020_SPM_climatology %>% 
-  summarise(spm_doy_clim = mean(mean_spm, na.rm = TRUE), .by = "doy")
+SEXTANT_1998_2025_spm_doy <- SEXTANT_1998_2025_stat |>
+  group_by(doy) |> 
+  summarise(mean_spm_doy_clim = mean(analysed_spim, na.rm = TRUE), 
+            median_spm_doy_clim = median(analysed_spim, na.rm = TRUE),
+            sd_spm_doy_clim = sd(analysed_spim, na.rm = TRUE))
 
 # créer une climatologie à partir d'une TS journalière
-sextant_spm_climatology_doy <- ts2clm(data = sextant_1998_2025_SPM_TS, x = date, 
-                                      y = mean_spm, climatologyPeriod = c("2001-01-01", "2020-12-31"), 
+sextant_spm_climatology_doy <- ts2clm(data = SEXTANT_1998_2025_spm_mean, x = date, 
+                                      y = mean_spm, climatologyPeriod = c("1998-01-01", "2017-12-31"), 
                                       windowHalfWidth = 3, smoothPercentileWidth = 15 )
 
-sextant_1998_2025_SPM_monthly_anom <- sextant_1998_2025_SPM_TS |> 
-  # This rounds all dates to the first day of the month
-  # That way we can calculate monthly averages, but still have the full
-  # date values (e.g. 2023-11-14) that ggplot2 needs to plot the values correctly
+# anomalie mensuelle
+sextant_1998_2025_spm_monthly_anom <- SEXTANT_1998_2025_spm_clean |> 
   mutate(date = floor_date(date, "month")) |> 
-  filter(date >= as.character.Date("1998-01-01"), date <= as.Date ("2025-12-31")) |> 
-  summarise(mean_spm = mean(mean_spm, na.rm = TRUE), .by = c("date", "year", "month")) |> 
-  left_join(sextant_2001_2020_SPM_climatology_month, by = c("month")) |> 
-  mutate(spm_month_anomaly = mean_spm - spm_month_clim)
+  filter(date >= as.character.Date("2015-01-01"), date <= as.Date ("2025-12-31")) |>
+  summarise(mean_spm_month = mean(analysed_spim, na.rm = TRUE), .by = c("date", "year", "month")) |>
+  left_join(SEXTANT_1998_2025_spm_month, by = c("month")) |> 
+  mutate(spm_month_anomaly = mean_spm_month - mean_spm_month_clim)
+
 
 # climatology of plume area -------------------------------------------------------------
 
 # on ajoute au df la date avec l'année, le mois et le jour de l'année
-SEXTANT_1998_2025_panache_TS <- SEXTANT_1998_2025_spm_95 |> 
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
   # filter(analysed_spim >= 0) |> # There appear to be some erroneuos negative values in the data
   # summarise(mean_panache = mean(analysed_spim, na.rm = TRUE), .by = "date") |> 
   mutate(year = year(date),
          month = month(date),
          doy = yday(date))
 
-# on choisit la période de la climatologie (ici 2001/2020)
-sextant_2001_2020_panache_climatology <- SEXTANT_1998_2025_panache_TS %>% 
-  dplyr::filter(date >= as.Date("2001-01-01"), date <= as.Date("2020-12-31")) # 20 ans
-
 # on crée la climatologie annuelle
-sextant_2001_2020_panache_climatology_year <- sextant_2001_2020_panache_climatology %>% 
-  summarise(panache_year_clim = mean(aire_panache_km2, na.rm = TRUE), .by = "year")
+SEXTANT_1998_2025_panache_year <- SEXTANT_1998_2025_spm_95 %>% 
+  group_by(year) |> 
+  summarise(mean_panache_year_clim = mean(aire_panache_km2, na.rm = TRUE),
+            median_panache_year_clim = median(aire_panache_km2, na.rm = TRUE),
+            sd_panache_year_clim = sd(aire_panache_km2, na.rm = TRUE))
 
 # climatologie mensuelle
-sextant_2001_2020_panache_climatology_month <- sextant_2001_2020_panache_climatology %>%
+SEXTANT_1998_2025_panache_month <- SEXTANT_1998_2025_spm_95 %>%
   group_by(month) %>%
-  summarise(
-    panache_month_clim = mean(aire_panache_km2, na.rm = TRUE),
-    panache_month_clim_std = sd(aire_panache_km2, na.rm = TRUE)
-  )
+  summarise(mean_panache_month_clim = mean(aire_panache_km2, na.rm = TRUE), 
+              median_panache_month_clim = median(aire_panache_km2, na.rm = TRUE),
+              sd_panache_month_clim = sd(aire_panache_km2, na.rm = TRUE))
 
 # climatologie journalière
-sextant_2001_2020_panache_climatology_day <- sextant_2001_2020_panache_climatology %>% 
-  summarise(panache_doy_clim = mean(aire_panache_km2, na.rm = TRUE), .by = "doy")
+SEXTANT_1998_2025_panache_doy <- SEXTANT_1998_2025_spm_95 |>
+  group_by(doy) |> 
+  summarise(mean_panache_doy_clim = mean(aire_panache_km2, na.rm = TRUE), 
+            median_panache_doy_clim = median(aire_panache_km2, na.rm = TRUE),
+            sd_panache_doy_clim = sd(aire_panache_km2, na.rm = TRUE))
 
 # créer une climatologie à partir d'une TS journalière
-sextant_panache_climatology_doy <- ts2clm(data = SEXTANT_1998_2025_panache_TS, x = date, 
-                                      y = aire_panache_km2, climatologyPeriod = c("2001-01-01", "2020-12-31"), 
-                                      windowHalfWidth = 3, smoothPercentileWidth = 15 )
+# sextant_panache_climatology_doy <- ts2clm(data = SEXTANT_1998_2025_panache_TS, x = date,
+#                                       y = aire_panache_km2, climatologyPeriod = c("2001-01-01", "2020-12-31"),
+#                                       windowHalfWidth = 3, smoothPercentileWidth = 15 )
 
-sextant_1998_2025_panache_monthly_anom <- SEXTANT_1998_2025_panache_TS |> 
-  # This rounds all dates to the first day of the month
-  # That way we can calculate monthly averages, but still have the full
-  # date values (e.g. 2023-11-14) that ggplot2 needs to plot the values correctly
+
+# anomalie mensuelle
+sextant_1998_2025_panache_monthly_anom <- SEXTANT_1998_2025_spm_95 |> 
   mutate(date = floor_date(date, "month")) |> 
-  filter(date >= as.Date("1998-01-01"), date <= as.Date ("2025-12-31")) |> 
-  summarise(aire_panache_km2 = mean(aire_panache_km2, na.rm = TRUE), .by = c("date", "year", "month")) |> 
-  left_join(sextant_2001_2020_panache_climatology_month, by = c("month")) |> 
-  mutate(panache_month_anomaly = aire_panache_km2 - panache_month_clim)
+  filter(date >= as.character.Date("2015-01-01"), date <= as.Date ("2025-12-31")) |>
+  summarise(mean_panache_month = mean(aire_panache_km2, na.rm = TRUE), .by = c("date", "year", "month")) |>
+  left_join(SEXTANT_1998_2025_panache_month, by = c("month")) |> 
+  mutate(panache_month_anomaly = mean_panache_month - mean_panache_month_clim)
 
 # plotting ----------------------------------------------------------------
 
 ## climatology of MES -------------------------------------------------------------
 
 # create a line plot of the annual climatology of spm
-ggplot(sextant_2001_2020_SPM_climatology_year, aes(x = year, y = spm_year_clim)) +
+ggplot(SEXTANT_1998_2025_spm_year, aes(x = year, y = mean_spm_year_clim)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
   labs(title = "Climatologie annuelle de la concentration en matière particulaire en suspension entre 2001 et 2020 avec le produit Sextant",
@@ -166,11 +186,11 @@ ggplot(sextant_2001_2020_SPM_climatology_year, aes(x = year, y = spm_year_clim))
   theme_minimal()
 
 # create a line plot of the monthly climatology of spm
-ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_month_clim)) +
+ggplot(SEXTANT_1998_2025_spm_month, aes(x = month, y = mean_spm_month_clim)) +
   geom_ribbon(
     aes(
-      ymin = spm_month_clim - spm_month_clim_std,
-      ymax = spm_month_clim + spm_month_clim_std
+      ymin = mean_spm_month_clim - sd_spm_month_clim,
+      ymax = mean_spm_month_clim + sd_spm_month_clim
     ),
     fill = "steelblue", alpha = 0.2
   ) +
@@ -185,11 +205,11 @@ ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_month_cli
                "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de la concentration en MES (2001–2020) — Sextant OC5",
+    title   = "Climatologie mensuelle de la concentration en MES — Sextant OC5",
     x       = NULL,
     y       = "Concentration en MES (g/m³)",
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 2001–2020 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998-2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -206,7 +226,7 @@ ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_month_cli
   )
 
 # create a line plot of the daily climatology of spm
-ggplot(sextant_2001_2020_SPM_climatology_day, aes(x = doy, y = spm_doy_clim)) +
+ggplot(SEXTANT_1998_2025_spm_doy, aes(x = doy, y = mean_spm_doy_clim)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
   labs(title = "Climatologie journalière de la concentration en matière particulaire en suspension entre 2001 et 2020 avec le produit Sextant",
@@ -226,7 +246,7 @@ ggplot(sextant_spm_climatology_doy, aes(x = doy, y = seas)) +
 ## climatology of plume -------------------------------------------------------------
 
 # create a line plot of the annual climatology of spm
-ggplot(sextant_2001_2020_panache_climatology_year, aes(x = year, y = panache_year_clim)) +
+ggplot(SEXTANT_1998_2025_panache_year, aes(x = year, y = mean_panache_year_clim)) +
   geom_line(color = "blue") +
   geom_point(color = "red3") +
   labs(title = "Climatologie annuelle de l'extension des panaches turbides entre 2001 et 2020 avec le produit Sextant OC5",
@@ -235,11 +255,11 @@ ggplot(sextant_2001_2020_panache_climatology_year, aes(x = year, y = panache_yea
   theme_minimal()
 
 # create a line plot of the monthly climatology of spm
-ggplot(sextant_2001_2020_panache_climatology_month, aes(x = month, y = panache_month_clim)) +
+ggplot(SEXTANT_1998_2025_panache_month, aes(x = month, y = mean_panache_month_clim)) +
   geom_ribbon(
     aes(
-      ymin = panache_month_clim - panache_month_clim_std,
-      ymax = panache_month_clim + panache_month_clim_std
+      ymin = mean_panache_month_clim - sd_panache_month_clim,
+      ymax = mean_panache_month_clim + sd_panache_month_clim
     ),
     fill = "steelblue", alpha = 0.2
   ) +
@@ -254,11 +274,11 @@ ggplot(sextant_2001_2020_panache_climatology_month, aes(x = month, y = panache_m
                "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de l'extension des panaches turbides (2001–2020) — Sextant OC5",
+    title   = "Climatologie mensuelle de l'extension des panaches turbides — Sextant OC5",
     x       = NULL,
     y       = "Extension des panaches (en km²)",
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 2001–2020 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998-2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -433,11 +453,11 @@ ggplot(sextant_1998_2025_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly))
 ### MES ---------------------------------------------------------------------
 
 # --- Graphique 1 : climatologie mensuelle ---
-p1 <- ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_month_clim)) +
+p1 <- ggplot(SEXTANT_1998_2025_spm_month, aes(x = month, y = mean_spm_month_clim)) +
   geom_ribbon(
     aes(
-      ymin = spm_month_clim - spm_month_clim_std,
-      ymax = spm_month_clim + spm_month_clim_std
+      ymin = mean_spm_month_clim - sd_spm_month_clim,
+      ymax = mean_spm_month_clim + sd_spm_month_clim
     ),
     fill = "steelblue", alpha = 0.2
   ) +
@@ -452,11 +472,11 @@ p1 <- ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_mon
                "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de la concentration en matière particulaire en suspension (2001–2020) — Sextant OC5",
+    title   = "Climatologie mensuelle de la concentration en matière particulaire en suspension — Sextant OC5",
     x       = NULL,
     y       = "Concentration moyenne en MES (en g/m³)",
     color   = NULL,
-    caption = "Source : Sextant OC5 | Période de référence : 2001–2020 | Barres : ± 1 écart-type"
+    caption = "Source : Sextant OC5 | Période de référence : 1998-2025 | Barres : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -473,13 +493,13 @@ p1 <- ggplot(sextant_2001_2020_SPM_climatology_month, aes(x = month, y = spm_mon
   )
 
 # Extraire le modèle linéaire
-model_sextant_1998 <- lm(spm_month_anomaly ~ date, data = sextant_1998_2025_SPM_monthly_anom)
+model_sextant_1998 <- lm(spm_month_anomaly ~ date, data = sextant_1998_2025_spm_monthly_anom)
 p_value_sextant_1998 <- summary(model_sextant_1998)$coefficients[2, 4]  # p-value pour la pente
 intercept_sextant_1998 <- coef(model_sextant_1998)[1]
 slope_sextant_1998 <- coef(model_sextant_1998)[2]
 
 # --- Graphique 2 : anomalie mensuelle ---
-p2 <- ggplot(sextant_1998_2025_SPM_monthly_anom, aes(x = date, y = spm_month_anomaly)) +
+p2 <- ggplot(sextant_1998_2025_spm_monthly_anom, aes(x = date, y = spm_month_anomaly)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.5) +
   geom_ribbon(
     aes(ymin = pmin(spm_month_anomaly, 0), ymax = 0),
@@ -496,11 +516,11 @@ p2 <- ggplot(sextant_1998_2025_SPM_monthly_anom, aes(x = date, y = spm_month_ano
   ) +
   annotate(
     "text",
-    x = min(sextant_1998_2025_SPM_monthly_anom$date, na.rm = TRUE),
-    y = max(sextant_1998_2025_SPM_monthly_anom$spm_month_anomaly, na.rm = TRUE) * 0.95,
+    x = min(sextant_1998_2025_spm_monthly_anom$date, na.rm = TRUE),
+    y = max(sextant_1998_2025_spm_monthly_anom$spm_month_anomaly, na.rm = TRUE) * 0.95,
     label = paste0(
       "y = ", round(intercept_sextant_1998, 3), " + ", round(slope_sextant_1998, 7), " × x",
-      "\np ", ifelse(p_value_sextant_1998 < 0.001, "< 0.001", format(p_value_sextant_1998, digits = 3))
+      "\np =", ifelse(p_value_sextant_1998 < 0.001, "< 0.001", format(p_value_sextant_1998, digits = 3))
     ),
     hjust = 0, vjust = 1,
     size = 6,
@@ -516,11 +536,11 @@ p2 <- ggplot(sextant_1998_2025_SPM_monthly_anom, aes(x = date, y = spm_month_ano
   ) +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
   labs(
-    title   = "Anomalie mensuelle de la concentration en matière particulaire en suspension (1998–2025) — Sextant OC5",
+    title   = "Anomalie mensuelle de la concentration en matière particulaire en suspension — Sextant OC5",
     x       = NULL,
     y       = "Concentration moyenne en MES (en g/m³)",
     color   = NULL,
-    caption = "Source : Sextant OC5 | Climatologie de référence : 2001–2020"
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998-2025"
   ) +
   theme_bw() +
   theme(
@@ -552,11 +572,11 @@ p1 / p2 +
 ### turbid plume ---------------------------------------------------------------------
 
 # --- Graphique 1 : climatologie mensuelle ---
-p1 <- ggplot(sextant_2001_2020_panache_climatology_month, aes(x = month, y = panache_month_clim)) +
+p1 <- ggplot(SEXTANT_1998_2025_panache_month, aes(x = month, y = mean_panache_month_clim)) +
   geom_ribbon(
     aes(
-      ymin = panache_month_clim - panache_month_clim_std,
-      ymax = panache_month_clim + panache_month_clim_std
+      ymin = mean_panache_month_clim - sd_panache_month_clim,
+      ymax = mean_panache_month_clim + sd_panache_month_clim
     ),
     fill = "steelblue", alpha = 0.2
   ) +
@@ -569,11 +589,11 @@ p1 <- ggplot(sextant_2001_2020_panache_climatology_month, aes(x = month, y = pan
                "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
   ) +
   labs(
-    title   = "Climatologie mensuelle de l'extension des panaches turbides (2001–2020)",
+    title   = "Climatologie mensuelle de l'extension des panaches turbides",
     x       = NULL,
     y       = "Extension des panaches (km²)",
     color   = NULL,
-    caption = "Période de référence : 2001–2020 | Ruban : ± 1 écart-type"
+    caption = "Période de référence : 1998-2025 | Ruban : ± 1 écart-type"
   ) +
   theme_bw() +
   theme(
@@ -630,11 +650,11 @@ p2 <- ggplot(sextant_1998_2025_panache_monthly_anom, aes(x = date, y = panache_m
   ) +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
   labs(
-    title   = "Anomalie mensuelle de l'extension des panaches turbides (1998–2025)",
+    title   = "Anomalie mensuelle de l'extension des panaches turbides",
     x       = NULL,
     y       = "Anomalie d'extension des panaches (km²)",
     color   = NULL,
-    caption = "Source : Sextant OC5 | Climatologie de référence : 2001–2020"
+    caption = "Source : Sextant OC5 | Climatologie de référence : 1998-2025"
   ) +
   theme_bw() +
   theme(
@@ -652,7 +672,7 @@ p2 <- ggplot(sextant_1998_2025_panache_monthly_anom, aes(x = date, y = panache_m
   )
 
 # --- Patchwork ---
-p1 / p2 +
+(p1 / p2) +
   plot_annotation(
     title   = "Extension des panaches turbides — Sextant OC5",
     caption = "Source : Sextant OC5",

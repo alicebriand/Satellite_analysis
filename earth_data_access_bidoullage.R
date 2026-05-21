@@ -682,7 +682,210 @@ for (d in unique(study_area_df_clean_2024$date)) {
 }
 
 
+# 07/05/2026 --------------------------------------------------------------
 
+## 1) Setup ---------------------------------------------------------------
+
+# Chose where you would like to save the files
+dl_dir <- "~/Downloads/MODIS NASA/07_05_2026/"
+
+# Chosen start and end dates for downloading
+start_date <- "2026-05-07"; end_date <- "2026-05-07"
+
+# Paillon
+# study_coords <- matrix(c(
+#   7.2100000, 43.6000000,  # Bottom-left corner
+#   7.3600000, 43.6000000, # Bottom-right corner
+#   7.3600000, 43.7300000, # Top-right corner
+#   7.2100000, 43.7300000,  # Top-left corner
+#   7.2100000, 43.6000000   # Close the polygon (same as first point)
+# ), ncol = 2, byrow = TRUE)
+# Var
+# study_coords <- matrix(c(
+#   6.8925000, 43.2136389,  # Bottom-left corner
+#   7.4200000, 43.2136389, # Bottom-right corner
+#   7.4200000, 43.7300000, # Top-right corner
+#   6.8925000, 43.7300000,  # Top-left corner
+#   6.8925000, 43.2136389   # Close the polygon (same as first point)
+# ), ncol = 2, byrow = TRUE)
+# attention nouvelles coord mais juste pour mtn (car nuage à enlever et pas la bande qualité)
+study_coords <- matrix(c(
+  7.102015, 43.454884,  # Bottom-left corner
+  7.324913, 43.454884, # Bottom-right corner
+  7.324913, 43.722139, # Top-right corner
+  7.102015, 43.722139,  # Top-left corner
+  7.102015, 43.454884   # Close the polygon (same as first point)
+), ncol = 2, byrow = TRUE)
+
+# Turn it into the necessary SpatVector object type
+study_bbox <- vect(study_coords, crs = "EPSG:4326", type = "polygons")
+
+# Print the object to verify it worked - should be four points that make a box
+plot(study_coords)
+maps::map(add = TRUE)
+
+# Chose the product ID you want to download
+product_ID <- "MYD09GQ"
+
+# Look at the server and version info for the product of choice
+earth_data_catalogue[earth_data_catalogue$short_name == product_ID,]
+
+# Then choose the server and version number
+# NB: 'LPCLOUD' is the preferred server, but is not always available
+# NB: One should generally choose the newest version, i.e. the biggest number
+product_server <- "LPCLOUD" # NB: Change this if not shown in the output shown above
+product_version <- "061" # NB: Change this if not shown in the output shown above
+
+## 2) Download files -------------------------------------------------------
+
+# If that looks reasonable, download them
+# NB: If this doesn't work, then the product ID, even if it is listed, may not be findable by the luna package
+luna::getNASA(product = product_ID, start_date = start_date, end_date = end_date, aoi = study_bbox,
+              download = TRUE, overwrite = FALSE, server = product_server, version = product_version,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
+
+# To follow the rest of the examples below we also want to download the MODIS mask files
+luna::getNASA(product = "MOD44W", start_date = "2015-01-01", end_date = "2015-01-01",
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              path = dl_dir, username = earth_up$username, password = earth_up$password)
+
+# we also download the quality product for the reflectance band (tells us if pixels 
+# are valid : clouds, clear sky or mixt)
+luna::getNASA(product = "MYD09GA",
+              start_date = start_date, end_date = end_date,
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              server = product_server, version = product_version,
+              path = dl_dir,
+              username = earth_up$username, password = earth_up$password)
+
+## 3) Process files --------------------------------------------------------
+
+# Set file pathways
+# NB: Change the directory to where you saved the files if it was changed
+# NB: Change the pattern in rast_files to match the product ID you used if it is different
+mask_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MOD44W\\.", full.names = TRUE))
+rast_files <- luna::modisDate(list.files(path = dl_dir, pattern = "MYD09GQ\\.", full.names = TRUE))
+
+# Chose specific files
+mask_files <- mask_files[1,] # Change accordingly
+rast_files <- rast_files[1,] # Change accordingly
+
+# Process all of the water mask files
+# IF not, create it or change the directories below as desired
+plyr::d_ply(.data = mask_files, .variables = c("date"), .fun = proc_MODIS_hdf, .parallel = FALSE,
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
+
+# Load the desired mask file
+MODIS_mask <- rast("~/Downloads/MODIS NASA/07_05_2026/MOD44W.A2015001.h18v04.061.2024007100000.hdf")
+
+# Check that it looks correct - should show white where land would be
+plot(MODIS_mask)
+maps::map(add = TRUE)
+
+## 4) MODIS data --------------------------------------------------------------
+
+# Lister tous les fichiers HDF téléchargés
+all_hdf <- list.files("~/Downloads/MODIS NASA/07_05_2026/",
+                      pattern = "MYD09GQ\\.",
+                      full.names = TRUE, recursive = TRUE)
+
+# lister tous les hdf du produit de qualité pixel
+# all_hdf_GA <- list.files("~/Downloads/MODIS NASA/07_05_2026/",
+#                          pattern    = "MYD09GA\\.",
+#                          full.names = TRUE,
+#                          recursive  = TRUE)
+
+# Convertir la liste all_hdf en data.frame avec les dates (comme rast_files)
+all_hdf_df <- luna::modisDate(all_hdf)
+
+# Ajouter une colonne mois
+all_hdf_df$mois <- format(all_hdf_df$date, "%m")
+
+# Traiter les données mois par mois
+
+# Pour la bande 1 = layer 2
+for (m in unique(all_hdf_df$mois)) {
+  
+  cat("Traitement bande 1 - mois :", m, "\n")
+  hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
+  
+  # Traiter date par date avec gestion des erreurs
+  for (d in unique(hdf_mois$date)) {
+    
+    hdf_jour <- hdf_mois[hdf_mois$date == d, ]
+    date_lisible <- as.Date(d, origin = "1970-01-01")
+    
+    # tryCatch permet de continuer même si un fichier plante
+    tryCatch({
+      plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
+                  .parallel = FALSE,
+                  bbox = study_bbox,
+                  out_dir = "~/Downloads/MODIS NASA/07_05_2026/tif_bande_1/",
+                  layer_num = 2,
+                  land_mask = FALSE)
+      cat("  ✓", as.character(date_lisible), "\n")
+      
+    }, error = function(e) {
+      cat("  ✗ ERREUR", as.character(date_lisible), ":", conditionMessage(e), "\n")
+    })
+  }
+  
+  gc()
+  cat("Mois", m, "terminé\n\n")
+}
+
+
+# Pour la bande 2 = layer 3
+for (m in unique(all_hdf_df$mois)) {
+  cat("Traitement bande 2 - mois :", m, "\n")
+  hdf_mois <- all_hdf_df[all_hdf_df$mois == m, ]
+  
+  for (d in unique(hdf_mois$date)) {
+    hdf_jour <- hdf_mois[hdf_mois$date == d, ]
+    date_lisible <- as.Date(d, origin = "1970-01-01")
+    tryCatch({
+      plyr::d_ply(.data = hdf_jour, .variables = c("date"), .fun = proc_MODIS_hdf,
+                  .parallel = FALSE, bbox = study_bbox,
+                  out_dir = "~/Downloads/MODIS NASA/07_05_2026/tif_bande_2/",
+                  layer_num = 3,  # ← à vérifier, probablement 1 pour b02
+                  land_mask = FALSE)
+      cat("  ✓", as.character(date_lisible), "\n")
+    }, error = function(e) {
+      cat("  ✗ ERREUR", as.character(date_lisible), ":", conditionMessage(e), "\n")
+    })
+  }
+  gc()
+}
+
+# Load the MODIS mask first
+# Change the filename if this is not correct
+MODIS_mask <- rast("~/Downloads/MODIS NASA/07_05_2026/study_area_MOD44W_2015-01-01.tif")
+
+# Lister tous les tif produits
+tif_files_b1 <- list.files("~/Downloads/MODIS NASA/07_05_2026/tif_bande_1/", 
+                           pattern = "MYD09GQ.*\\.tif$", 
+                           full.names = TRUE)
+
+tif_files_b2 <- list.files("~/Downloads/MODIS NASA/07_05_2026/tif_bande_2/", 
+                           pattern = "MYD09GQ.*\\.tif$", 
+                           full.names = TRUE)
+
+# Ensure the correct product ID is being used
+product_ID_files_b1 <- tif_files_b1[grepl(product_ID, tif_files_b1)]
+product_ID_files_b2 <- tif_files_b2[grepl(product_ID, tif_files_b2)]
+
+# Charger directement sans filtre qualité
+study_area_df_b1 <- map_dfr(product_ID_files_b1, ~ load_MODIS_tif(.x, MODIS_mask))
+study_area_df_b2 <- map_dfr(product_ID_files_b2, ~ load_MODIS_tif(.x, MODIS_mask))
+
+# Joindre les deux bandes
+study_area_df_07_05_2026 <- left_join(
+  study_area_df_b1,
+  study_area_df_b2,
+  by = c("date", "lon", "lat")
+)
+
+save(study_area_df_07_05_2026, file = "data/MODIS L2 NASA/study_area_df_07_05_2026.RData")
 
 
 ## 2016 --------------------------------------------------------------------

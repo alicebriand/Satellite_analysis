@@ -22,8 +22,12 @@ source("func.R")
 load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
 Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017_propre.csv",
                                         delim = ",", locale = locale(decimal_mark = ","))
+Log_Var_Paillon_07_05_2026 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_07_05_2026.csv",
+           delim = ",", locale = locale(decimal_mark = ","))
 load("data/Hydro France/All_debit_2024.Rdata")
 load("data/MODIS L2 NASA/study_area_df_2024")
+load("data/MODIS L2 NASA/study_area_df_07_05_2026.RData")
+load("data/MODIS L2 NASA/study_area_df_2016.Rdata")
 
 # Load necessary libraries
 library(tidyverse)
@@ -151,18 +155,18 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
 # data analysis -----------------------------------------------------------
 
 # we first start to exclude negative reflectance
-study_area_df_2024 <- study_area_df_2024 |>  
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>  
   filter(sur_refl_b01_1 > 0, sur_refl_b02_1 > 0)
 
 # It is a single equation, we can apply it directly to the data.frame with mutate()
 # SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
 # and values come from? I do not find them in the literature?
-study_area_df_2024 <- study_area_df_2024 |>  
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>  
   mutate(SPM_Morin_Var = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)),
          SPM_Morin_Paillon = (39 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.2563)))
 
 # Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
-study_area_df_2024 <- study_area_df_2024 |>
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
   mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
          SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
 
@@ -170,7 +174,7 @@ study_area_df_2024 <- study_area_df_2024 |>
 # https://www.sciencedirect.com/science/article/pii/S003442572500149X
 # SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
 # NB: lambda_RED is taken here to be the MODIS band 1 waveband
-study_area_df_2024 <- study_area_df_2024 |> 
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |> 
 mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
        Rrs_b02_01 = (sur_refl_b02_1/pi), # First convert Rhow_w to Rrs
        SPM_Teng_MO = 1992.2 * Rrs_b01_01^1.027,
@@ -183,14 +187,14 @@ mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
 # Though this is for LandSat 8
 # SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
 # A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
-study_area_df_2024 <- study_area_df_2024 |>
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
   mutate(SPM_Tsapanou = ((366.53 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.0324))))
 # this produce a lot of negative values
 
 # So we digress to the Nechad formula of 
 # SPM = ((A * Rhow)/(1-(Rhow/C)))+B
 # A = 289.29, C = 0.1686, B = 2.10 
-study_area_df_2024 <- study_area_df_2024 |>
+study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
   mutate(SPM_Nechad = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686))) + 2.10)
 
 # plotting -----------------------------------------------------------
@@ -207,7 +211,7 @@ study_area_df_01_06_2024 <- study_area_df_2024 |>
 study_area_df_17_06_2024 <- study_area_df_2024 |> 
   filter(date == "2024-06-17")
 
-study_area_df_25_11_2016 <- study_area_df_clean_2016 |> 
+study_area_df_25_11_2016 <- study_area_df_2016 |> 
   filter(date == "2016-11-25")
 
 # complexe pour 2017 car pas de crue
@@ -221,19 +225,20 @@ study_area_df_28_03_2017 <- study_area_df_clean_2017 |>
 
 # First, when we do the map there are some extreme values (until 8000), which is weird
 # we want to erase them so maybe the map will be better
-# study_area_df_04_03_2024_Morin <- study_area_df_04_03_2024 |> 
+# study_area_df_07_05_2026_Morin <- study_area_df_07_05_2026 |> 
 #   filter(SPM_Morin <= 100)
 
 coastline_giscoR <- gisco_get_coastallines(resolution = "01")
 countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # set the maximum values
-max_spm <- max(study_area_df_17_06_2024$sur_refl_b01_1, na.rm = TRUE)
+# max_spm <- max(study_area_df_25_11_2016$SPM_Morin_Var, na.rm = TRUE)
+max_spm <- 200
 
-pl_map <- study_area_df_17_06_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
-  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  geom_tile(aes(x = lon, y = lat, fill = SPM_Morin_Var)) +
   geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   
   # Flèche nord
@@ -257,14 +262,14 @@ pl_map <- study_area_df_17_06_2024 %>%
     title.hjust    = 0.5
   )) +
   labs(
-    title    = "Concentration en matières en suspension — 17 juin 2024",
-    subtitle = "Réflectance de MODIS à la bande 1 (645 nm)",
+    title    = "Concentration en matières en suspension — 25 novembre 2016",
+    subtitle = "Algorithme de Morin et al. (Var) appliqué aux données MODIS",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_17_06_2024$lon),
-    ylim   = range(study_area_df_17_06_2024$lat),
+    xlim   = range(study_area_df_07_05_2026$lon),
+    ylim   = range(study_area_df_07_05_2026$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -281,21 +286,22 @@ pl_map <- study_area_df_17_06_2024 %>%
   )
                               
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/réflectance/sans filtrage des images contaminées/fig_MODIS_SPM_17_06_2024_reflectance_b1.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Morin_Var_max_200.png", pl_map, height = 9, width = 14)
 
 ## Morin Paillon -------------------------------------------------------------------
 
 # First, when we do the map there are some extreme values (until 8000), which is weird
 # we want to erase them so maybe the map will be better
-# study_area_df_04_03_2024_Morin <- study_area_df_04_03_2024 |> 
+# study_area_df_25_11_2016_Morin <- study_area_df_25_11_2016 |> 
 #   filter(SPM_Morin <= 100)
 
 # set the maximum values
-max_spm <- max(study_area_df_04_03_2024$SPM_Morin_Paillon, na.rm = TRUE)
+# max_spm <- max(study_area_df_25_11_2016$SPM_Morin_Paillon, na.rm = TRUE)
+max_spm <- 200
 
 # Créer le graphique
 
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Morin_Paillon)) +
@@ -322,14 +328,14 @@ pl_map <- study_area_df_04_03_2024 %>%
     title.hjust    = 0.5
   )) +
   labs(
-    title    = "Concentration en matières en suspension — 04 mars 2024",
+    title    = "Concentration en matières en suspension — 25 novembre 2024",
     subtitle = "Algorithme de Morin et al. (Paillon) appliqué aux données MODIS",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -346,13 +352,14 @@ pl_map <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Morin_Paillon.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Morin_Paillon_max_200.png", pl_map, height = 9, width = 14)
 
 ## Teng MO -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_04_03_2024$SPM_Teng_MO, na.rm = TRUE)
+max_spm <- max(study_area_df_25_11_2016$SPM_Teng_MO, na.rm = TRUE)
+max_spm <- 100
 
-pl_map1 <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_MO)) +
@@ -379,14 +386,14 @@ pl_map1 <- study_area_df_04_03_2024 %>%
     title.hjust    = 0.5
   )) +
   labs(
-    title    = "Concentration en matières en suspension — 04 mars 2024",
+    title    = "Concentration en matières en suspension — 25 novembre 2016",
     subtitle = "Algorithme de Teng et al. pour les eaux riches en matière organique appliqué aux données MODIS",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -403,14 +410,14 @@ pl_map1 <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MO.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Teng_MO_max_100.png", pl_map, height = 9, width = 14)
 
 ## Teng MM -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_04_03_2024$SPM_Teng_MM, na.rm = TRUE)
+max_spm <- max(study_area_df_25_11_2016$SPM_Teng_MM, na.rm = TRUE)
 
 # Créer le graphique
-pl_map2 <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_MM)) +
@@ -443,8 +450,8 @@ pl_map2 <- study_area_df_04_03_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -461,13 +468,13 @@ pl_map2 <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024_Teng_MM.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Teng_MM.png", pl_map, height = 9, width = 14)
 
 ## Teng extrem MM -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_04_03_2024$SPM_Teng_extrm_MM, na.rm = TRUE)
+max_spm <- max(study_area_df_25_11_2016$SPM_Teng_extrm_MM, na.rm = TRUE)
 
-pl_map3 <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_extrm_MM)) +
@@ -500,8 +507,8 @@ pl_map3 <- study_area_df_04_03_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -518,7 +525,7 @@ pl_map3 <- study_area_df_04_03_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Teng_extrem_MM.png", pl_map, height = 9, width = 14)
+ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Teng_riche_MM.png", pl_map, height = 9, width = 14)
 
 ## patchwork Teng ----------------------------------------------------------
 
@@ -535,10 +542,10 @@ pl_map1 / pl_map2 | pl_map3 +
 
 ## Tsapanou -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_04_03_2024$SPM_Tsapanou, na.rm = TRUE)
+max_spm <- max(study_area_df_25_11_2016$SPM_Tsapanou, na.rm = TRUE)
 
 # Créer le graphique
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Tsapanou)) +
@@ -571,8 +578,8 @@ pl_map <- study_area_df_04_03_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -592,9 +599,9 @@ ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024
 
 ## Nechad -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_04_03_2024$SPM_Nechad, na.rm = TRUE)
+max_spm <- max(study_area_df_25_11_2016$SPM_Nechad, na.rm = TRUE)
 
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_25_11_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Nechad)) +
@@ -627,8 +634,8 @@ pl_map <- study_area_df_04_03_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_25_11_2016$lon),
+    ylim   = range(study_area_df_25_11_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -652,16 +659,17 @@ ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024
 # First, when we do the map there are some extreme values (until 8000), which is weird
 # we want to erase them so maybe the map will be better
 study_area_df_04_03_2024_1 <- study_area_df_04_03_2024 |>
-  filter(SPM_Doxaran <= 2000)
+  filter(SPM_Doxaran <= 100)
+max_spm <- max(study_area_df_04_03_2024_1$SPM_Doxaran)
 
 # Utiliser le 99e percentile pour éviter que les valeurs extrêmes écrasent l'échelle
-max_spm <- quantile(study_area_df_04_03_2024$SPM_Doxaran, 0.99, na.rm = TRUE)
+max_spm <- quantile(study_area_df_25_11_2016$SPM_Doxaran, 0.99, na.rm = TRUE)
 
 # Optionnel : voir la distribution pour choisir le bon seuil
-summary(study_area_df_04_03_2024$SPM_Doxaran)
-hist(study_area_df_04_03_2024$SPM_Doxaran, breaks = 50)
+summary(study_area_df_25_11_2016$SPM_Doxaran)
+hist(study_area_df_25_11_2016$SPM_Doxaran, breaks = 50)
 
-pl_map <- study_area_df_04_03_2024 %>%
+pl_map <- study_area_df_04_03_2024_1 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Doxaran)) +
@@ -693,8 +701,8 @@ pl_map <- study_area_df_04_03_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_04_03_2024$lon),
-    ylim   = range(study_area_df_04_03_2024$lat),
+    xlim   = range(study_area_df_04_03_2024_1$lon),
+    ylim   = range(study_area_df_04_03_2024_1$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -710,7 +718,7 @@ pl_map <- study_area_df_04_03_2024 %>%
     axis.text        = element_text(size = 12)
   )
 
-ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran.png", 
+ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1 et 2/fig_MODIS_SPM_04_03_2024_Doxaran_max_100.png", 
        pl_map, height = 9, width = 14)
 
 # SPM prediction vs in situ data -------------------------------------------------------

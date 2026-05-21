@@ -80,6 +80,8 @@ load("data/MERIS/MERIS_2002_2012_spm_pixels.Rdata")
 
 load("data/MERIS/MERIS_2002_2012_spm_95.Rdata")
 
+load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
+
 ## SPM ---------------------------------------------------------------------
 ### direction ---------------------------------------------------------------
 
@@ -554,4 +556,169 @@ ggplot(data = Var_MERIS, aes(x = débit, y = mean_spm)) +
   labs(x = "Débit (m³/s)", y = "Concentration moyenne en MES (en mg/m³)", title = "Débit liquide du Var contre la concentration moyenne en MES dans les panaches vue par MERIS (ODATIS-MR)") +
   theme_minimal()
 
+# cartographie ------------------------------------------------------------
 
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+# MERIS_10_12_2006 <- MERIS_2002_2012_spm_pixels |> 
+#   filter(date == "2006-12-10")
+
+MERIS_2006 <- MERIS_2002_2012_spm_pixels |> 
+  filter(date >= as.Date("2006-12-10"), date <= as.Date("2006-12-16"))
+
+# max_spm <- max(MERIS_2002_2012_spm_pixels$`SPM-G-PO_mean`, na.rm = TRUE)
+max_spm <- max(MERIS_2006$`SPM-G-PO_mean`, na.rm = TRUE)
+
+# pl_map <- MERIS_10_12_2006 %>%
+#   ggplot() +
+#   annotation_borders(fill = "grey80") +
+#   geom_tile(aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+#   geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+#   
+#   # Flèche nord
+#   annotation_north_arrow(
+#     location = "tr",          # top-right
+#     which_north = "true",
+#     style = north_arrow_fancy_orienteering(),
+#     height = unit(1.5, "cm"),
+#     width  = unit(1.5, "cm")
+#   ) +
+#   
+#   scale_fill_viridis_c(
+#     option = "plasma",
+#     name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+#     limits = c(0, max_spm)
+#   ) +
+#   guides(fill = guide_colorbar(
+#     barwidth       = 20,
+#     barheight      = 2,
+#     title.position = "top",
+#     title.hjust    = 0.5
+#   )) +
+#   labs(
+#     title    = "Concentration en matières en suspension avec MERIS — 10 décembre 2006",
+#     subtitle = "Concentration en MES (g/m³)",
+#     x        = "Longitude (°E)",
+#     y        = "Latitude (°N)"
+#   ) +
+#   coord_sf(
+#     xlim   = range(MERIS_10_12_2006$lon),
+#     ylim   = range(MERIS_10_12_2006$lat),
+#     expand = FALSE
+#   ) +
+#   theme_bw() +
+#   theme(
+#     plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+#     plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+#     panel.border     = element_rect(colour = "black", fill = NA),
+#     legend.position  = "top",
+#     legend.box       = "vertical",
+#     legend.title     = element_text(size = 14),
+#     legend.text      = element_text(size = 12),
+#     axis.title       = element_text(size = 14),
+#     axis.text        = element_text(size = 12)
+#   )
+# 
+# # Save as desired
+# ggsave("~/Satellite_analysis/Graphiques/MERIS/carto_10_12_2006_max_50.png", pl_map, height = 9, width = 14)
+# 
+
+library(ggpubr)
+
+# Créer un graphique par jour
+dates_semaine <- seq(as.Date("2006-12-10"), as.Date("2006-12-16"), by = "day")
+lettres <- c("a)", "b)", "c)", "d)", "e)", "f)", "g)")
+
+plots <- map2(dates_semaine, lettres, function(d, lettre) {
+  
+  df_jour <- MERIS_2006 |> filter(date == d)
+  
+  ggplot() +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    geom_tile(data = df_jour, aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    scale_fill_viridis_c(
+      option   = "plasma",
+      name     = expression("MES (g m"^{-3}*")"),
+      limits   = c(0, max_spm),
+      na.value = "transparent"
+    ) +
+    labs(
+      title = paste0(lettre, " ", format(d, "%d %B %Y")),
+      x = NULL, y = NULL
+    ) +
+    coord_sf(
+      xlim        = range(MERIS_2006$lon),
+      ylim        = range(MERIS_2006$lat),
+      expand      = FALSE,
+      default_crs = sf::st_crs(4326)
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title       = element_text(face = "bold", size = 11),
+      panel.border     = element_rect(colour = "black", fill = NA),
+      panel.grid.minor = element_blank(),
+      legend.position  = "none",  # légende commune en dessous
+      axis.text        = element_text(size = 7)
+    )
+})
+
+# Légende commune
+legende <- get_legend(
+  plots[[1]] +
+    guides(fill = guide_colorbar(
+      barwidth       = 15,
+      barheight      = 1,
+      title.position = "top",
+      title.hjust    = 0.5
+    )) +
+    theme(legend.position = "bottom",
+          legend.title    = element_text(size = 11),
+          legend.text     = element_text(size = 9))
+)
+
+# Assembler
+figure <- ggarrange(
+  plotlist = plots,
+  ncol     = 4,
+  nrow     = 2,
+  legend   = "none"
+)
+
+# Ajouter titre général et légende
+ggarrange(
+  figure,
+  legende,
+  ncol    = 1,
+  heights = c(10, 1)
+) |>
+  annotate_figure(
+    top = text_grob(
+      "Distribution spatiale des MES — semaine du 10 au 16 décembre 2006",
+      face = "bold", size = 13
+    ),
+    bottom = text_grob(
+      "MERIS - Correction atmosphérique = Polymer",
+      color = "grey50", size = 10
+    )
+  )
+
+# fig_final <- ggarrange(
+#   figure,
+#   legende,
+#   ncol    = 1,
+#   heights = c(10, 1)
+# ) |>
+#   annotate_figure(
+#     top = text_grob(
+#       "Distribution spatiale des MES — semaine du 10 au 16 décembre 2006",
+#       face = "bold", size = 13
+#     ),
+#     bottom = text_grob(
+#       "MERIS - Correction atmosphérique = Polymer",
+#       color = "grey50", size = 10
+#     )
+#   )
+# 
+# print(fig_final)

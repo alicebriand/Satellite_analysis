@@ -123,59 +123,62 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 ## zones emboîtées ----------------------------------------------------------
 
 # définir les coordonnées de l'embouchure du Var (comme SEXTANT OC5 chla)
-lon_embouchure <- 7.199082
-lat_embouchure <- 43.654709
+# lon_embouchure <- 7.199082
+# lat_embouchure <- 43.654709
+# 
+# # définir des zones emboîtées de tailles croissantes autour de l'embouchure
+# rayons_km <- c(5, 10, 20, 40, 70, 100)  # en km
+# 
+# # Convertir en degrés
+# rayons_deg <- rayons_km / 111
+# 
+# # Calculer le percentile 95 pour chaque zone emboîtée
+# seuils_zones <- lapply(rayons_deg, function(r) {
+#   
+#   pixels_zone <- MERIS_2002_2012_spm_pixels |>
+#     filter(
+#       lon >= lon_embouchure - r & lon <= lon_embouchure + r,
+#       lat >= lat_embouchure - r & lat <= lat_embouchure + r
+#     )
+#   
+#   aire_km2 <- nrow(distinct(pixels_zone, lon, lat)) * aire_pixel_km2
+#   seuil    <- quantile(pixels_zone$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
+#   
+#   data.frame(rayon_km = r * 111, aire_km2 = aire_km2, seuil_95 = seuil)
+# })
+# 
+# seuils_zones_df <- bind_rows(seuils_zones)
+# print(seuils_zones_df)
+# 
+# # Visualiser le plateau
+# ggplot(seuils_zones_df, aes(x = aire_km2, y = seuil_95)) +
+#   geom_point(size = 3, color = "steelblue") +
+#   geom_line() +
+#   geom_hline(yintercept = seuil_95, linetype = "dashed", color = "red") +
+#   labs(
+#     title = "Détermination du seuil de détection du panache turbide",
+#     subtitle = "Percentile 95 par zone emboîtée autour de l'embouchure",
+#     x = "Aire de la zone (km²)",
+#     y = "Percentile 95 des MES (g/m³)"
+#   ) +
+#   theme_bw()
+# 
+# # Le seuil retenu est la valeur du plateau (zone > ~5000 km²)
+# seuil_retenu <- seuils_zones_df |>
+#   filter(aire_km2 > 2465) |>
+#   summarise(seuil = mean(seuil_95)) |>
+#   pull(seuil)
+# 
+# cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
+# # 0.4910305
 
-# définir des zones emboîtées de tailles croissantes autour de l'embouchure
-rayons_km <- c(5, 10, 20, 40, 70, 100)  # en km
-
-# Convertir en degrés
-rayons_deg <- rayons_km / 111
-
-# Calculer le percentile 95 pour chaque zone emboîtée
-seuils_zones <- lapply(rayons_deg, function(r) {
-  
-  pixels_zone <- MERIS_2002_2012_spm_pixels |>
-    filter(
-      lon >= lon_embouchure - r & lon <= lon_embouchure + r,
-      lat >= lat_embouchure - r & lat <= lat_embouchure + r
-    )
-  
-  aire_km2 <- nrow(distinct(pixels_zone, lon, lat)) * aire_pixel_km2
-  seuil    <- quantile(pixels_zone$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
-  
-  data.frame(rayon_km = r * 111, aire_km2 = aire_km2, seuil_95 = seuil)
-})
-
-seuils_zones_df <- bind_rows(seuils_zones)
-print(seuils_zones_df)
-
-# Visualiser le plateau
-ggplot(seuils_zones_df, aes(x = aire_km2, y = seuil_95)) +
-  geom_point(size = 3, color = "steelblue") +
-  geom_line() +
-  geom_hline(yintercept = seuil_95, linetype = "dashed", color = "red") +
-  labs(
-    title = "Détermination du seuil de détection du panache turbide",
-    subtitle = "Percentile 95 par zone emboîtée autour de l'embouchure",
-    x = "Aire de la zone (km²)",
-    y = "Percentile 95 des MES (g/m³)"
-  ) +
-  theme_bw()
-
-# Le seuil retenu est la valeur du plateau (zone > ~5000 km²)
-seuil_retenu <- seuils_zones_df |>
-  filter(aire_km2 > 2465) |>
-  summarise(seuil = mean(seuil_95)) |>
-  pull(seuil)
-
-cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
-# 0.4910305
+seuil_retenu <- 0.4910305
 
 ## ROPP --------------------------------------------------------------------
 
 # Pixels où le panache est présent dans au moins 5% des images
 n_images_total <- n_distinct(MERIS_2002_2012_spm_pixels$date)
+# 2193
 
 ROPP <- MERIS_2002_2012_spm_pixels |>
   group_by(lon, lat) |>
@@ -186,30 +189,62 @@ ROPP <- MERIS_2002_2012_spm_pixels |>
   filter(freq_above_seuil >= 0.05)   # au moins 5% des images
 
 cat("Nombre de pixels dans la ROPP :", nrow(ROPP), "\n")
+# 1126
 
-## filtrer les images avec trop de pixels manquants ------------------------
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
-# Garder seulement les images avec > 80% de pixels valides sur la ROPP
-pixels_ROPP <- MERIS_2002_2012_spm_pixels |>
-  semi_join(ROPP, by = c("lon", "lat"))
-
-images_valides <- pixels_ROPP |>
-  group_by(date) |>
-  summarise(
-    n_pixels_valides = sum(!is.na(`SPM-G-PO_mean`)),
-    n_pixels_total   = n(),
-    pct_valide       = n_pixels_valides / n_pixels_total,
-    .groups = "drop"
-  ) |>
-  filter(pct_valide >= 0.80)
-
-cat("Images valides :", nrow(images_valides), "/", n_distinct(MERIS_2002_2012_spm_pixels$date), "\n")
+ggplot(ROPP) +
+  annotation_borders(fill = "grey80") +
+  geom_tile(aes(x = lon, y = lat, fill = freq_above_seuil)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  annotation_north_arrow(
+    location = "tr",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering(),
+    height = unit(1.5, "cm"),
+    width  = unit(1.5, "cm")
+  ) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    name   = "Fréquence au-dessus du seuil",
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 20,
+    barheight      = 2,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  labs(
+    title    = "Région d'occurrence des panaches turbides (ROPP)",
+    # subtitle = "Pixels où la concentration en MES dépasse le seuil dans au moins 5% des images MODIS",
+    x        = "Longitude (°E)",
+    y        = "Latitude (°N)"
+  ) +
+  coord_sf(
+    xlim        = range(ROPP$lon),
+    ylim        = range(ROPP$lat),
+    expand      = FALSE,
+    default_crs = sf::st_crs(4326)
+  ) +
+  theme_bw() +
+  theme(
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 5)),
+    plot.subtitle    = element_text(size = 12, color = "grey50", margin = margin(b = 10)),
+    panel.border     = element_rect(colour = "black", fill = NA),
+    legend.position  = "top",
+    legend.box       = "vertical",
+    legend.title     = element_text(size = 14),
+    legend.text      = element_text(size = 12),
+    axis.title       = element_text(size = 14),
+    axis.text        = element_text(size = 12)
+  )
 
 ## stat panache ------------------------------------------------------------
 
 # Statistiques du panache par jour
 MERIS_panache_metrics <- MERIS_2002_2012_spm_pixels |>
-  filter(date %in% images_valides$date) |>
   semi_join(ROPP, by = c("lon", "lat")) |>
   group_by(date) |>
   summarise(
@@ -229,6 +264,255 @@ MERIS_panache_metrics <- MERIS_2002_2012_spm_pixels |>
     centroid_lat     = mean(lat[`SPM-G-PO_mean` >= seuil_retenu], na.rm = TRUE),
     .groups = "drop"
   )
+
+# plotting ----------------------------------------------------------------
+
+# correlation river flow and plume extension ------------------------------
+
+debit_lags <- Y6442010_2002_2012 |>
+  arrange(date) |>
+  select(date, débit) |> 
+  mutate(
+    debit_j1     = lag(débit, 1),             # j-1 seulement
+    debit_2j     = (lag(débit, 1) + lag(débit, 2)) / 2,       # moyenne j-1, j-2
+    debit_3j     = (lag(débit, 1) + lag(débit, 2) + lag(débit, 3)) / 3
+  )
+
+# Jointure et nettoyage
+MERIS_panache_metrics <- MERIS_panache_metrics |>
+  inner_join(debit_lags |> select(date, débit, debit_j1, debit_2j, debit_3j), by = "date") |>
+  filter(
+    aire_panache_km2 > 0,
+    débit > 0,
+    is.finite(débit)
+  ) |>
+  mutate(
+    panache_log  = log10(aire_panache_km2),
+    debit_j0_log = log10(débit),
+    debit_j1_log = log10(debit_j1),
+    debit_2j_log = log10(debit_2j),
+    debit_3j_log = log10(debit_3j)
+  )
+
+# # Tout est déjà dans SEXTANT_panache_metrics, pas besoin de rejoindre !
+MERIS_panache_metrics |>
+  filter(aire_panache_km2 > 0) |>
+  summarise(
+    r_j0 = cor(log10(aire_panache_km2), debit_j0_log, use = "complete.obs", method = "spearman"),
+    r_j1 = cor(log10(aire_panache_km2), debit_j1_log, use = "complete.obs", method = "spearman"),
+    r_2j = cor(log10(aire_panache_km2), debit_2j_log, use = "complete.obs", method = "spearman"),
+    r_3j = cor(log10(aire_panache_km2), debit_3j_log, use = "complete.obs", method = "spearman")
+  )
+
+# Ensuite compare les trois modèles
+modele_j0 <- lm(panache_log ~ debit_j0_log, data = MERIS_panache_metrics)
+modele_j1 <- lm(panache_log ~ debit_j1_log, data = MERIS_panache_metrics)
+modele_2j <- lm(panache_log ~ debit_2j_log, data = MERIS_panache_metrics)
+modele_3j <- lm(panache_log ~ debit_3j_log, data = MERIS_panache_metrics)
+
+tibble(
+  lag       = c("j-1", "j-1 à j-2", "j-1 à j-3"),
+  R2        = c(summary(modele_j1)$r.squared,
+                summary(modele_2j)$r.squared,
+                summary(modele_3j)$r.squared)
+)
+
+# Ensuite compare les trois modèles
+modele_j0 <- lm(panache_log ~ débit, data = MERIS_panache_metrics)
+modele_j1 <- lm(panache_log ~ debit_j1, data = MERIS_panache_metrics)
+modele_2j <- lm(panache_log ~ debit_2j, data = MERIS_panache_metrics)
+modele_3j <- lm(panache_log ~ debit_3j, data = MERIS_panache_metrics)
+
+tibble(
+  lag       = c("j-1", "j-1 à j-2", "j-1 à j-3"),
+  R2        = c(summary(modele_j1)$r.squared,
+                summary(modele_2j)$r.squared,
+                summary(modele_3j)$r.squared)
+)
+
+MERIS_panache_metrics <- MERIS_panache_metrics |> 
+  filter(max_spm <= 4000)
+
+## modèle log - log --------------------------------------------------------
+
+# Modèle linéaire en log-log → relation puissance
+modele_log <- lm(panache_log ~ debit_j0_log, data = MERIS_panache_metrics)
+r2     <- summary(modele_log)$r.squared
+print(r2)
+pente  <- coef(modele_log)[2]
+ordonnee <- coef(modele_log)[1]
+
+# Équation puissance : aire = 10^ordonnee * debit_cumule^pente
+# à afficher dans le graphique
+label_eq <- paste0(
+  "Aire = ", round(10^ordonnee, 3), " × Q^", round(pente, 2),
+  "\nR² = ", round(r2, 2)
+)
+
+# Graphique log-log avec droite de régression
+ggplot(MERIS_panache_metrics, aes(x = débit, y = aire_panache_km2)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,            # régression sur les axes log
+              color = "black", se = FALSE, linewidth = 0.8) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotate("text", 
+           x = min(MERIS_panache_metrics$debit_log, na.rm = TRUE) * 1.5,
+           y = max(MERIS_panache_metrics$aire_panache_km2, na.rm = TRUE) * 0.7,
+           label = label_eq, hjust = 1.1, vjust = 2, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
+    y = "Aire du panache (km²)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  )
+
+## Modèle semi-log : log10(aire) ~ debit_cumule --------------------------------------------------------
+
+modele_semilog <- lm(panache_log ~ debit_cumule, data = MERIS_panache_metrics)
+r2       <- summary(modele_semilog)$r.squared
+print(r2)
+pente    <- coef(modele_semilog)[2]
+ordonnee <- coef(modele_semilog)[1]
+
+label_eq <- paste0(
+  "log10(Aire) = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(MERIS_panache_metrics, aes(x = debit_cumule, y = aire_panache_km2)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  # geom_smooth(method = "lm", formula = y ~ x,
+  #             color = "black", se = FALSE, linewidth = 0.8) +
+  scale_y_log10(labels = scales::comma) +
+  annotate("text",
+           x = max(MERIS_panache_metrics$debit_cumule, na.rm = TRUE) * 0.7,
+           y = min(MERIS_panache_metrics$aire_panache_km2, na.rm = TRUE) * 3,
+           label = label_eq, hjust = 0.5, size = 8, color = "grey20",
+           family = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit (m"^{3}*".s"^{-1}*")"),
+    y = "Aire du panache (km²)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title = element_text(face = "bold", family = "serif"),
+    axis.text = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "grey70"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+  )
+
+# corrélation MES mean et debit_cumule -------------------------------------------
+
+modele <- lm(débit ~ mean_spm, data = MERIS_panache_metrics)
+r2       <- summary(modele)$r.squared
+print(r2)
+pente    <- coef(modele)[2]
+ordonnee <- coef(modele)[1]
+
+label_eq <- paste0(
+  "MES = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(MERIS_panache_metrics, aes(x = débit, y = mean_spm)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,
+              color = "black", se = FALSE, linewidth = 0.8) +
+  annotate("text",
+           x        = Inf,
+           y        = Inf,
+           label    = label_eq,
+           hjust    = 1.1,   # ancré à droite
+           vjust    = 6,   # ancré en haut
+           size     = 8,
+           color    = "grey20",
+           family   = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
+    y = expression("Concentration moyenne en MES (g m"^{-3}*")")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
+
+# corrélation MES max et debit_cumule -------------------------------------------
+
+modele <- lm(débit ~ max_spm, data = MERIS_panache_metrics)
+r2       <- summary(modele)$r.squared
+print(r2)
+pente    <- coef(modele)[2]
+ordonnee <- coef(modele)[1]
+
+label_eq <- paste0(
+  "MES = ", round(ordonnee, 3), " + ", round(pente, 5), " × Q",
+  "\nR² = ", round(r2, 2)
+)
+
+ggplot(MERIS_panache_metrics, aes(x = débit, y = max_spm)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,
+              color = "black", se = FALSE, linewidth = 0.8) +
+  annotate("text",
+           x        = Inf,
+           y        = Inf,
+           label    = label_eq,
+           hjust    = 1.1,   # ancré à droite
+           vjust    = 6,   # ancré en haut
+           size     = 8,
+           color    = "grey20",
+           family   = "serif",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
+    y = expression("Concentration maximale en MES (g m"^{-3}*")")
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # climatologie ------------------------------------------------------------
 

@@ -21,6 +21,8 @@ library(ggspatial)
 library(effectsize)
 library(moments)
 
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+
 # SEXTANT -----------------------------------------------------------------
 
 # combien de valeurs négatives
@@ -581,6 +583,34 @@ p2 <- ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
       plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
     )
   )
+
+
+Wind_new <- panache_vent |> 
+  dplyr::select(FFM, wind_type, dist_sud_km, dist_ouest_km, dist_est_km) |> 
+  pivot_longer(cols = c(dist_sud_km, dist_ouest_km, dist_est_km), values_to = "dist_km", 
+              names_to = "panache_extention") |> 
+  filter(!is.infinite(dist_km))
+
+panache_vent <- panache_vent |> 
+  filter(!is.infinite(dist_sud_km))
+
+# ANOVA
+aov(formula = dist_km ~ wind_type * panache_extention, data = Wind_new)
+summary(aov(formula = dist_km ~ wind_type * panache_extention, data = Wind_new))
+TukeyHSD(aov(formula = dist_km ~ wind_type * panache_extention, data = Wind_new)
+)
+
+sum(is.na(Wind_new))
+# 0
+
+# linear model
+summary(lm(dist_sud_km ~ FFM, filter(panache_vent, wind_type == "Nord-Ouest")))
+summary(lm(dist_est_km ~ FFM, filter(panache_vent, wind_type == "Nord-Ouest")))      
+summary(lm(dist_ouest_km ~ FFM, filter(panache_vent, wind_type == "Nord-Ouest")))
+
+summary(lm(dist_sud_km ~ FFM, filter(panache_vent, wind_type == "Est")))
+summary(lm(dist_est_km ~ FFM, filter(panache_vent, wind_type == "Est")))      
+summary(lm(dist_ouest_km ~ FFM, filter(panache_vent, wind_type == "Est")))
 
 # ── 4. (Bonus) Figure 8a adaptée : aire du panache vs débit coloré par vent ─
 
