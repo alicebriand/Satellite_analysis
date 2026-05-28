@@ -139,6 +139,8 @@ load("data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
 
 load("data/OLCI/SPM/all_spm_propre_OLCI_B_2020.Rdata")
 
+load("data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
+
 ## SPM ---------------------------------------------------------------------
 ### threshold of 1.2 --------------------------------------------------------
 
@@ -624,8 +626,9 @@ cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 ## define 95ème percentile -------------------------------------------------
 
 # Calculer le 95ème percentile
-seuil_95 <- quantile(OLCI_2016_2024_spm_pixels$`SPM-G-PO_mean`, 0.95, na.rm = TRUE)
-cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
+seuil_99 <- quantile(OLCI_2016_2024_spm_pixels$`SPM-G-PO_mean`, 0.99, na.rm = TRUE)
+# cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
+# seuil_95 = 1.7
 
 # Seuil 95ème percentile : 0.4883142 mg/m³
 
@@ -633,13 +636,13 @@ cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
 OLCI_2016_2024_spm_95 <- OLCI_2016_2024_spm_pixels |> 
   group_by(date) |> 
   summarise(
-    pixel_count = sum(`SPM-G-PO_mean` >= seuil_95, na.rm = TRUE),
-    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
-    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_95], na.rm = TRUE),
+    pixel_count = sum(`SPM-G-PO_mean` >= seuil_99, na.rm = TRUE),
+    mean_spm = mean(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_99], na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`[`SPM-G-PO_mean` >= seuil_99], na.rm = TRUE),
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
-save(OLCI_2016_2024_spm_95, file = "data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
+# save(OLCI_2016_2024_spm_95, file = "data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
 
 # plotting ----------------------------------------------------------------
 
@@ -737,39 +740,120 @@ ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log
   theme_minimal() +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 
+### Plume extension / liquid flow rate --------------------------------------------------
 
-# comparison between liquid flow rate and panache extension
+All_debit <- All_debit |> 
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31"))
 
-adjust_factors <- sec_axis_adjustement_factors(OLCI_2016_2024_spm_95$aire_panache_km2, Y6442010_2016_2024$débit)
-
+# mise à l'échelle
+adjust_factors <- sec_axis_adjustement_factors(OLCI_2016_2024_spm_95$aire_panache_km2, All_debit$debit_cumule)
 OLCI_2016_2024_spm_95$scaled_aire_panache_km2<- OLCI_2016_2024_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
+# Modèle linéaire sur l'aire des panaches (échelle mise à l'échelle)
+model_panache <- lm(scaled_aire_panache_km2 ~ date, data = OLCI_2016_2024_spm_95)
+p_value_panache <- summary(model_panache)$coefficients[2, 4]
+slope_panache   <- coef(model_panache)[2] * 365  # en km²/an
+summary(model_panache)
+
+# Calcul de la corrélation entre débit et aire des panaches
+merged_data <- merge(
+  All_debit,
+  OLCI_2016_2024_spm_95,
+  by = "date",
+  all = FALSE
+)
+
+correlation <- cor(merged_data$debit_cumule, merged_data$aire_panache_km2, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$debit_cumule, merged_data$aire_panache_km2, method = "spearman")$p.value
+
+# Nombre de points utilisés (dates communes entre les deux séries)
+n_panache <- sum(!is.na(OLCI_2016_2024_spm_95$aire_panache_km2))
+n_debit   <- sum(!is.na(All_debit$debit_cumule))
+n_commun  <- nrow(merged_data)   # si tu veux le n de la corrélation (dates communes)
+
 ggplot() +
-  geom_point(data = Y6442010_2016_2024, 
-             aes(x = date, y = débit, color = "Débit du Var"), size = 0.5) +
-  geom_point(data = OLCI_2016_2024_spm_95, 
-             aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"), size = 0.5) +
-  scale_color_manual(values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan")) +
-  scale_y_continuous(
-    name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Aire des panaches en (km²)")
+  # Aire des panaches en fond avec alpha
+  geom_line(
+    data = OLCI_2016_2024_spm_95,
+    aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6
   ) +
-  labs(title = "Évolution de l'aire des panaches et du débit du Var vu par le produit OLCI (ODATIS-MR)",
-  # labs(title = "Évolution de la concentration en MES dans les panaches et du débit du Var vu par le produit OLCI ODATIS-MR",
-            
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+  # Régression linéaire sur l'aire des panaches
+  geom_smooth(
+    data = OLCI_2016_2024_spm_95,
+    aes(x = date, y = scaled_aire_panache_km2, color = "Tendance panaches",
+        fill  = "Tendance panaches"),
+    method = "lm", se = TRUE, alpha = 0.15, linewidth = 1
+  ) +
+  # Débit par-dessus avec alpha
+  geom_line(
+    data = All_debit,
+    aes(x = date, y = debit_cumule, color = "Débit cumulé"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
+  scale_color_manual(
+    values = c(
+      "Aire des panaches"  = "darkcyan",
+      "Tendance panaches"  = "darkcyan",
+      "Débit cumulé"              = "darkolivegreen3"
+    ),
+    name = NULL
+  ) +
+  scale_fill_manual(
+    values = c("Tendance panaches" = "darkcyan"),
+    guide  = "none"
+  ) +
+  scale_y_continuous(
+    name     = "Débit cumulé (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  # Corrélation
+  annotate(
+    "text",
+    x = max(OLCI_2016_2024_spm_95$date, na.rm = TRUE),
+    y = max(Y6442010_2016_2024$débit, na.rm = TRUE) * 0.97,
+    hjust = 1, vjust = 1, size = 8,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    )
+  ) +
+  annotate(
+    "text",
+    x     = as.Date("2016-01-01"),   # ← ajuste cette date pour bouger à gauche/droite
+    y     = max(Y6442010_depuis_2000$débit, na.rm = TRUE) * 0.97,  # ← même hauteur que la corr
+    hjust = 0,    # aligné à gauche du point x
+    vjust = 1,
+    size  = 8,
+    color = "darkcyan", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance : ", round(slope_panache, 1), " km²/an",
+      "\np ", ifelse(p_value_panache < 0.001, "< 0.001", format(p_value_panache, digits = 3)),
+      "\nn = ", n_panache
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit cumulé",
+    subtitle = "Produit OLCI - ODATIS-MR (2016-2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 18, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "top",
+    legend.text      = element_text(size = 13),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
-
-# runoff vs plume area ---------------------------------
-
-Var_OLCI_panache <- inner_join(Y6442010_2016_2024, OLCI_2016_2024_spm_95, by = "date")
-
-cor.test(Var_OLCI_panache$débit, Var_OLCI_panache$aire_panache_km2, method = "spearman")
-
 
 # comparison between liquid flow rate and mean SPM concentration
 
@@ -1377,7 +1461,175 @@ ggarrange(
     )
   )
 
+# climatologie de la concentration en MES ----------------------------------
 
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
+OLCI_2016_2024_spm_clean <- OLCI_2016_2024_spm_pixels |> 
+  filter(`SPM-G-PO_mean` >= 0, `SPM-G-PO_mean` < 100)
+
+sum(is.na(OLCI_2016_2024_spm_clean$`SPM-G-PO_mean`))
+
+OLCI_2016_2024_spm_clean <- OLCI_2016_2024_spm_clean |> 
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# ── Climatologie spatiale mensuelle (moyenne par pixel et par mois) ──
+clim_spatiale_spm_month_OLCI <- OLCI_2016_2024_spm_clean |>
+  filter(`SPM-G-PO_mean` >= 0) |>
+  mutate(month = month(date)) |>
+  group_by(lon, lat, month) |>
+  summarise(
+    mean_spm  = mean(`SPM-G-PO_mean`, na.rm = TRUE),
+    median_spm = median(`SPM-G-PO_mean`, na.rm = TRUE),
+    sd_spm    = sd(`SPM-G-PO_mean`, na.rm = TRUE),
+    .groups   = "drop"
+  )
+
+range(clim_spatiale_spm_month_OLCI$mean_spm, na.rm = TRUE)  # OLCI
+range(clim_spatiale_spm_month_sextant$mean_spm, na.rm = TRUE)  # SEXTANT
+
+# Combien de valeurs très élevées ?
+sum(OLCI_2016_2024_spm_clean$`SPM-G-PO_mean` > 100, na.rm = TRUE)
+sum(OLCI_2016_2024_spm_clean$`SPM-G-PO_mean` > 1000, na.rm = TRUE)
+
+# Quels pixels sont concernés ?
+OLCI_2016_2024_spm_clean |>
+  filter(`SPM-G-PO_mean` > 100) |>
+  select(lon, lat, date, `SPM-G-PO_mean`) |>
+  arrange(desc(`SPM-G-PO_mean`))
+
+# plot mensuel de la concentration en MES
+ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = mean_spm)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_spm_month_OLCI$lon),
+    ylim = range(clim_spatiale_spm_month_OLCI$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("MES (g. m"^{-3}*")"),
+    option   = "turbo",
+    na.value = "white",
+    breaks   = c(0.01, 0.1, 1, 10),
+    labels   = c("0.01", "0.1", "1", "10")
+  ) +
+  facet_wrap(~ month, ncol = 4,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de la concentration en matières en suspension",
+    subtitle = "2016-2024 · OLCI (ODATIS-MR)",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 0.8,
+    barheight      = 12,
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "right",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
+
+# plot mensuel de la sd de MES
+ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_spm_month_OLCI$lon),
+    ylim = range(clim_spatiale_spm_month_OLCI$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("MES (g. m"^{-3}*")"),
+    option   = "turbo",
+    na.value = "white",
+    breaks   = c(0.01, 0.1, 1, 10),
+    labels   = c("0.01", "0.1", "1", "10")
+  ) +
+  facet_wrap(~ month, ncol = 4,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de l'erreur standard à la concentration en MES",
+    subtitle = "2016-2024 · OLCI (ODATIS-MR)",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 0.8,
+    barheight      = 12,
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 9, color = "grey30"),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "right",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
 
 

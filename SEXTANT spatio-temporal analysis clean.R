@@ -26,7 +26,6 @@ library(scales)
 library(ggspatial)
 library(patchwork)
 
-
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
 
@@ -144,7 +143,7 @@ load("~/Vent/data/wind_2008_2025.Rdata")
 # SEXTANT_2021_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2021/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 # SEXTANT_2022_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2022/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 # SEXTANT_2023_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2023/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
-SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+# SEXTANT_2024_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2024/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 # SEXTANT_2025_dir <- dir("~/pCloudDrive/Stage/SEXTANT/SPM/merged/Standard/DAILY/2025/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 # 
 # SEXTANT_1998_dir_chl <- dir("~/pCloudDrive/Stage/SEXTANT/CHLA/merged/Standard/DAILY/1998/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
@@ -724,6 +723,12 @@ ggplot() +
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, Y6442010_depuis_2000$débit)
 SEXTANT_1998_2025_spm_95$scaled_aire_panache <- SEXTANT_1998_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
 
+# Modèle linéaire sur l'aire des panaches (échelle mise à l'échelle)
+model_panache <- lm(scaled_aire_panache ~ date, data = SEXTANT_1998_2025_spm_95)
+p_value_panache <- summary(model_panache)$coefficients[2, 4]
+slope_panache   <- coef(model_panache)[2] * 365  # en km²/an
+summary(model_panache)
+
 # Calcul de la corrélation entre débit et aire des panaches
 merged_data <- merge(
   Y6442010_depuis_2000,
@@ -735,76 +740,94 @@ merged_data <- merge(
 correlation <- cor(merged_data$débit, merged_data$aire_panache_km2, method = "spearman", use = "complete.obs")
 p_value <- cor.test(merged_data$débit, merged_data$aire_panache_km2, method = "spearman")$p.value
 
+# Nombre de points utilisés (dates communes entre les deux séries)
+n_panache <- sum(!is.na(SEXTANT_1998_2025_spm_95$aire_panache_km2))
+n_debit   <- sum(!is.na(Y6442010_depuis_2000$débit))
+n_commun  <- nrow(merged_data)   # si tu veux le n de la corrélation (dates communes)
+
 ggplot() +
-  # Ligne pour le débit
-  geom_line(
-    data = Y6442010_depuis_2000,
-    aes(x = date, y = débit, color = "Débit"),
-    size = 0.8,
-    linewidth = 0.4
-  ) +
-  # Ligne pour l'aire des panaches
+  # Aire des panaches en fond avec alpha
   geom_line(
     data = SEXTANT_1998_2025_spm_95,
     aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-    size = 0.8,
-    linewidth = 0.4
+    linewidth = 0.4, alpha = 0.6
   ) +
-  # Couleurs personnalisées
+  # Régression linéaire sur l'aire des panaches
+  geom_smooth(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = scaled_aire_panache, color = "Tendance panaches",
+        fill  = "Tendance panaches"),
+    method = "lm", se = TRUE, alpha = 0.15, linewidth = 1
+  ) +
+  # Débit par-dessus avec alpha
+  geom_line(
+    data = Y6442010_depuis_2000,
+    aes(x = date, y = débit, color = "Débit"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
   scale_color_manual(
-    values = c("Aire des panaches" = "darkcyan", "Débit" = "blue"),
-    name = "Légende"
+    values = c(
+      "Aire des panaches"  = "darkcyan",
+      "Tendance panaches"  = "darkcyan",
+      "Débit"              = "blue"
+    ),
+    name = NULL
   ) +
-  # Axes avec échelle secondaire
+  scale_fill_manual(
+    values = c("Tendance panaches" = "darkcyan"),
+    guide  = "none"
+  ) +
   scale_y_continuous(
-    name = "Débit (m³/s)",
+    name     = "Débit (m³/s)",
     sec.axis = sec_axis(
       ~ (. - adjust_factors$adjust) / adjust_factors$diff,
-      name = "Aire des panaches (km²)"
+      name = expression("Aire des panaches (km²)")
     )
   ) +
-  # Titre et labels
-  labs(
-    title = "Évolution de l'extension des panaches turbides et du débit du Var",
-    subtitle = "Produit SEXTANT OC5 (1998-2025)",
-    x = "Date",
-    color = "Variable"
-  ) +
-  # Annotation pour la corrélation (en haut à droite)
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  # Corrélation
   annotate(
     "text",
-    x = max(c(Y6442010_depuis_2000$date, SEXTANT_1998_2025_spm_95$date), na.rm = TRUE),
-    y = max(c(Y6442010_depuis_2000$débit, SEXTANT_1998_2025_spm_95$scaled_aire_panache), na.rm = TRUE),
-    hjust = 1,  # Alignement à droite
-    vjust = 1,  # Alignement en haut
+    x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
+    y = max(Y6442010_depuis_2000$débit, na.rm = TRUE) * 0.97,
+    hjust = 1, vjust = 1, size = 8,
+    color = "grey20", fontface = "italic", family = "serif",
     label = paste0(
       "R = ", round(correlation, 2),
-      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
-    ),
-    size = 8,
-    color = "grey20",
-    family = "serif",
-    fontface = "italic"
+      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+    )
   ) +
-  # Thème sobre et élégant
+  annotate(
+    "text",
+    x     = as.Date("1998-01-01"),   # ← ajuste cette date pour bouger à gauche/droite
+    y     = max(Y6442010_depuis_2000$débit, na.rm = TRUE) * 0.97,  # ← même hauteur que la corr
+    hjust = 0,    # aligné à gauche du point x
+    vjust = 1,
+    size  = 8,
+    color = "darkcyan", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance : ", round(slope_panache, 1), " km²/an",
+      "\np ", ifelse(p_value_panache < 0.001, "< 0.001", format(p_value_panache, digits = 3)),
+      "\nn = ", n_panache
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit du Var",
+    subtitle = "Produit SEXTANT OC5 (1998–2025)",
+    x        = NULL
+  ) +
   theme_bw(base_size = 14) +
   theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
-    axis.title = element_text(face = "bold", family = "serif"),
-    axis.text = element_text(color = "grey30", family = "serif"),
+    plot.title       = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
     panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "grey70"),
-    legend.position = "top",
-    legend.title = element_text(face = "bold"),
-    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
-  ) +
-  # Échelle des dates
-  scale_x_date(
-    date_breaks = "5 year",
-    date_labels = "%Y"
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
-
 
 # Gangloff SPM ------------------------------------------------------------
 
@@ -2242,6 +2265,8 @@ ggarrange(
   )
 
 # spatial climatology -----------------------------------------------------
+
+# supperposer climatologie panache et X11 -----------------------------------------------------
 
 
 

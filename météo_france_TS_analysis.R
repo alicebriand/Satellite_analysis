@@ -15,6 +15,7 @@ library(heatwaveR)
 library(scales)
 library(RColorBrewer)
 library(ggpubr)
+library(circular)
 
 # load --------------------------------------------------------------------
 
@@ -469,7 +470,7 @@ Wind_T <- Wind_T |>
   mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
 
 Wind_T <- Wind_T |> 
-  filter(date >= "2008-01-01", date <= "2019-12-31")
+  filter(date >= "1998-01-01", date <= "2025-12-31")
 
 Wind_2015_2024 <- Wind_T |> 
   filter(date >= as.Date("2015-01-01"), date <= as.Date("2024-12-31"))
@@ -621,8 +622,6 @@ ggplot(North_West, aes(x = date, y = FFM)) +
 # ya t'il plus/moins de vent de Nord Ouest qu'avant
 # ya t'il plus/moins de vent d'e Nord Ouest'Est qu'avant
 
-library(circular)
-library(tidyverse)
 
 # 1. Assigner les secteurs ------------------------------------------------
 Wind_T <- Wind_T |>
@@ -776,50 +775,82 @@ ggplot(Wind_2015_2024, aes(x = date, y = FFM)) +
 speed <- Wind_T$FFM
 direction <- Wind_T$DXY
 
-ggwindrose(
-  speed = speed,
-  direction = direction,
-  n_directions = 8,
-  n_speeds = 5,
-  speed_cuts = NA,
-  col_pal = "GnBu",
-  legend_title = "Vitesse du vent (m/s)",
-  calm_wind = 0,
-  n_col = 1,
-  facet = NULL,
-  plot_title = "Direction et vitesse du vent entre 2000 et 2024 près de Nice",
+# p1 <- ggwindrose(
+#   speed         = speed,
+#   direction     = direction,
+#   n_directions  = 8,
+#   n_speeds      = 5,
+#   speed_cuts    = NA,
+#   col_pal       = "GnBu",
+#   legend_title  = "Vitesse du vent (m/s)",
+#   calm_wind     = 0,
+#   n_col         = 1,
+#   facet         = NULL,
+#   plot_title    = "Direction et vitesse du vent près de Nice",
+#   stack_reverse = TRUE) +
+#   labs(
+#     subtitle = "1998–2025"
+#     # caption  = "Source : Archives Météo France"
+#   ) +
+#   theme(
+#     plot.title       = element_text(face = "bold", size = 14, hjust = 0.5),
+#     plot.subtitle    = element_text(size = 14, hjust = 0.5, color = "grey50"),
+#     plot.caption     = element_text(size = 10, color = "grey50", hjust = 0),
+#     axis.text        = element_text(size = 13),   # ← labels N/S/E/O
+#     legend.title     = element_text(size = 12, face = "bold"),
+#     legend.text      = element_text(size = 13)
+#   )
+
+p1 <- ggwindrose(
+  speed         = speed,
+  direction     = direction,
+  n_directions  = 8,
+  n_speeds      = 5,
+  speed_cuts    = NA,
+  col_pal       = "GnBu",
+  legend_title  = "Vent (m/s)",
+  calm_wind     = 0,
+  n_col         = 1,
+  facet         = NULL,
+  plot_title    = "Direction et vitesse du vent près de Nice",
   stack_reverse = TRUE) +
-  labs(
-    subtitle = "2000-2024",
-    caption = "Source: Archives Météo France"
+  labs(subtitle = "1998–2025") +
+  theme(
+    plot.title      = element_text(face = "bold", size = 14, hjust = 0.5),
+    plot.subtitle   = element_text(size = 14, hjust = 0.5, color = "grey50"),
+    plot.caption    = element_text(size = 10, color = "grey50", hjust = 0),
+    axis.text       = element_text(size = 13),
+    legend.position = "bottom",              # ← ici
+    legend.title    = element_text(size = 12, face = "bold"),
+    legend.text     = element_text(size = 13)
   )
 
-ggwindrose(
-  speed = speed,
-  direction = direction,
-  n_directions = 8,
-  n_speeds = 5,
-  col_pal = "GnBu",  # Utilise une palette discrète
-  legend_title = "Vitesse du vent (m/s)",
-  calm_wind = 2,
-  plot_title = "Rose des vents | Nice (1920-2024)",
-  stack_reverse = TRUE
-) +
-  labs(
-    subtitle = "Direction et vitesse moyenne du vent (1991-2024)",
-    caption = "Source: Archives Météo France"
-  ) +
-  theme(
-    legend.position = "right",
-    legend.text = element_text(size = 13),
-    legend.title = element_text(size = 12, face = "bold"),
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5, color = "darkblue"),
-    plot.subtitle = element_text(size = 13, hjust = 0.5),
-    plot.caption = element_text(size = 13, color = "gray50"),
-    panel.background = element_rect(fill = "white"),
-    panel.grid = element_blank()
-  ) +
-  annotate("text", x = 0, y = 0, label = "", size = 3, color = "red")
+# ggwindrose(
+#   speed = speed,
+#   direction = direction,
+#   n_directions = 8,
+#   n_speeds = 5,
+#   col_pal = "GnBu",  # Utilise une palette discrète
+#   legend_title = "Vitesse du vent (m/s)",
+#   calm_wind = 2,
+#   plot_title = "Rose des vents | Nice (2008-2019)",
+#   stack_reverse = TRUE
+# ) +
+#   labs(
+#     # subtitle = "Direction et vitesse moyenne du vent (1991-2024)",
+#     caption = "Source: Archives Météo France"
+#   ) +
+#   theme(
+#     legend.position = "right",
+#     legend.text = element_text(size = 13),
+#     legend.title = element_text(size = 12, face = "bold"),
+#     plot.title = element_text(size = 16, face = "bold", hjust = 0.5, color = "darkblue"),
+#     plot.subtitle = element_text(size = 13, hjust = 0.5),
+#     plot.caption = element_text(size = 13, color = "gray50"),
+#     panel.background = element_rect(fill = "white"),
+#     panel.grid = element_blank()
+#   ) +
+#   annotate("text", x = 0, y = 0, label = "", size = 3, color = "red")
 
 
 
@@ -990,13 +1021,13 @@ Wind_daily_anom <- Wind_2015_2024_TS |>
 
 ## wind direction climatology ----------------------------------------------
 
-Wind_2000_2020_TS <- Wind_T |> 
-  filter(date >= as.Date("1991-01-01"), date <= as.Date("2020-12-31")) |> 
+Wind_2000_2024_TS <- Wind_T |> 
+  filter(date >= as.Date("2000-01-01"), date <= as.Date("2025-12-31")) |> 
   mutate(year = year(date), 
          month = month(date), 
          doy = yday(date))
 
-Wind_1991_2020_climatology <- Wind_1991_2020_TS %>%
+Wind_2000_2024_climatology <- Wind_2000_2024_TS %>%
   dplyr::filter(date >= as.Date("1991-01-01")) %>%
   mutate(Direction =
            case_when(
@@ -1011,17 +1042,24 @@ Wind_1991_2020_climatology <- Wind_1991_2020_TS %>%
              TRUE ~ NA_character_
            ))
 
-# Calculer les proportions par mois
-proportions_par_mois <- Wind_1991_2020_climatology %>%
-  filter(!is.na(Direction)) %>%  # Exclure les NA
+# # Calculer les proportions par mois
+# proportions_par_mois <- Wind_2000_2024_climatology %>%
+#   filter(!is.na(Direction)) %>%  # Exclure les NA
+#   group_by(month, Direction) %>%
+#   summarise(n = n(), .groups = "drop") %>%
+#   mutate(Proportion = n / sum(n))  # Proportion par mois
+
+proportions_par_mois <- Wind_2000_2024_climatology %>%
+  filter(!is.na(Direction)) %>%
   group_by(month, Direction) %>%
   summarise(n = n(), .groups = "drop") %>%
-  mutate(Proportion = n / sum(n))  # Proportion par mois
-
+  group_by(month) %>%                        # ← regrouper par mois
+  mutate(Proportion = n / sum(n)) %>%        # ← proportion dans chaque mois
+  ungroup()
 
 ## plotting ----------------------------------------------------------------
 
-# climatologie mesuelle
+# climatologie mensuelle
 model_wind_month <- lm(wind_month_clim ~ month, data = Wind_1991_2020_climatology_month)
 p_value_wind_month <- summary(model_wind_month)$coefficients[2, 4]  # p-value pour la pente
 intercept_wind_month <- coef(model_wind_month)[1]
@@ -1069,7 +1107,7 @@ ggplot(Wind_1991_2020_climatology_month, aes(x = month, y = wind_month_clim)) +
 
 # plotting climatology -------------------------------------------------------------
 
-# mettre la clonne month en mois
+# mettre la colonne month en mois
 Wind_1991_2020_climatology_month$month <- factor(Wind_1991_2020_climatology_month$month, levels = 1:12, labels = month.abb)
 
 # ggplot de la climatologie de la la vitesse du vent par mois
@@ -1273,7 +1311,7 @@ ggplot(Wind_daily_anom, aes(x = date, y = wind_daily_anomaly, fill = wind_daily_
 
 ggplot(proportions_par_mois, aes(x = month, y = Proportion, fill = Direction)) +
   geom_bar(stat = "identity", position = "fill") +
-  labs(title = "Proportions des directions de vent par mois (1991-2020)",
+  labs(title = "Proportions des directions de vent par mois (1998-2024)",
        x = "Mois",
        y = "Proportion",
        fill = "Direction") +
@@ -1288,7 +1326,7 @@ proportions_par_mois$month <- factor(proportions_par_mois$month, levels = 1:12,
 couleurs <- brewer.pal(n = 8, name = "Set3")
 names(couleurs) <- levels(proportions_par_mois$Direction)  # Associe les noms des catégories aux couleurs
 
-p <- ggplot(proportions_par_mois, aes(x = month, y = Proportion, fill = Direction)) +
+p2 <- ggplot(proportions_par_mois, aes(x = month, y = Proportion, fill = Direction)) +
   # Barres empilées à 100% par mois
   geom_bar(stat = "identity", position = "fill", width = 0.8, color = "black", linewidth = 0.1) +
   # Échelle des y en pourcentages
@@ -1299,18 +1337,19 @@ p <- ggplot(proportions_par_mois, aes(x = month, y = Proportion, fill = Directio
   labs(x = "Mois",
        y = "Proportion (%)",
        fill = "Direction du vent",
-       title = "Proportions mensuelles des directions du vent (1991-2020)",
-       caption = "Source : Données climatologiques (1991-2020)") +
+       title = "Proportions mensuelles des directions du vent",
+       subtitle = "1998-2025") +
   # Thème épuré et professionnel
   theme_minimal(base_size = 12) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
     axis.title = element_text(face = "bold", size = 12),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-    axis.text.y = element_text(size = 10),
+    plot.subtitle = element_text(size = 14, hjust = 0.5, color = "grey50"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 13),
+    axis.text.y = element_text(size = 12),
     legend.position = "bottom",
     legend.title = element_text(face = "bold"),
-    legend.text = element_text(size = 9),
+    legend.text = element_text(size = 13),
     legend.box.background = element_rect(linewidth = 0.5, color = "black"),
     plot.caption = element_text(size = 9, color = "grey50"),
     panel.grid.major.y = element_line(color = "grey90", linewidth = 0.2),
@@ -1318,10 +1357,38 @@ p <- ggplot(proportions_par_mois, aes(x = month, y = Proportion, fill = Directio
   )
 
 # Afficher le graphique
-print(p)
+print(p2)
 
+# patchwork
+(p1 | p2) + 
+  plot_layout(widths = c(1, 1.9)) &  # p2 prend plus de largeur
+plot_annotation(
+    # title      = "Rose des vents et climatologie saisonnière",
+    caption    = "Source : Archives Météo France",
+    tag_levels = "a", tag_prefix = "(", tag_suffix = ")",
+    # legend.position = "right",
+    theme      = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0),
+      plot.margin = margin(5, 5, 5, 0),
+      theme(legend.position = "bottom"))
+  )
 
-## température --------------------------------------------------------------
+p1 <- p1 + theme(legend.position = "bottom")
+p2 <- p2 + theme(legend.position = "bottom")
+
+(p1 | p2) +
+  plot_layout(widths = c(1, 1.3)) +
+  plot_annotation(
+    caption    = "Source : Archives Météo France",
+    tag_levels = "a", tag_prefix = "(", tag_suffix = ")",
+    theme      = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 14, color = "grey50", hjust = 0)
+    )
+  )
+
+-## température --------------------------------------------------------------
 
 model_temp <- lm(TM ~ date, data = Wind_T)
 p_value_temp <- summary(model_temp)$coefficients[2, 4]  # p-value pour la pente
@@ -1661,40 +1728,91 @@ ggplot(all_data, aes(x = wind_sector, y = aire_panache_km2, fill = wind_sector))
 
 # plot de la RR
 
-ggplot(Wind_T, aes(x = date, y = RR)) +
-  geom_point(alpha = 0.6) +
-  labs(x = "Vitesse du vent (m/s)",
-       y = "Aire du panache (km²)") +
-  theme_bw()
+# Nettoyer les NA avant
+sum(is.na(Wind_T))
+# 3
+Wind_T_clean <- Wind_T |> drop_na(date, RR)
+
+Wind_T_clean <- Wind_T_clean |> 
+  mutate(date_num = as.numeric(date - min(date)))  # jours depuis le début
+
+model <- lm(RR ~ date_num, data = Wind_T_clean)
+
+# Modèle linéaire
+model <- lm(RR ~ date, data = Wind_T_clean)
+p_value <- summary(model)$coefficients[2, 4]
+n       <- nrow(Wind_T_clean)
+intercept <- coef(model)[1]
+slope     <- coef(model)[2]
+
+# plot
+ggplot(Wind_T_clean, aes(x = date, y = RR)) +
+  geom_point(alpha = 0.7, color = "steelblue", size = 2) +
+  geom_smooth(method = "lm", color = "firebrick", fill = "firebrick", alpha = 0.15, se = TRUE) +
+  annotate("label",
+           x = min(Wind_T_clean$date),
+           y = 48,
+           label = paste0("y = ", round(slope, 4), "x + ", round(intercept, 2),
+                          "\nn = ", n,
+                          "\np = ", signif(p_value, 3)),
+           hjust = 0, vjust = 1, size = 8, family = "serif",
+           fill = "white", color = "grey20",
+           label.size = 0.3, label.padding = unit(0.4, "lines")) +
+  scale_y_continuous(limits = c(0, 50)) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(
+    title   = "Évolution des précipitations (1998-2025)",
+    x       = NULL,
+    y       = "Précipitations (mm)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(color = "grey90"),
+    plot.title        = element_text(face = "bold", size = 14, margin = margin(b = 10)),
+    axis.text         = element_text(color = "grey30"),
+    axis.title.y      = element_text(margin = margin(r = 10))
+  )
+
+# les précipitations ont elles baisser ?
+# oui entre 2009 et 2019 mais non significativement
+# non entre 2000 et 2024, non significativement
+
 
 # on veut mettre en lien avec le débit liquide du Var
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 load("data/Hydro France/All_debit.Rdata")
 
-Y6442010_2008_2020 <- Y6442010_depuis_2000 |> 
+# Y6442010_2008_2020 <- Y6442010_depuis_2000 |> 
+#   filter(date >= "2008-01-01", date <= "2019-12-31")
+
+All_debit <- All_debit |> 
   filter(date >= "2008-01-01", date <= "2019-12-31")
 
+Wind_T <- Wind_T |> 
+  filter(date >= as.Date("2014-01-01"), date <= as.Date("2019-12-31"))
+
 # mise à l'échelle
-adjust_factors <- sec_axis_adjustement_factors(Wind_T$RR, Y6442010_2008_2020$débit)
+adjust_factors <- sec_axis_adjustement_factors(Wind_T$RR, All_debit$debit_cumule)
 Wind_T$scaled_RR <- Wind_T$RR * adjust_factors$diff + adjust_factors$adjust
 
 # Calcul de la corrélation entre débit et aire des panaches
 merged_data <- merge(
-  Y6442010_2008_2020,
+  All_debit,
   Wind_T,
   by = "date",
   all = FALSE
 )
 
-correlation <- cor(merged_data$débit, merged_data$RR, method = "spearman", use = "complete.obs")
-p_value <- cor.test(merged_data$débit, merged_data$RR, method = "spearman")$p.value
+correlation <- cor(merged_data$debit_cumule, merged_data$RR, method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$debit_cumule, merged_data$RR, method = "spearman")$p.value
 
 ggplot() +
   # Ligne pour le débit
   geom_line(
-    data = Y6442010_2008_2020,
-    aes(x = date, y = débit, color = "Débit"),
+    data = All_debit,
+    aes(x = date, y = debit_cumule, color = "Débit"),
     size = 0.8,
     linewidth = 0.4
   ) +
@@ -1707,7 +1825,7 @@ ggplot() +
   ) +
   # Couleurs personnalisées
   scale_color_manual(
-    values = c("Précipitations" = "aquamarine", "Débit" = "blue"),
+    values = c("Précipitations" = "aquamarine", "Débit" = "darkolivegreen3"),
     name = "Légende"
   ) +
   # Axes avec échelle secondaire
@@ -1720,16 +1838,16 @@ ggplot() +
   ) +
   # Titre et labels
   labs(
-    title = "Évolution des précipitations et du débit du Var",
-    caption = "Sources : Archives Météo France - Hydro Portail",
+    title = "Évolution des précipitations et du débit cumulé des fleuves niçois",
+    caption = "Sources : Archives Météo France - Hydro Portail - MNCA",
     x = "Date",
     color = "Variable"
   ) +
   # Annotation pour la corrélation (en haut à droite)
   annotate(
     "text",
-    x = max(c(Y6442010_2008_2020$date, Wind_T$date), na.rm = TRUE),
-    y = max(c(Y6442010_2008_2020$débit, Wind_T$RR), na.rm = TRUE),
+    x = max(c(All_debit$date, Wind_T$date), na.rm = TRUE),
+    y = max(c(All_debit$debit_cumule, Wind_T$RR), na.rm = TRUE),
     hjust = 1,  # Alignement à droite
     vjust = 1,  # Alignement en haut
     label = paste0(
@@ -1756,6 +1874,6 @@ ggplot() +
   ) +
   # Échelle des dates
   scale_x_date(
-    date_breaks = "5 year",
+    date_breaks = "2 year",
     date_labels = "%Y"
   )
