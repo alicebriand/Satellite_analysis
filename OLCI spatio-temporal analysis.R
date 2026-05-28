@@ -677,18 +677,18 @@ slope_OLCI_2016_95 <- coef(model_OLCI_2016_95)[2]
 #        y = "Aire du panache (km²)") +
 #   theme_minimal() +
 #   scale_x_date(
-#     date_breaks = "1 year",  
-#     date_labels = "%Y"       
+#     date_breaks = "1 year",
+#     date_labels = "%Y"
 #   )
 
-ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = median_spm)) +
+ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm)) +
   geom_point(color = "red3", size = 0.5) +
   # geom_point(data = OLCI_2016_2024_spm_95, aes(x = date, y = mean_spm), color = "red", size = 0.5) +
   geom_smooth(method = "lm", se = TRUE, color = "darkslateblue", fill = "pink", alpha = 0.2) +
   annotate(
     "text",
     x = max(OLCI_2016_2024_spm_95$date, na.rm = TRUE),
-    y = max(OLCI_2016_2024_spm_95$median_spm, na.rm = TRUE) * 0.9,
+    y = max(OLCI_2016_2024_spm_95$mean_spm, na.rm = TRUE) * 0.9,
     label = paste0(
       "y = ", round(intercept_OLCI_2016_95, 3), " + ", round(slope_OLCI_2016_95, 7), " * x",
       "\n", "p = ", ifelse(p_value_OLCI_2016_95 < 0.001, "< 0.001", format(p_value_OLCI_2016_95, digits = 3))
@@ -697,9 +697,9 @@ ggplot(data = OLCI_2016_2024_spm_95, aes(x = date, y = median_spm)) +
     vjust = 1,  # Alignement en haut
     size = 6
   ) +
-  labs(title = "Évolution de la concentration médiane en MES dans les panaches de la baie des Anges vu par le produit OLCI (ODATIS-MR)",
+  labs(title = "Évolution de la concentration moyenne en MES dans les panaches de la baie des Anges vu par le produit OLCI (ODATIS-MR)",
        x = "Date",
-       y = "Concentration médiane en MES (en mg/m³)") +
+       y = "Concentration médiane en MES (en g/m³)") +
   theme_minimal() +
   scale_x_date(
     date_breaks = "1 year",  
