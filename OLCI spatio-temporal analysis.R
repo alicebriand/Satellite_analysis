@@ -633,7 +633,7 @@ seuil_99 <- quantile(OLCI_2016_2024_spm_pixels$`SPM-G-PO_mean`, 0.99, na.rm = TR
 # Seuil 95ème percentile : 0.4883142 mg/m³
 
 # Stats du panache par jour
-OLCI_2016_2024_spm_95 <- OLCI_2016_2024_spm_pixels |> 
+OLCI_2016_2024_spm_99 <- OLCI_2016_2024_spm_pixels |> 
   group_by(date) |> 
   summarise(
     pixel_count = sum(`SPM-G-PO_mean` >= seuil_99, na.rm = TRUE),
@@ -743,65 +743,111 @@ ggplot(data = data_log_spm, aes(x = date, y = median_spm)) +  # utilise data_log
 ### Plume extension / liquid flow rate --------------------------------------------------
 
 All_debit <- All_debit |> 
-  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31"))
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31")) |> 
+  drop_na(debit_cumule)
 
-# mise à l'échelle
-adjust_factors <- sec_axis_adjustement_factors(OLCI_2016_2024_spm_95$aire_panache_km2, All_debit$debit_cumule)
-OLCI_2016_2024_spm_95$scaled_aire_panache_km2<- OLCI_2016_2024_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+# ── Tests Mann-Kendall + Theil-Sen sur l'aire des panaches ──
+OLCI_2016_2024_spm_99_clean <- OLCI_2016_2024_spm_99 |>
+  drop_na(aire_panache_km2) |>
+  mutate(date_num = as.numeric(date - min(date)))
 
-# Modèle linéaire sur l'aire des panaches (échelle mise à l'échelle)
-model_panache <- lm(scaled_aire_panache_km2 ~ date, data = OLCI_2016_2024_spm_95)
-p_value_panache <- summary(model_panache)$coefficients[2, 4]
-slope_panache   <- coef(model_panache)[2] * 365  # en km²/an
-summary(model_panache)
+mk_panache      <- mk.test(OLCI_2016_2024_spm_99_clean$aire_panache_km2)
+sen_panache     <- sens.slope(OLCI_2016_2024_spm_99_clean$aire_panache_km2)
+slope_kmjan_pan <- sen_panache$estimates * 365
 
-# Calcul de la corrélation entre débit et aire des panaches
-merged_data <- merge(
-  All_debit,
-  OLCI_2016_2024_spm_95,
-  by = "date",
-  all = FALSE
+intercept_pan <- median(
+  OLCI_2016_2024_spm_99_clean$aire_panache_km2 - sen_panache$estimates * OLCI_2016_2024_spm_99_clean$date_num,
+  na.rm = TRUE
 )
 
-correlation <- cor(merged_data$debit_cumule, merged_data$aire_panache_km2, method = "spearman", use = "complete.obs")
-p_value <- cor.test(merged_data$debit_cumule, merged_data$aire_panache_km2, method = "spearman")$p.value
+OLCI_2016_2024_spm_99_clean <- OLCI_2016_2024_spm_99_clean |>
+  mutate(theilsen_fit = intercept_pan + sen_panache$estimates * date_num)
 
-# Nombre de points utilisés (dates communes entre les deux séries)
-n_panache <- sum(!is.na(OLCI_2016_2024_spm_95$aire_panache_km2))
-n_debit   <- sum(!is.na(All_debit$debit_cumule))
-n_commun  <- nrow(merged_data)   # si tu veux le n de la corrélation (dates communes)
+cat("Panaches — Mann-Kendall p =", round(mk_panache$p.value, 4),
+    "| Theil-Sen pente =", round(slope_kmjan_pan, 2), "km²/an\n")
+
+# ── Tests Mann-Kendall + Theil-Sen sur le débit cumulé ──
+
+All_debit <- All_debit |> 
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31")) |> 
+  drop_na(debit_cumule) |> 
+  mutate(date_num = as.numeric(date - min(date)))
+
+mk_debit       <- mk.test(All_debit$debit_cumule)
+sen_debit      <- sens.slope(All_debit$debit_cumule)
+slope_debit_an <- sen_debit$estimates * 365
+
+intercept_debit <- median(
+  All_debit$debit_cumule - sen_debit$estimates * All_debit$date_num,
+  na.rm = TRUE
+)
+
+All_debit <- All_debit |>
+  mutate(theilsen_fit_debit = intercept_debit + sen_debit$estimates * date_num)
+
+cat("Débit — Mann-Kendall p =", round(mk_debit$p.value, 4),
+    "| Theil-Sen pente =", round(slope_debit_an, 3), "m³/s/an\n")
+
+# ── Mise à l'échelle ──
+adjust_factors <- sec_axis_adjustement_factors(
+  OLCI_2016_2024_spm_99_clean$aire_panache_km2,
+  All_debit$debit_cumule
+)
+
+OLCI_2016_2024_spm_99_clean <- OLCI_2016_2024_spm_99_clean |>
+  mutate(
+    scaled_aire_panache_km2 = aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust,
+    theilsen_fit_scaled     = theilsen_fit     * adjust_factors$diff + adjust_factors$adjust
+  )
+
+# ── Corrélation Spearman ──
+merged_data <- merge(
+  All_debit |> select(date, debit_cumule),
+  OLCI_2016_2024_spm_99_clean |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
+
+correlation <- cor(merged_data$debit_cumule, merged_data$aire_panache_km2,
+                   method = "spearman", use = "complete.obs")
+p_value     <- cor.test(merged_data$debit_cumule, merged_data$aire_panache_km2,
+                        method = "spearman")$p.value
+
+n_panache <- nrow(OLCI_2016_2024_spm_99_clean)
+n_commun  <- nrow(merged_data)
 
 ggplot() +
-  # Aire des panaches en fond avec alpha
+  # Aire des panaches
   geom_line(
-    data = OLCI_2016_2024_spm_95,
+    data = OLCI_2016_2024_spm_99_clean,
     aes(x = date, y = scaled_aire_panache_km2, color = "Aire des panaches"),
     linewidth = 0.4, alpha = 0.6
   ) +
-  # Régression linéaire sur l'aire des panaches
-  geom_smooth(
-    data = OLCI_2016_2024_spm_95,
-    aes(x = date, y = scaled_aire_panache_km2, color = "Tendance panaches",
-        fill  = "Tendance panaches"),
-    method = "lm", se = TRUE, alpha = 0.15, linewidth = 1
+  # Tendance Theil-Sen panaches
+  geom_line(
+    data = OLCI_2016_2024_spm_99_clean,
+    aes(x = date, y = theilsen_fit_scaled, color = "Tendance panaches"),
+    linewidth = 1.2
   ) +
-  # Débit par-dessus avec alpha
+  # Débit cumulé
   geom_line(
     data = All_debit,
     aes(x = date, y = debit_cumule, color = "Débit cumulé"),
     linewidth = 0.4, alpha = 0.6
   ) +
+  # Tendance Theil-Sen débit
+  geom_line(
+    data = All_debit,
+    aes(x = date, y = theilsen_fit_debit, color = "Tendance débit"),
+    linewidth = 1.2
+  ) +
   scale_color_manual(
     values = c(
-      "Aire des panaches"  = "darkcyan",
-      "Tendance panaches"  = "darkcyan",
-      "Débit cumulé"              = "darkolivegreen3"
+      "Aire des panaches" = "darkcyan",
+      "Tendance panaches" = "darkcyan",
+      "Débit cumulé"      = "darkolivegreen3",
+      "Tendance débit"    = "darkolivegreen3"
     ),
     name = NULL
-  ) +
-  scale_fill_manual(
-    values = c("Tendance panaches" = "darkcyan"),
-    guide  = "none"
   ) +
   scale_y_continuous(
     name     = "Débit cumulé (m³/s)",
@@ -810,48 +856,64 @@ ggplot() +
       name = expression("Aire des panaches (km²)")
     )
   ) +
-  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
-  # Corrélation
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  # Corrélation Spearman — haut droite
   annotate(
     "text",
-    x = max(OLCI_2016_2024_spm_95$date, na.rm = TRUE),
-    y = max(Y6442010_2016_2024$débit, na.rm = TRUE) * 0.97,
+    x = max(OLCI_2016_2024_spm_99_clean$date, na.rm = TRUE),
+    y = max(All_debit$debit_cumule, na.rm = TRUE) * 0.97,
     hjust = 1, vjust = 1, size = 8,
     color = "grey20", fontface = "italic", family = "serif",
     label = paste0(
       "R = ", round(correlation, 2),
-      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3)),
+      "\nn = ", n_commun
     )
   ) +
+  # Tendance Theil-Sen panaches — haut gauche
   annotate(
     "text",
-    x     = as.Date("2016-01-01"),   # ← ajuste cette date pour bouger à gauche/droite
-    y     = max(Y6442010_depuis_2000$débit, na.rm = TRUE) * 0.97,  # ← même hauteur que la corr
-    hjust = 0,    # aligné à gauche du point x
-    vjust = 1,
-    size  = 8,
+    x = as.Date("2016-04-26"),
+    y = max(All_debit$debit_cumule, na.rm = TRUE) * 0.97,
+    hjust = 0, vjust = 1, size = 8,
     color = "darkcyan", fontface = "italic", family = "serif",
     label = paste0(
-      "Tendance : ", round(slope_panache, 1), " km²/an",
-      "\np ", ifelse(p_value_panache < 0.001, "< 0.001", format(p_value_panache, digits = 3)),
+      "Tendance panaches : ", round(slope_kmjan_pan, 2), " km²/an",
+      "\np ", ifelse(mk_panache$p.value < 0.001, "< 0.001",
+                                  ifelse(mk_panache$p.value < 0.05, "< 0.05",
+                                         paste0("= ", round(mk_panache$p.value, 3)))),
       "\nn = ", n_panache
+    )
+  ) +
+  # Tendance Theil-Sen débit — milieu gauche
+  annotate(
+    "text",
+    x = as.Date("2016-04-26"),
+    y = max(All_debit$debit_cumule, na.rm = TRUE) * 0.70,
+    hjust = 0, vjust = 1, size = 8,
+    color = "darkolivegreen4", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance débit : ", round(slope_debit_an, 2), " m³/s/an",
+      "\np ", ifelse(mk_debit$p.value < 0.001, "< 0.001",
+                                  ifelse(mk_debit$p.value < 0.05, "< 0.05",
+                                         paste0("= ", round(mk_debit$p.value, 3))))
     )
   ) +
   labs(
     title    = "Évolution de l'extension des panaches turbides et du débit cumulé",
-    subtitle = "Produit OLCI - ODATIS-MR (2016-2024)",
+    subtitle = "Produit OLCI — ODATIS-MR (2016–2024)",
     x        = NULL
   ) +
   theme_bw(base_size = 14) +
   theme(
     plot.title       = element_text(face = "bold", size = 18, hjust = 0.5, family = "serif"),
-    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey50", family = "serif"),
-    axis.title       = element_text(face = "bold", family = "serif"),
-    axis.text        = element_text(color = "grey30", family = "serif"),
+    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey30", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif", size = 16),
+    axis.text        = element_text(color = "grey30", family = "serif", size = 14),
     panel.grid.minor = element_blank(),
     panel.border     = element_rect(color = "grey70"),
     legend.position  = "top",
-    legend.text      = element_text(size = 13),
+    legend.text      = element_text(size = 15),
     plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
@@ -1527,8 +1589,10 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = mean_spm)) +
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
+    limits   = c(0.1, 50),
     breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    labels   = c("0.01", "0.1", "1", "10"),
+    oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 4,
              labeller = labeller(month = c(
@@ -1591,8 +1655,10 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
+    limits   = c(0.1, 50),
     breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    labels   = c("0.01", "0.1", "1", "10"),
+    oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 4,
              labeller = labeller(month = c(

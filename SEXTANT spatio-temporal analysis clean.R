@@ -25,6 +25,9 @@ library(ggpubr)  # Pour stat_cor()
 library(scales)
 library(ggspatial)
 library(patchwork)
+library(zoo)
+library(trend)
+library(mblm)
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -737,13 +740,263 @@ merged_data <- merge(
   all = FALSE
 )
 
-correlation <- cor(merged_data$débit, merged_data$aire_panache_km2, method = "spearman", use = "complete.obs")
-p_value <- cor.test(merged_data$débit, merged_data$aire_panache_km2, method = "spearman")$p.value
+#### moyenne glissante ---------------------------------------
+
+# Calculer les moyennes glissantes sur 1, 2 et 3 jours
+Y6442010_depuis_2000 <- Y6442010_depuis_2000 |>
+  arrange(date) |>
+  mutate(
+    debit_lag0 = débit,                                          # jour même
+    debit_lag1 = rollmean(débit, k = 2, fill = NA, align = "right"),  # moyenne sur 2 jours
+    debit_lag2 = rollmean(débit, k = 3, fill = NA, align = "right"),  # moyenne sur 3 jours
+    debit_lag3 = rollmean(débit, k = 4, fill = NA, align = "right")   # moyenne sur 4 jours
+  )
+
+merged_lags <- merge(
+  Y6442010_depuis_2000 |> select(date, debit_lag0, debit_lag1, debit_lag2, debit_lag3),
+  SEXTANT_1998_2025_spm_95 |> select(date, aire_panache_km2),
+  by = "date"
+) |> drop_na()
+
+# Corrélation pour chaque lag
+for (col in c("debit_lag0", "debit_lag1", "debit_lag2", "debit_lag3")) {
+  r <- cor(merged_lags[[col]], merged_lags$aire_panache_km2,
+           method = "spearman", use = "complete.obs")
+  cat("Lag", col, ": r =", round(r, 3), "\n")
+}
+
+#### boucle de corrélation manuelle par lag ---------------------------------------
+
+# Tester les lags 0 à 5 jours
+resultats_lag <- data.frame()
+
+for (lag_j in 0:5) {
+  
+  # Décaler le débit de lag_j jours
+  data_lag <- SEXTANT_1998_2025_spm_95 |>
+    mutate(date_debit = date + lag_j) |>   # on cherche le débit lag_j jours avant
+    left_join(
+      Y6442010_depuis_2000 |> select(date, débit),
+      by = c("date_debit" = "date")
+    ) |>
+    drop_na(débit, aire_panache_km2)
+  
+  # Corrélation de Spearman
+  cor_val <- cor(data_lag$débit, data_lag$aire_panache_km2,
+                 method = "spearman", use = "complete.obs")
+  p_val   <- cor.test(data_lag$débit, data_lag$aire_panache_km2,
+                      method = "spearman")$p.value
+  
+  resultats_lag <- bind_rows(resultats_lag, data.frame(
+    lag   = lag_j,
+    r     = cor_val,
+    p     = p_val,
+    n     = nrow(data_lag)
+  ))
+}
+
+print(resultats_lag)
+
+#### corrélation plume are vs runoff ---------------------------------------
+
+##### tendance plume area ---------------------------------------
+
+# Tendance
+mk_result <- mk.test(SEXTANT_1998_2025_spm_95$aire_panache_km2)
+print(mk_result)
+
+# Pente Theil-Sen — sans mblm (rapide)
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_panache    <- sens.slope(SEXTANT_1998_2025_spm_95$aire_panache_km2)
+slope_kmjan    <- sen_panache$estimates * 365   # km²/an
+
+# Intercept calculé manuellement
+intercept_pan  <- median(
+  SEXTANT_1998_2025_spm_95$aire_panache_km2 - sen_panache$estimates * SEXTANT_1998_2025_spm_95$date_num,
+  na.rm = TRUE
+)
+
+# Droite Theil-Sen pour le plot
+SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |>
+  mutate(theilsen_fit = intercept_pan + sen_panache$estimates * date_num)
+
+cat("Tendance Theil-Sen :", round(slope_kmjan, 2), "km²/an\n")
+cat("Mann-Kendall p =", round(mk_result$p.value, 4), "\n")
+
+##### tendance runoff ---------------------------------------
+
+Y6442010_depuis_2006 <- Y6442010_depuis_2000 |> 
+  filter(date >= "2006-01-01")
+
+# Supprimer les NA avant le test
+debit_clean <- Y6442010_depuis_2006 |>
+  drop_na(débit)
+
+# Mann-Kendall sur le débit
+mk_debit <- mk.test(debit_clean$débit)
+print(mk_debit)
+
+# Pente Theil-Sen — sans mblm (rapide)
+debit_clean <- debit_clean |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_debit          <- sens.slope(debit_clean$débit)
+slope_debit_jan    <- sen_debit$estimates * 365   # m³/s/an
+
+# Intercept calculé manuellement
+intercept_debit    <- median(
+  debit_clean$débit - sen_debit$estimates * debit_clean$date_num,
+  na.rm = TRUE
+)
+
+# Droite Theil-Sen pour le plot
+debit_clean <- debit_clean |>
+  mutate(theilsen_fit_debit = intercept_debit + sen_debit$estimates * date_num)
+
+cat("Tendance débit :", round(slope_debit_jan, 3), "m³/s/an\n")
+cat("Mann-Kendall p =", round(mk_debit$p.value, 4), "\n")
+
+##### nombre de point ---------------------------------------
 
 # Nombre de points utilisés (dates communes entre les deux séries)
 n_panache <- sum(!is.na(SEXTANT_1998_2025_spm_95$aire_panache_km2))
 n_debit   <- sum(!is.na(Y6442010_depuis_2000$débit))
 n_commun  <- nrow(merged_data)   # si tu veux le n de la corrélation (dates communes)
+
+#### plotting ----------------------------------------------------------
+
+SEXTANT_2000_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+  filter(date >= "2000-01-01")
+
+# mise à l'échelle
+adjust_factors <- sec_axis_adjustement_factors(SEXTANT_2000_2025_spm_95$aire_panache_km2, Y6442010_depuis_2006$débit)
+SEXTANT_2000_2025_spm_95$scaled_aire_panache <- SEXTANT_2000_2025_spm_95$aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust
+
+SEXTANT_2000_2025_spm_95 <- SEXTANT_2000_2025_spm_95 |>
+  mutate(
+    scaled_aire_panache        = aire_panache_km2 * adjust_factors$diff + adjust_factors$adjust,
+    theilsen_fit_scaled        = theilsen_fit * adjust_factors$diff + adjust_factors$adjust
+  )
+
+# ── Corrélation Spearman ──
+merged_data <- merge(
+  debit_clean |> select(date, débit),
+  SEXTANT_2000_2025_spm_95 |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
+
+correlation <- cor(merged_data$débit, merged_data$aire_panache_km2,
+                   method = "spearman", use = "complete.obs")
+p_value     <- cor.test(merged_data$débit, merged_data$aire_panache_km2,
+                        method = "spearman")$p.value
+
+n_debit   <- sum(!is.na(Y6442010_depuis_2006$débit))
+n_panache <- sum(!is.na(SEXTANT_2000_2025_spm_95$aire_panache_km2))
+n_commun  <- nrow(merged_data)
+
+ggplot() +
+  # Aire des panaches
+  geom_line(
+    data = SEXTANT_2000_2025_spm_95,
+    aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
+  # Tendance Theil-Sen panaches
+  geom_line(
+    data = SEXTANT_2000_2025_spm_95,
+    aes(x = date, y = theilsen_fit_scaled, color = "Tendance panaches"),
+    linewidth = 1.2
+  ) +
+  # Débit
+  geom_line(
+    data = debit_clean,
+    aes(x = date, y = débit, color = "Débit"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
+  # Tendance Theil-Sen débit
+  geom_line(
+    data = debit_clean,
+    aes(x = date, y = theilsen_fit_debit, color = "Tendance débit"),
+    linewidth = 1.2
+  ) +
+  scale_color_manual(
+    values = c(
+      "Aire des panaches" = "darkcyan",
+      "Tendance panaches" = "darkcyan",
+      "Débit"             = "blue",
+      "Tendance débit"    = "blue"
+    ),
+    name = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  # Corrélation Spearman — haut droite
+  annotate(
+    "text",
+    x = max(SEXTANT_2000_2025_spm_95$date, na.rm = TRUE),
+    y = max(debit_clean$débit, na.rm = TRUE) * 0.97,
+    hjust = 1, vjust = 1, size = 8,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation, 2),
+      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3)),
+      "\nn = ", n_commun
+    )
+  ) +
+  # Tendance Theil-Sen panaches — haut gauche
+  annotate(
+    "text",
+    x = as.Date("2000-01-01"),
+    y = max(debit_clean$débit, na.rm = TRUE) * 0.97,
+    hjust = 0, vjust = 1, size = 8,
+    color = "darkcyan", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance panaches : ", round(slope_kmjan, 2), " km²/an",
+      "\np ", ifelse(mk_result$p.value < 0.001, "< 0.001",
+                                  ifelse(mk_result$p.value < 0.05, "< 0.05",
+                                         paste0("= ", round(mk_result$p.value, 3)))),
+      "\nn = ", n_panache
+    )
+  ) +
+  # Tendance Theil-Sen débit — milieu gauche
+  annotate(
+    "text",
+    x = as.Date("2000-01-01"),
+    y = max(debit_clean$débit, na.rm = TRUE) * 0.70,
+    hjust = 0, vjust = 1, size = 8,
+    color = "blue", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance débit : ", round(slope_debit_jan, 2), " m³/s/an",
+      "\np ", ifelse(mk_debit$p.value < 0.001, "< 0.001",
+                                  ifelse(mk_debit$p.value < 0.05, "< 0.05",
+                                         paste0("= ", round(mk_debit$p.value, 3))))
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit du Var",
+    subtitle = "Produit SEXTANT OC5 (2000–2025)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
 
 ggplot() +
   # Aire des panaches en fond avec alpha
