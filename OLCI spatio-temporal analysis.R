@@ -1594,7 +1594,7 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = mean_spm)) +
     labels   = c("0.01", "0.1", "1", "10"),
     oob      = scales::squish
   ) +
-  facet_wrap(~ month, ncol = 4,
+  facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
                "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
@@ -1607,27 +1607,28 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = mean_spm)) +
     x = NULL, y = NULL
   ) +
   guides(fill = guide_colorbar(
-    barwidth       = 0.8,
-    barheight      = 12,
+    barwidth       = 15,   # ← large comme SEXTANT
+    barheight      = 0.8,  # ← fine
     ticks          = TRUE,
     title.position = "top",
-    title.hjust    = 0.5
+    title.hjust    = 0.5,
+    direction      = "horizontal"
   )) +
   theme_bw(base_size = 11) +
   theme(
     strip.background = element_rect(fill = "grey20", color = NA),
     strip.text       = element_text(color = "white", face = "bold", size = 9),
-    axis.text        = element_text(size = 9, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
     panel.grid       = element_blank(),
     panel.border     = element_rect(color = "grey60", linewidth = 0.4),
     panel.spacing    = unit(0.15, "lines"),
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
     plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
     plot.margin      = margin(10, 10, 10, 10),
-    legend.position  = "right",
+    legend.position  = "bottom",
     legend.title     = element_text(size = 9, face = "bold"),
     legend.text      = element_text(size = 8)
   )
@@ -1660,7 +1661,7 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
     labels   = c("0.01", "0.1", "1", "10"),
     oob      = scales::squish
   ) +
-  facet_wrap(~ month, ncol = 4,
+  facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
                "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
@@ -1673,29 +1674,32 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
     x = NULL, y = NULL
   ) +
   guides(fill = guide_colorbar(
-    barwidth       = 0.8,
-    barheight      = 12,
+    barwidth       = 15,   # ← large comme SEXTANT
+    barheight      = 0.8,  # ← fine
     ticks          = TRUE,
     title.position = "top",
-    title.hjust    = 0.5
+    title.hjust    = 0.5,
+    direction      = "horizontal"
   )) +
   theme_bw(base_size = 11) +
   theme(
     strip.background = element_rect(fill = "grey20", color = NA),
     strip.text       = element_text(color = "white", face = "bold", size = 9),
-    axis.text        = element_text(size = 9, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
     panel.grid       = element_blank(),
     panel.border     = element_rect(color = "grey60", linewidth = 0.4),
     panel.spacing    = unit(0.15, "lines"),
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
     plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
     plot.margin      = margin(10, 10, 10, 10),
-    legend.position  = "right",
+    legend.position  = "bottom",
     legend.title     = element_text(size = 9, face = "bold"),
     legend.text      = element_text(size = 8)
   )
 
 
+nc <- nc_open("~/Downloads/nommmmm/L3m_20020619__FRANCE_03_MER_CDOM-PO_DAY_00.nc")
+print(nc)

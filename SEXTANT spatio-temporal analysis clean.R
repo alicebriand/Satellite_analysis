@@ -28,6 +28,7 @@ library(patchwork)
 library(zoo)
 library(trend)
 library(mblm)
+library(modifiedmk)
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -111,6 +112,8 @@ load("data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
 load("data/SEXTANT/SPM/sextant_1998_2025_SPM.Rdata")
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
+load("data/Hydro France/All_debit.Rdata")
+load("data/Hydro France/")
 load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
 load("~/Vent/data/wind_1994_2007.Rdata")
 load("~/Vent/data/wind_2007_2025.Rdata")
@@ -442,70 +445,36 @@ ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = mean_spm)) +
   )
 
 
-# median spm
-model_sextant_1998_95 <- lm(median_spm ~ date, data = SEXTANT_1998_2025_spm_95)
-p_value_sextant_1998_95 <- summary(model_sextant_1998_95)$coefficients[2, 4]  # p-value pour la pente
-intercept_sextant_1998_95 <- coef(model_sextant_1998_95)[1]
-slope_sextant_1998_95 <- coef(model_sextant_1998_95)[2]
+## Évolution de la concentration médiane en MES dans les panaches ----------
 
-ggplot(data = SEXTANT_1998_2025_spm_95, aes(x = date, y = median_spm)) +
-  # Points avec style épuré
-  geom_point(
-    size = 2,
-    shape = 21,
-    fill = "red3",
-    color = "white",
-    stroke = 0.5,
-    # alpha = 0.85
-  ) +
-  # Ligne de régression avec intervalle de confiance
-  geom_smooth(
-    method = "lm",
-    se = TRUE,
-    color = "darkslateblue",
-    fill = "darkslateblue",
-    alpha = 0.15,
-    linewidth = 1.5
-  ) +
-  # Annotation pour l'équation et la p-value (en haut à droite)
-  annotate(
-    "text",
-    x = max(SEXTANT_1998_2025_spm_95$date, na.rm = TRUE),
-    y = max(SEXTANT_1998_2025_spm_95$mean_spm, na.rm = TRUE),
-    hjust = 1,  # Alignement à droite
-    vjust = 1,  # Alignement en haut
-    label = paste0(
-      "y = ", round(intercept_sextant_1998_95, 3), " + ", round(slope_sextant_1998_95, 7), " × x",
-      "\n", "p = ", ifelse(p_value_sextant_1998_95 < 0.001, "< 0.001", format(p_value_sextant_1998_95, digits = 3))
-    ),
-    size = 8,
-    color = "grey20",
-    fontface = "italic",
-    family = "serif"
-  ) +
-  # Titre et labels
-  labs(
-    title = "Évolution de la concentration médiane en MES dans les panaches turbides de la baie des Anges",
-    subtitle = "Produit SEXTANT OC5 (1998-2025)",
-    x = "Date",
-    y = expression("Concentration en MES (g m"^{-3}*")")
-  ) +
-  # Thème sobre et élégant
-  theme_bw(base_size = 14) +
-  theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
-    plot.subtitle = element_text(size = 13, hjust = 0.5, color = "grey50"),
-    axis.title = element_text(face = "bold"),
-    axis.text = element_text(color = "grey30"),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "grey70"),
-    plot.margin = margin(1, 1, 1, 1, "cm")  # Marges ajustées pour éviter le chevauchement
-  ) +
-  # Échelle des dates
-  scale_x_date(
-    date_breaks = "5 years",
-    date_labels = "%Y"
-  )
+# Test de Mann Kendall --> y at-il une évolution ?
+
+# ── 0. Nettoyage préalable ─────────────────────────────────────────────────────
+SEXTANT_1998_2025_spm_95_clean <- SEXTANT_1998_2025_spm_95 %>%
+  arrange(date) %>%
+  filter(!is.na(median_spm) & is.finite(median_spm))   
+
+# ── 1. Test de Mann-Kendall modifié (robuste à l'autocorrélation) ──────────────
+mk_result <- mmkh(SEXTANT_1998_2025_spm_95_clean$median_spm)  # Hamed & Rao modified MK
+
+# Extraction des résultats clés
+tau        <- mk_result["Tau"]        # Coefficient de corrélation de rang (-1 à 1)
+print(tau)
+p_value_mk <- mk_result["new P-value"]    # p-value corrigée
+print(p_value_mk)
+p_value_old    <- mk_result["old P.value"]
+s_stat     <- mk_result["S"]          # Statistique S de Mann-Kendall
+print(s_stat)
+
+# ── 2. Pente de Sen (magnitude de la tendance) ────────────────────────────────
+sen_result    <- sens.slope(SEXTANT_1998_2025_spm_95_clean$median_spm)
+sen_slope     <- sen_result$estimates   # Pente en g m⁻³ par unité de temps (pas de temps)
+sen_slope_day <- sen_slope              # Si tes données sont journalières
+sen_slope_yr  <- sen_slope * 365.25     # Tendance annuelle (plus interprétable)
+sen_ci_low    <- sen_result$conf.int[1] # Intervalle de confiance 95%
+sen_ci_high   <- sen_result$conf.int[2]
+
+
 
 # en échelle log
 
@@ -825,10 +794,10 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |>
 cat("Tendance Theil-Sen :", round(slope_kmjan, 2), "km²/an\n")
 cat("Mann-Kendall p =", round(mk_result$p.value, 4), "\n")
 
-##### tendance runoff ---------------------------------------
+##### tendance runoff Var ---------------------------------------
 
 Y6442010_depuis_2006 <- Y6442010_depuis_2000 |> 
-  filter(date >= "2006-01-01")
+  filter(date >= "2006-01-01", date <= "2025-12-31")
 
 # Supprimer les NA avant le test
 debit_clean <- Y6442010_depuis_2006 |>
@@ -891,6 +860,9 @@ correlation <- cor(merged_data$débit, merged_data$aire_panache_km2,
                    method = "spearman", use = "complete.obs")
 p_value     <- cor.test(merged_data$débit, merged_data$aire_panache_km2,
                         method = "spearman")$p.value
+cat("r =", round(correlation, 3), "\n")
+cat("p =", round(p_value, 4), "\n")
+cor.test(merged_data$débit, merged_data$aire_panache_km2, method = "spearman")
 
 n_debit   <- sum(!is.na(Y6442010_depuis_2006$débit))
 n_panache <- sum(!is.na(SEXTANT_2000_2025_spm_95$aire_panache_km2))
@@ -2517,10 +2489,93 @@ ggarrange(
     )
   )
 
-# spatial climatology -----------------------------------------------------
 
-# supperposer climatologie panache et X11 -----------------------------------------------------
+# cartographie du 12 au 18 avril 2024 -------------------------------------
 
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
+SEXTANT_2024 <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(date >= as.Date("2024-04-12"), date <= as.Date("2024-04-18"))
+
+max_spm <- max(SEXTANT_2024$analysed_spim, na.rm = TRUE)
+
+# Créer un graphique par jour
+dates_semaine <- seq(as.Date("2024-04-12"), as.Date("2024-04-18"), by = "day")
+lettres <- c("a)", "b)", "c)", "d)", "e)", "f)", "g)")
+
+plots <- map2(dates_semaine, lettres, function(d, lettre) {
+  
+  df_jour <- SEXTANT_2024 |> filter(date == d)
+  
+  ggplot() +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    geom_tile(data = df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    scale_fill_viridis_c(
+      option   = "plasma",
+      name     = expression("MES (g m"^{-3}*")"),
+      limits   = c(0, 15),
+      na.value = "transparent"
+    ) +
+    labs(
+      title = paste0(lettre, " ", format(d, "%d %B %Y")),
+      x = NULL, y = NULL
+    ) +
+    coord_sf(
+      xlim        = range(SEXTANT_2024$lon),
+      ylim        = range(SEXTANT_2024$lat),
+      expand      = FALSE,
+      default_crs = sf::st_crs(4326)
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title       = element_text(face = "bold", size = 11),
+      panel.border     = element_rect(colour = "black", fill = NA),
+      panel.grid.minor = element_blank(),
+      legend.position  = "none",  # légende commune en dessous
+      axis.text        = element_text(size = 7)
+    )
+})
+
+# Légende commune
+legende <- get_legend(
+  plots[[1]] +
+    guides(fill = guide_colorbar(
+      barwidth       = 15,
+      barheight      = 1,
+      title.position = "top",
+      title.hjust    = 0.5
+    )) +
+    theme(legend.position = "bottom",
+          legend.title    = element_text(size = 11),
+          legend.text     = element_text(size = 9))
+)
+
+# Assembler
+figure <- ggarrange(
+  plotlist = plots,
+  ncol     = 4,
+  nrow     = 2,
+  legend   = "none"
+)
+
+# Ajouter titre général et légende
+ggarrange(
+  figure,
+  legende,
+  ncol    = 1,
+  heights = c(10, 1)
+) |>
+  annotate_figure(
+    top = text_grob(
+      "Distribution spatiale des MES — semaine du 12 au 18 avril 2024",
+      face = "bold", size = 13
+    ),
+    bottom = text_grob(
+      "Sextant OC5",
+      color = "grey50", size = 10
+    )
+  )
 
 

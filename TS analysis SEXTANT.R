@@ -23,6 +23,7 @@ library(ggpubr)
 library(patchwork)
 library(seasonal)
 library(sf)
+library(zoo)
 
 # functions -----------------------------------------------------------------
 
@@ -1346,11 +1347,11 @@ SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |>
 chl_mensuel <- SEXTANT_1998_2025_chl_clean |>
   mutate(mois = floor_date(date, "month")) |>
   group_by(mois) |>
-  summarise(MES_mois = mean(analysed_chl_a, na.rm = TRUE))
+  summarise(CHL_mois = mean(analysed_chl_a, na.rm = TRUE))
 
 # Créer la série temporelle sur la colonne débit uniquement
 chl_ts <- ts(
-  data      = CHL_mensuel$MES_mois,  # ← juste la colonne
+  data      = chl_mensuel$CHL_mois,  # ← juste la colonne
   start     = c(2008, 1),
   frequency = 12
 )
@@ -1459,11 +1460,133 @@ ggplot(saisonnalite_clim_chl, aes(x = month, y = mean_sais, group = 1)) +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank())
 
-# comparaison X11 débit et aire panache -----------------------------------
+# décomposition X11 de la concentration en MES ---------------------------------------
 
-# premièrement le débit, on refait la décomposition X11
+SEXTANT_1998_2025_spm_clean <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(analysed_spim >= 0) |> 
+  filter(date >= as.Date("2008-01-01"), date <= as.Date("2019-12-31")) |> 
+  mutate(year = year(date),
+         month = month(date),
+         doy = yday(date))
 
-### X11 decomposition --------------------------------------------------
+# Agréger en mensuel
+spm_mensuel <- SEXTANT_1998_2025_spm_clean |>
+  mutate(mois = floor_date(date, "month")) |>
+  group_by(mois) |>
+  summarise(spm_mois = mean(analysed_spim, na.rm = TRUE))
+
+# Créer la série temporelle sur la colonne débit uniquement
+spm_ts <- ts(
+  data      = spm_mensuel$spm_mois,  # ← juste la colonne
+  start     = c(2008, 1),
+  frequency = 12
+)
+
+# Appliquer X11
+x11_result_spm <- seas(spm_ts, x11 = "")
+
+# 3. Inspecter les résultats
+summary(x11_result_spm)
+
+# 4. Extraire les composantes
+composantes_spm <- data.frame(
+  date         = spm_mensuel$mois,
+  observed     = as.numeric(original(x11_result_spm)),
+  tendance     = as.numeric(trend(x11_result_spm)),
+  saisonnalite = as.numeric(series(x11_result_spm, "d10")),  # facteurs saisonniers X11
+  residus      = as.numeric(irregular(x11_result_spm))
+)
+
+# 5. Visualiser
+composantes_long_spm <- composantes_spm |>
+  pivot_longer(-date, names_to = "composante", values_to = "valeur") |>
+  mutate(composante = factor(composante,
+                             levels = c("observed", "tendance", "saisonnalite", "residus")))
+
+# Graphique 1 — Signal brut + tendance
+p1 <- ggplot(composantes_spm, aes(x = date)) +
+  geom_line(aes(y = observed, color = "Signal brut"), linewidth = 0.5, alpha = 0.7) +
+  geom_line(aes(y = tendance, color = "Tendance"), linewidth = 1.1) +
+  scale_color_manual(values = c("Signal brut" = "steelblue", "Tendance" = "firebrick")) +
+  labs(title = "a) Signal observé et tendance", x = NULL, y = "Concentration en MES (g.m-3)", color = NULL) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    legend.position  = "top",
+    legend.text      = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_blank(),
+    axis.ticks.x     = element_blank()
+  )
+
+# Graphique 2 — Saisonnalité
+p2 <- ggplot(composantes_spm, aes(x = date, y = saisonnalite)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey60", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = pmin(saisonnalite, 0), ymax = 0), fill = "steelblue", alpha = 0.3) +
+  geom_ribbon(aes(ymin = 0, ymax = pmax(saisonnalite, 0)), fill = "red3", alpha = 0.3) +
+  geom_line(color = "grey30", linewidth = 0.6) +
+  labs(title = "b) Composante saisonnière", x = NULL, y = "Concentration en MES (g.m-3)") +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_blank(),
+    axis.ticks.x     = element_blank()
+  )
+
+# Graphique 3 — Résidus
+p3 <- ggplot(composantes_spm, aes(x = date, y = residus)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey60", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = pmin(residus, 1), ymax = 1), fill = "steelblue", alpha = 0.3) +
+  geom_ribbon(aes(ymin = 1, ymax = pmax(residus, 1)), fill = "tomato", alpha = 0.3) +
+  geom_line(color = "grey30", linewidth = 0.6) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(title = "c) Résidus (irrégulier)", x = NULL, y = "Facteur") +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_text(angle = 45, hjust = 1)
+  )
+
+# Assembler
+(p1 / p2 / p3) +
+  plot_annotation(
+    title    = "Décomposition X11 de la concentration en MES — 2008–2019",
+    subtitle = "Sextant OC5",
+    theme    = theme(
+      plot.title    = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 11, color = "grey50")
+    )
+  )
+
+# Moyenne de la saisonnalité par mois + min/max
+saisonnalite_clim_spm <- composantes_spm |>
+  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  group_by(month) |>
+  summarise(
+    mean_sais = mean(saisonnalite, na.rm = TRUE),
+    min_sais  = min(saisonnalite,  na.rm = TRUE),
+    max_sais  = max(saisonnalite,  na.rm = TRUE)
+  )
+
+# Plot
+ggplot(saisonnalite_clim_spm, aes(x = month, y = mean_sais, group = 1)) +
+  geom_ribbon(aes(ymin = min_sais, ymax = max_sais),
+              fill = "red3", alpha = 0.25) +
+  geom_line(color = "red3", linewidth = 1) +
+  geom_point(color = "red3", size = 2.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
+  labs(
+    title    = "Saisonnalité X11 de la concentration en MES",
+    subtitle = "Moyenne mensuelle 2008–2019 (enveloppe = min/max)",
+    x        = NULL,
+    y        = "Facteur saisonnier"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+# décomposition X11 du débit ---------------------------------------
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
@@ -1488,9 +1611,6 @@ Y6442010_2008_2019 |>
     n_jours   = n()
   ) |>
   arrange(debut)
-
-# interpolation
-library(zoo)
 
 Y6442010_2008_2019 <- Y6442010_2008_2019 |>
   arrange(date) |>
@@ -1639,9 +1759,150 @@ ggplot(saisonnalite_clim_débit, aes(x = month, y = mean_sais, group = 1)) +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank())
 
-# ensuite on veut supperposer les deux
+# décomposition X11 des précipitations ---------------------------------------
 
+Wind_T <- read.csv("~/Vent/data/Q_06_previous-1950-2024_RR-T-Vent.csv", 
+                   header = TRUE, sep = ";")
+
+Wind_T <- Wind_T |> 
+  filter(NUM_POSTE == "6088001") |> 
+  select("LAT", "LON", "NUM_POSTE", "FFM", "DXY", "HXI", "RR", "TM")
+
+Wind_T <- Wind_T |> 
+  mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
+
+Wind_T <- Wind_T |> 
+  mutate(
+    annee = year(date),
+    mois = month(date)
+  )
+
+Wind_T <- Wind_T |> 
+  filter(date >= "2008-01-01", date <= "2019-12-31")
+
+# Agréger en mensuel
+pluie_mois <- Wind_T |>
+  mutate(mois = floor_date(date, "month")) |>
+  group_by(mois) |>
+  summarise(rr_mois = mean(RR, na.rm = TRUE))
+
+# Créer la série temporelle sur la colonne débit uniquement
+pluie_ts <- ts(
+  data      = pluie_mois$rr_mois,  # ← juste la colonne
+  start     = c(2008, 1),
+  frequency = 12
+)
+
+# Appliquer X11
+x11_result_pluie <- seas(pluie_ts, x11 = "")
+
+# 3. Inspecter les résultats
+summary(x11_result_pluie)
+
+# 4. Extraire les composantes
+composantes_pluie <- data.frame(
+  date         = pluie_mois$mois,
+  observed     = as.numeric(original(x11_result_pluie)),
+  tendance     = as.numeric(trend(x11_result_pluie)),
+  saisonnalite = as.numeric(series(x11_result_pluie, "d10")),  # facteurs saisonniers X11
+  residus      = as.numeric(irregular(x11_result_pluie))
+)
+
+# 5. Visualiser
+composantes_long_pluie <- composantes_pluie |>
+  pivot_longer(-date, names_to = "composante", values_to = "valeur") |>
+  mutate(composante = factor(composante,
+                             levels = c("observed", "tendance", "saisonnalite", "residus")))
+
+# Graphique 1 — Signal brut + tendance
+p1 <- ggplot(composantes_pluie, aes(x = date)) +
+  geom_line(aes(y = observed, color = "Signal brut"), linewidth = 0.5, alpha = 0.7) +
+  geom_line(aes(y = tendance, color = "Tendance"), linewidth = 1.1) +
+  scale_color_manual(values = c("Signal brut" = "steelblue", "Tendance" = "firebrick")) +
+  labs(title = "a) Signal observé et tendance", x = NULL, y = "Précipitations (mm)", color = NULL) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    legend.position  = "top",
+    legend.text      = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_blank(),
+    axis.ticks.x     = element_blank()
+  )
+
+# Graphique 2 — Saisonnalité
+p2 <- ggplot(composantes_pluie, aes(x = date, y = saisonnalite)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey60", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = pmin(saisonnalite, 0), ymax = 0), fill = "steelblue", alpha = 0.3) +
+  geom_ribbon(aes(ymin = 0, ymax = pmax(saisonnalite, 0)), fill = "red3", alpha = 0.3) +
+  geom_line(color = "grey30", linewidth = 0.6) +
+  labs(title = "b) Composante saisonnière", x = NULL, y = "Précipitations (mm)") +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_blank(),
+    axis.ticks.x     = element_blank()
+  )
+
+# Graphique 3 — Résidus
+p3 <- ggplot(composantes_pluie, aes(x = date, y = residus)) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey60", linewidth = 0.4) +
+  geom_ribbon(aes(ymin = pmin(residus, 1), ymax = 1), fill = "steelblue", alpha = 0.3) +
+  geom_ribbon(aes(ymin = 1, ymax = pmax(residus, 1)), fill = "tomato", alpha = 0.3) +
+  geom_line(color = "grey30", linewidth = 0.6) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
+  labs(title = "c) Résidus (irrégulier)", x = NULL, y = "Facteur") +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 11),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_text(angle = 45, hjust = 1)
+  )
+
+# Assembler
+(p1 / p2 / p3) +
+  plot_annotation(
+    title    = "Décomposition X11 des précipitations — 2008–2019",
+    subtitle = "Sextant OC5",
+    theme    = theme(
+      plot.title    = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 11, color = "grey50")
+    )
+  )
+
+# Moyenne de la saisonnalité par mois + min/max
+saisonnalite_clim_pluie <- composantes_pluie |>
+  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  group_by(month) |>
+  summarise(
+    mean_sais = mean(saisonnalite, na.rm = TRUE),
+    min_sais  = min(saisonnalite,  na.rm = TRUE),
+    max_sais  = max(saisonnalite,  na.rm = TRUE)
+  )
+
+# Plot
+ggplot(saisonnalite_clim_pluie, aes(x = month, y = mean_sais, group = 1)) +
+  geom_ribbon(aes(ymin = min_sais, ymax = max_sais),
+              fill = "red3", alpha = 0.25) +
+  geom_line(color = "red3", linewidth = 1) +
+  geom_point(color = "red3", size = 2.5) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
+  labs(
+    title    = "Saisonnalité X11 des précipitations",
+    subtitle = "Moyenne mensuelle 2008–2019 (enveloppe = min/max)",
+    x        = NULL,
+    y        = "Facteur saisonnier"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank())
+
+
+# superposition -----------------------------------------------------------
+
+# ensuite on veut supperposer les quatres
 ggplot() +
+  # Aire des panaches
   geom_ribbon(data = saisonnalite_clim_panache,
               aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
               fill = "#00897B", alpha = 0.15) +
@@ -1651,6 +1912,7 @@ ggplot() +
   geom_point(data = saisonnalite_clim_panache,
              aes(x = month, y = mean_sais, color = "Aire des panaches", group = 1),
              size = 2.5) +
+  # Débit du Var
   geom_ribbon(data = saisonnalite_clim_débit,
               aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
               fill = "blue", alpha = 0.15) +
@@ -1660,23 +1922,39 @@ ggplot() +
   geom_point(data = saisonnalite_clim_débit,
              aes(x = month, y = mean_sais, color = "Débit du Var", group = 1),
              size = 2.5) +
+  # Chlorophylle a
   geom_ribbon(data = saisonnalite_clim_chl,
-             aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-             fill = "chartreuse3", alpha = 0.15) +
-  geom_line(data = saisonnalite_clim_chl, 
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "chartreuse3", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_chl,
             aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
             linewidth = 1.1) +
   geom_point(data = saisonnalite_clim_chl,
              aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
              size = 2.5) +
+  # ── AJOUT : Concentration en MES ──────────────────────────────────────────
+  geom_ribbon(data = saisonnalite_clim_spm,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "red3", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_spm,
+            aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_spm,
+             aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
+             size = 2.5) +
+  # ──────────────────────────────────────────────────────────────────────────
   geom_hline(yintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
   scale_color_manual(
-    values = c("Aire des panaches" = "#00897B", "Débit du Var" = "blue", 
-               "Concentration en chlorophylle a" = "chartreuse3"),
-    guide  = guide_legend(override.aes = list(linewidth = 1.5, size = 3))
+    values = c(
+      "Aire des panaches"              = "#00897B",
+      "Débit du Var"                   = "blue",
+      "Concentration en chlorophylle a" = "chartreuse3",
+      "Concentration en MES"           = "red3"   # ← ajout
+    ),
+    guide = guide_legend(override.aes = list(linewidth = 1.5, size = 3))
   ) +
   labs(
-    title    = "Saisonnalité X11 — Débit du Var, aire des panaches turbides et concentration en chlorophylle a",
+    title    = "Saisonnalité X11 — Débit du Var, aire des panaches turbides, MES et chlorophylle a",
     subtitle = "Moyenne mensuelle 2008–2019 · enveloppe = min/max interannuel",
     x        = NULL,
     y        = "Facteur saisonnier",
@@ -1693,6 +1971,89 @@ ggplot() +
     axis.text         = element_text(color = "grey30"),
     axis.text.x       = element_text(size = 11)
   )
+
+ggplot() +
+  # Aire des panaches
+  geom_ribbon(data = saisonnalite_clim_panache,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "#00897B", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_panache,
+            aes(x = month, y = mean_sais, color = "Aire des panaches", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_panache,
+             aes(x = month, y = mean_sais, color = "Aire des panaches", group = 1),
+             size = 2.5) +
+  # Débit du Var
+  geom_ribbon(data = saisonnalite_clim_débit,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "blue", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_débit,
+            aes(x = month, y = mean_sais, color = "Débit du Var", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_débit,
+             aes(x = month, y = mean_sais, color = "Débit du Var", group = 1),
+             size = 2.5) +
+  # Chlorophylle a
+  geom_ribbon(data = saisonnalite_clim_chl,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "chartreuse3", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_chl,
+            aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_chl,
+             aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
+             size = 2.5) +
+  # Concentration en MES
+  geom_ribbon(data = saisonnalite_clim_spm,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "red3", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_spm,
+            aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_spm,
+             aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
+             size = 2.5) +
+  # ── AJOUT : Précipitations ─────────────────────────────────────────────────
+  geom_ribbon(data = saisonnalite_clim_pluie,
+              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
+              fill = "steelblue", alpha = 0.15) +
+  geom_line(data = saisonnalite_clim_pluie,
+            aes(x = month, y = mean_sais, color = "Précipitations", group = 1),
+            linewidth = 1.1) +
+  geom_point(data = saisonnalite_clim_pluie,
+             aes(x = month, y = mean_sais, color = "Précipitations", group = 1),
+             size = 2.5) +
+  # ──────────────────────────────────────────────────────────────────────────
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
+  scale_color_manual(
+    values = c(
+      "Aire des panaches"               = "#00897B",
+      "Débit du Var"                    = "blue",
+      "Concentration en chlorophylle a" = "chartreuse3",
+      "Concentration en MES"            = "red3",
+      "Précipitations"                  = "steelblue"  # ← ajout
+    ),
+    guide = guide_legend(override.aes = list(linewidth = 1.5, size = 3))
+  ) +
+  labs(
+    title    = "Saisonnalité X11 — Débit du Var, panaches turbides, MES, chlorophylle a et précipitations",
+    subtitle = "Moyenne mensuelle 2008–2019 · enveloppe = min/max interannuel",
+    x        = NULL,
+    y        = "Facteur saisonnier",
+    color    = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(color = "grey93"),
+    plot.title        = element_text(face = "bold", size = 13),
+    plot.subtitle     = element_text(color = "grey50", size = 10, margin = margin(b = 10)),
+    legend.position   = "top",
+    legend.text       = element_text(size = 11),
+    axis.text         = element_text(color = "grey30"),
+    axis.text.x       = element_text(size = 11)
+  )
+
 
 # spatial climatology -----------------------------------------------------
 
@@ -1746,8 +2107,8 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = mean_spm)) 
   geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
           inherit.aes = FALSE, linewidth = 0.25) +
   coord_sf(
-    xlim = range(clim_spatiale_spm_month$lon),
-    ylim = range(clim_spatiale_spm_month$lat),
+    xlim = range(clim_spatiale_spm_month_sextant$lon),
+    ylim = range(clim_spatiale_spm_month_sextant$lat),
     expand = TRUE
   ) +
   scale_x_continuous(
@@ -1766,7 +2127,7 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = mean_spm)) 
     breaks   = c(0.01, 0.1, 1, 10),
     labels   = c("0.01", "0.1", "1", "10")
   ) +
-  facet_wrap(~ month, ncol = 4,
+  facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
                "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
@@ -1779,32 +2140,35 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = mean_spm)) 
     x = NULL, y = NULL
   ) +
   guides(fill = guide_colorbar(
-    barwidth       = 0.8,
-    barheight      = 12,
+    barwidth       = 15,
+    barheight      = 0.8,
     ticks          = TRUE,
     title.position = "top",
-    title.hjust    = 0.5
+    title.hjust    = 0.5,
+    direction      = "horizontal"
   )) +
   theme_bw(base_size = 11) +
   theme(
     strip.background = element_rect(fill = "grey20", color = NA),
     strip.text       = element_text(color = "white", face = "bold", size = 9),
-    axis.text        = element_text(size = 9, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
     panel.grid       = element_blank(),
     panel.border     = element_rect(color = "grey60", linewidth = 0.4),
     panel.spacing    = unit(0.15, "lines"),
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
     plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
     plot.margin      = margin(10, 10, 10, 10),
-    legend.position  = "right",
+    legend.position  = "bottom",
     legend.title     = element_text(size = 9, face = "bold"),
     legend.text      = element_text(size = 8)
   )
 
-# plot mensuel de la concentration en MES
+
+
+# plot mensuel de l'erreur standard à la concentration en MES
 ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = sd_spm)) +
   geom_raster() +
   geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
@@ -1830,7 +2194,7 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = sd_spm)) +
     breaks   = c(0.01, 0.1, 1, 10),
     labels   = c("0.01", "0.1", "1", "10")
   ) +
-  facet_wrap(~ month, ncol = 4,
+  facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
                "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
@@ -1843,27 +2207,28 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = sd_spm)) +
     x = NULL, y = NULL
   ) +
   guides(fill = guide_colorbar(
-    barwidth       = 0.8,
-    barheight      = 12,
+    barwidth       = 15,
+    barheight      = 0.8,
     ticks          = TRUE,
     title.position = "top",
-    title.hjust    = 0.5
+    title.hjust    = 0.5,
+    direction      = "horizontal"
   )) +
   theme_bw(base_size = 11) +
   theme(
     strip.background = element_rect(fill = "grey20", color = NA),
     strip.text       = element_text(color = "white", face = "bold", size = 9),
-    axis.text        = element_text(size = 9, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
     panel.grid       = element_blank(),
     panel.border     = element_rect(color = "grey60", linewidth = 0.4),
     panel.spacing    = unit(0.15, "lines"),
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
     plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
     plot.margin      = margin(10, 10, 10, 10),
-    legend.position  = "right",
+    legend.position  = "bottom",
     legend.title     = element_text(size = 9, face = "bold"),
     legend.text      = element_text(size = 8)
   )
@@ -1875,10 +2240,10 @@ sum(SEXTANT_1998_2025_chl_pixels$analysed_chl_a < 0, na.rm = TRUE)
 # [1] 19808
 
 # supprimer seulement les valeurs négatives
-SEXTANT_1198_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |>
+SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |>
   filter(analysed_chl_a >= 0, analysed_chl_a <= 20 | is.na(analysed_chl_a))
 
-SEXTANT_2008_2019_chl_clean <- SEXTANT_1998_2025_chl_clean |> 
+SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_clean |> 
   mutate(
     date = as.Date(date),  
     year = year(date),     
@@ -1888,7 +2253,7 @@ SEXTANT_2008_2019_chl_clean <- SEXTANT_1998_2025_chl_clean |>
   filter(date >= as.Date("1998-01-01"), date <= as.Date("2025-12-31"))
 
 # ── Climatologie spatiale mensuelle (moyenne par pixel et par mois) ──
-clim_spatiale_chl_month <- SEXTANT_2008_2019_chl_clean |>
+clim_spatiale_chl_month <- SEXTANT_1998_2025_chl_clean |>
   mutate(month = month(date)) |>
   group_by(lon, lat, month) |>
   summarise(
@@ -1924,7 +2289,7 @@ ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = mean_chl)) +
     breaks   = c(0.01, 0.1, 1, 10),
     labels   = c("0.01", "0.1", "1", "10")
   ) +
-  facet_wrap(~ month, ncol = 4,
+  facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
                "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
@@ -1937,27 +2302,96 @@ ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = mean_chl)) +
     x = NULL, y = NULL
   ) +
   guides(fill = guide_colorbar(
-    barwidth       = 0.8,
-    barheight      = 12,
+    barwidth       = 15,
+    barheight      = 0.8,
     ticks          = TRUE,
     title.position = "top",
-    title.hjust    = 0.5
+    title.hjust    = 0.5,
+    direction      = "horizontal"
   )) +
   theme_bw(base_size = 11) +
   theme(
     strip.background = element_rect(fill = "grey20", color = NA),
     strip.text       = element_text(color = "white", face = "bold", size = 9),
-    axis.text        = element_text(size = 9, color = "grey30"),
-    axis.text.x      = element_text(angle = 45, hjust = 1),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
     axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
     panel.grid       = element_blank(),
     panel.border     = element_rect(color = "grey60", linewidth = 0.4),
     panel.spacing    = unit(0.15, "lines"),
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10, margin = margin(b = 10)),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
     plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
     plot.margin      = margin(10, 10, 10, 10),
-    legend.position  = "right",
+    legend.position  = "bottom",
     legend.title     = element_text(size = 9, face = "bold"),
     legend.text      = element_text(size = 8)
   )
+
+# sd chl
+ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = sd_chl)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_chl_month$lon),
+    ylim = range(clim_spatiale_chl_month$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("Chl a (µg. L"^{-1}*")"),
+    option   = "plasma",
+    na.value = "white",
+    breaks   = c(0.01, 0.1, 1, 10),
+    labels   = c("0.01", "0.1", "1", "10")
+  ) +
+  facet_wrap(~ month, ncol = 6,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de l'erreur standard à la concentration en chlorophylle a",
+    subtitle = "Période de référence : 1998–2025 · Produit Sextant OC5",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 15,
+    barheight      = 0.8,
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5,
+    direction      = "horizontal"
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
+    plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "bottom",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
+
+
+

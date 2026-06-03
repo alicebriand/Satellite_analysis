@@ -16,6 +16,7 @@ library(scales)
 library(RColorBrewer)
 library(ggpubr)
 library(circular)
+library(Kendall)
 
 # load --------------------------------------------------------------------
 
@@ -467,10 +468,16 @@ Wind_T <- Wind_T |>
   select("LAT", "LON", "NUM_POSTE", "FFM", "DXY", "HXI", "RR", "TM")
 
 Wind_T <- Wind_T |> 
+  mutate(
+    annee = year(date),
+    mois = month(date)
+  )
+
+Wind_T <- Wind_T |> 
   mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
 
 Wind_T <- Wind_T |> 
-  filter(date >= "1998-01-01", date <= "2025-12-31")
+  filter(date >= "2006-01-01", date <= "2024-12-31")
 
 Wind_2015_2024 <- Wind_T |> 
   filter(date >= as.Date("2015-01-01"), date <= as.Date("2024-12-31"))
@@ -556,7 +563,7 @@ ggplot(East, aes(x = date, y = FFM)) +
   scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
   scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
   labs(
-    title = "Évolution de la vitesse du vent d'Est près de Nice (2008-2020)",
+    title = "Évolution de la vitesse du vent d'Est près de Nice (1998-2025)",
     x = NULL,
     y = "Vitesse du vent (m s⁻¹)",
     caption = "Source : Archives Météo France"
@@ -573,7 +580,7 @@ ggplot(East, aes(x = date, y = FFM)) +
     panel.border  = element_rect(color = "grey70", linewidth = 0.5)
   )
 
-# ya t'il eu une baisse dans la vitesse des vents de Nord Ouest
+# y a t'il eu une baisse dans la vitesse des vents de Nord Ouest
 
 model_wind <- lm(FFM ~ date, data = North_West)
 p_value_wind <- summary(model_wind)$coefficients[2, 4]  # p-value pour la pente
@@ -650,12 +657,35 @@ Wind_T <- Wind_T |>
     periode  = ifelse(annee <= 2013, "2008–2013", "2014–2019")
   )
 
+# 1. Vitesse moyenne annuelle par secteur
+vitesse_secteur <- Wind_T |>
+  group_by(annee, secteur) |>
+  summarise(vitesse_moy = mean(FFM, na.rm = TRUE), .groups = "drop")  # adapte FXY
+
+# 2. Mann-Kendall + Theil-Sen par secteur
+resultats_vitesse <- vitesse_secteur |>
+  group_by(secteur) |>
+  arrange(annee) |>
+  summarise(
+    mk_pval     = mk.test(vitesse_moy)$p.value,
+    mk_tau      = mk.test(vitesse_moy)$statistic,
+    pente_an    = sens.slope(vitesse_moy)$estimates,  # m/s par an
+    .groups = "drop"
+  ) |>
+  mutate(
+    significatif = ifelse(mk_pval < 0.05, "*", "ns"),
+    mk_pval_fmt  = ifelse(mk_pval < 2.2e-16, "< 2.2×10⁻¹⁶", round(mk_pval, 4))
+  )
+
+print(resultats_vitesse)
+
 # 2. Proportion annuelle par secteur --------------------------------------
-prop_annuelle <- Wind_T |>
+freq_secteur <- Wind_T |>
   group_by(annee, secteur) |>
   summarise(n = n(), .groups = "drop") |>
   group_by(annee) |>
-  mutate(prop = n / sum(n))
+  mutate(freq = n / sum(n) * 100) |>
+  ungroup()
 
 # 3. Proportion annuelle offshore/onshore ---------------------------------
 prop_regime <- Wind_T |>
@@ -665,17 +695,22 @@ prop_regime <- Wind_T |>
   mutate(prop = n / sum(n))
 
 # 4. Test de tendance de Mann-Kendall sur chaque régime ------------------
-library(Kendall)
 
-resultats_mk <- prop_regime |>
-  group_by(regime) |>
+resultats_secteur <- freq_secteur |>
+  group_by(secteur) |>
+  arrange(annee) |>
   summarise(
-    mk_tau   = MannKendall(prop)$tau,
-    mk_pval  = MannKendall(prop)$sl,
-    .groups  = "drop"
+    mk_pval     = mk.test(freq)$p.value,
+    mk_tau      = mk.test(freq)$statistic,
+    pente_an    = sens.slope(freq)$estimates,  # % par an
+    .groups = "drop"
+  ) |>
+  mutate(
+    significatif = ifelse(mk_pval < 0.05, "*", "ns"),
+    mk_pval_fmt  = ifelse(mk_pval < 2.2e-16, "< 2.2×10⁻¹⁶", round(mk_pval, 4))
   )
 
-print(resultats_mk)
+print(resultats_secteur)
 
 # 5. Test du chi² : comparaison des proportions entre deux périodes ------
 table_contingence <- Wind_T |>
@@ -1726,57 +1761,95 @@ ggplot(all_data, aes(x = wind_sector, y = aire_panache_km2, fill = wind_sector))
 
 # précipitations ----------------------------------------------------------
 
-# plot de la RR
-
-# Nettoyer les NA avant
-sum(is.na(Wind_T))
-# 3
-Wind_T_clean <- Wind_T |> drop_na(date, RR)
-
-Wind_T_clean <- Wind_T_clean |> 
-  mutate(date_num = as.numeric(date - min(date)))  # jours depuis le début
-
-model <- lm(RR ~ date_num, data = Wind_T_clean)
-
-# Modèle linéaire
-model <- lm(RR ~ date, data = Wind_T_clean)
-p_value <- summary(model)$coefficients[2, 4]
-n       <- nrow(Wind_T_clean)
-intercept <- coef(model)[1]
-slope     <- coef(model)[2]
-
-# plot
-ggplot(Wind_T_clean, aes(x = date, y = RR)) +
-  geom_point(alpha = 0.7, color = "steelblue", size = 2) +
-  geom_smooth(method = "lm", color = "firebrick", fill = "firebrick", alpha = 0.15, se = TRUE) +
-  annotate("label",
-           x = min(Wind_T_clean$date),
-           y = 48,
-           label = paste0("y = ", round(slope, 4), "x + ", round(intercept, 2),
-                          "\nn = ", n,
-                          "\np = ", signif(p_value, 3)),
-           hjust = 0, vjust = 1, size = 8, family = "serif",
-           fill = "white", color = "grey20",
-           label.size = 0.3, label.padding = unit(0.4, "lines")) +
-  scale_y_continuous(limits = c(0, 50)) +
-  scale_x_date(date_breaks = "2 years", date_labels = "%Y") +
-  labs(
-    title   = "Évolution des précipitations (1998-2025)",
-    x       = NULL,
-    y       = "Précipitations (mm)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid.minor  = element_blank(),
-    panel.grid.major  = element_line(color = "grey90"),
-    plot.title        = element_text(face = "bold", size = 14, margin = margin(b = 10)),
-    axis.text         = element_text(color = "grey30"),
-    axis.title.y      = element_text(margin = margin(r = 10))
+Wind_T <- Wind_T |> 
+  mutate(
+    annee = year(date),
+    mois = month(date)
   )
+
+# Option 1 — Totaux annuels (le plus courant)
+pluie_annuelle <- Wind_T |>
+  group_by(annee) |>
+  summarise(total = sum(RR, na.rm = TRUE))
+
+mk.test(pluie_annuelle$total)
+
+# Option 2 — Totaux mensuels (plus de points, tendance saisonnière possible)
+pluie_mensuelle <- Wind_T |>
+  group_by(annee, mois) |>
+  summarise(total = sum(RR, na.rm = TRUE), .groups = "drop") |>
+  arrange(annee, mois)
+
+# Conversion en série temporelle mensuelle
+pluie_ts <- ts(pluie_mensuelle$total, 
+               start = c(min(pluie_mensuelle$annee), 1), 
+               frequency = 12)
+
+smk.test(pluie_ts)
+
+# Sauvegarder le résultat MK
+mk_pluie <- mk.test(pluie_mensuelle$total)
+mk_pval  <- mk_pluie$p.value
+mk_label <- ifelse(mk_pval < 2.2e-16,
+                   "Tendance pluie : p < 2.2×10⁻¹⁶",
+                   paste0("Tendance pluie : p = ", round(mk_pval, 4),
+                          ifelse(mk_pval < 0.05, " *", " (ns)")))
 
 # les précipitations ont elles baisser ?
 # oui entre 2009 et 2019 mais non significativement
 # non entre 2000 et 2024, non significativement
+
+# Préparer les données journalières
+merged_lag <- merge(
+  All_debit,
+  Wind_T |> select(date, RR),
+  by = "date",
+  all = FALSE
+)
+
+# Calculer la corrélation pour chaque lag (0 à 7 jours)
+resultats_lag <- tibble(
+  lag       = 0:7,
+  rho       = NA_real_,
+  p_value   = NA_real_
+)
+
+for (i in 0:7) {
+  # Décaler les précipitations de i jours en avance sur le débit
+  merged_lag_i <- merged_lag |>
+    mutate(RR_lag = lag(RR, n = i))  # RR d'il y a i jours
+  
+  test <- cor.test(merged_lag_i$debit_cumule, 
+                   merged_lag_i$RR_lag, 
+                   method = "spearman", 
+                   use = "complete.obs")
+  
+  resultats_lag$rho[i + 1]     <- test$estimate
+  resultats_lag$p_value[i + 1] <- test$p.value
+}
+
+# Afficher les résultats
+print(resultats_lag)
+
+# Identifier le meilleur lag
+meilleur_lag <- resultats_lag |> 
+  filter(p_value < 0.05) |>   # seulement les significatifs
+  slice_max(abs(rho), n = 1)
+
+cat("Meilleur lag :", meilleur_lag$lag, "jours\n")
+cat("Rho =", round(meilleur_lag$rho, 3), "\n")
+cat("p =", round(meilleur_lag$p_value, 4), "\n")
+
+# Visualisation
+ggplot(resultats_lag, aes(x = lag, y = rho)) +
+  geom_col(aes(fill = p_value < 0.05), width = 0.6) +
+  scale_fill_manual(values = c("TRUE" = "steelblue", "FALSE" = "grey70"),
+                    labels = c("TRUE" = "p < 0.05", "FALSE" = "ns"),
+                    name = "Significativité") +
+  geom_text(aes(label = round(rho, 2)), vjust = -0.5, size = 4) +
+  labs(title = "Corrélation de Spearman précipitations → débit selon le lag",
+       x = "Lag (jours)", y = "Rho de Spearman") +
+  theme_bw(base_size = 13)
 
 
 # on veut mettre en lien avec le débit liquide du Var
@@ -1784,14 +1857,14 @@ ggplot(Wind_T_clean, aes(x = date, y = RR)) +
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 load("data/Hydro France/All_debit.Rdata")
 
-# Y6442010_2008_2020 <- Y6442010_depuis_2000 |> 
-#   filter(date >= "2008-01-01", date <= "2019-12-31")
+Y6442010_2006_2024 <- Y6442010_depuis_2000 |>
+  filter(date >= "2006-01-01", date <= "2024-12-31")
 
 All_debit <- All_debit |> 
-  filter(date >= "2008-01-01", date <= "2019-12-31")
+  filter(date >= "2014-01-01", date <= "2024-12-31")
 
 Wind_T <- Wind_T |> 
-  filter(date >= as.Date("2014-01-01"), date <= as.Date("2019-12-31"))
+  filter(date >= as.Date("2014-01-01"), date <= as.Date("2024-12-31"))
 
 # mise à l'échelle
 adjust_factors <- sec_axis_adjustement_factors(Wind_T$RR, All_debit$debit_cumule)
@@ -1803,32 +1876,28 @@ merged_data <- merge(
   Wind_T,
   by = "date",
   all = FALSE
-)
+) |> 
+  mutate(RR_lag1 = lag(RR, n = 1))
 
-correlation <- cor(merged_data$debit_cumule, merged_data$RR, method = "spearman", use = "complete.obs")
-p_value <- cor.test(merged_data$debit_cumule, merged_data$RR, method = "spearman")$p.value
-
+correlation <- cor(merged_data$debit_cumule, merged_data$RR_lag1, 
+                   method = "spearman", use = "complete.obs")
+p_value <- cor.test(merged_data$debit_cumule, merged_data$RR_lag1, 
+                    method = "spearman")$p.value
 ggplot() +
-  # Ligne pour le débit
   geom_line(
     data = All_debit,
     aes(x = date, y = debit_cumule, color = "Débit"),
-    size = 0.8,
     linewidth = 0.4
   ) +
-  # Ligne pour l'aire des panaches
   geom_line(
     data = Wind_T,
     aes(x = date, y = scaled_RR, color = "Précipitations"),
-    size = 0.8,
     linewidth = 0.4
   ) +
-  # Couleurs personnalisées
   scale_color_manual(
     values = c("Précipitations" = "aquamarine", "Débit" = "darkolivegreen3"),
     name = "Légende"
   ) +
-  # Axes avec échelle secondaire
   scale_y_continuous(
     name = expression("Débit du Var (m"^{3}*".s"^{-1}*")"),
     sec.axis = sec_axis(
@@ -1836,44 +1905,54 @@ ggplot() +
       name = expression("Précipitations (mm)")
     )
   ) +
-  # Titre et labels
   labs(
     title = "Évolution des précipitations et du débit cumulé des fleuves niçois",
     caption = "Sources : Archives Météo France - Hydro Portail - MNCA",
     x = "Date",
     color = "Variable"
   ) +
-  # Annotation pour la corrélation (en haut à droite)
+  annotate(
+    "text",
+    x = min(c(All_debit$date, Wind_T$date), na.rm = TRUE),
+    y = max(c(All_debit$debit_cumule, Wind_T$RR), na.rm = TRUE),
+    hjust = 0,
+    vjust = 1,
+    label = gsub(" \\(ns\\)", "", mk_label),  # supprime le (ns)
+    size = 8,
+    color = "aquamarine3",
+    family = "serif",
+    fontface = "italic"
+  ) +
   annotate(
     "text",
     x = max(c(All_debit$date, Wind_T$date), na.rm = TRUE),
     y = max(c(All_debit$debit_cumule, Wind_T$RR), na.rm = TRUE),
-    hjust = 1,  # Alignement à droite
-    vjust = 1,  # Alignement en haut
+    hjust = 1,
+    vjust = 1,
     label = paste0(
-      "R = ", round(correlation, 2),
-      "\n", "p ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
+      "r = ", round(correlation, 2),
+      "\n(lag 1 jour)",
+      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3))
     ),
     size = 8,
     color = "grey20",
     family = "serif",
     fontface = "italic"
   ) +
-  # Thème sobre et élégant
   theme_bw(base_size = 14) +
   theme(
-    plot.title = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.caption = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
-    axis.title = element_text(face = "bold", family = "serif"),
-    axis.text = element_text(color = "grey30", family = "serif"),
+    plot.title    = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.caption  = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title    = element_text(face = "bold", family = "serif"),
+    axis.text     = element_text(color = "grey30", family = "serif"),
     panel.grid.minor = element_blank(),
-    panel.border = element_rect(color = "grey70"),
+    panel.border  = element_rect(color = "grey70"),
     legend.position = "top",
-    legend.title = element_text(face = "bold"),
-    plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
+    legend.title  = element_text(face = "bold"),
+    plot.margin   = margin(1, 1.5, 1, 1, "cm")
   ) +
-  # Échelle des dates
   scale_x_date(
     date_breaks = "2 year",
     date_labels = "%Y"
   )
+

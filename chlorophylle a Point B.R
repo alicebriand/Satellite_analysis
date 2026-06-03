@@ -267,9 +267,9 @@ ggplot(saisonnalite_clim_fluo,
   ) +
   theme_bw(base_size = 12) +
   theme(
-    plot.title       = element_text(face = "bold", size = 13, margin = margin(b = 4)),
-    plot.subtitle    = element_text(color = "grey40", size = 10),
-    axis.text.x      = element_text(size = 11),
+    plot.title       = element_text(face = "bold", size = 18, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 15),
+    axis.text.x      = element_text(size = 15),
     panel.grid.minor = element_blank(),
     panel.grid.major = element_line(color = "grey93")
   )
