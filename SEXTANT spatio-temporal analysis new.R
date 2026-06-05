@@ -299,7 +299,7 @@ countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # Filtrer pour le jour voulu
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03"))
+  filter(date == as.Date("2024-03-04"))
 
 ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
   geom_raster() +
@@ -316,7 +316,7 @@ ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
     na.value = "transparent"
   ) +
   labs(
-    title = "Concentration en MES — 03 octobre 2020",
+    title = "Concentration en MES — 04 mars 2024",
     x     = "Longitude",
     y     = "Latitude"
   ) +
@@ -331,19 +331,19 @@ ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
 # 95ème percentile
 
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03")) %>%
+  filter(date == as.Date("2024-03-04")) %>%
   mutate(analysed_spim = ifelse(analysed_spim > 0.94, analysed_spim, NA))
 
 # ensuite les valeurs au dessus de ce seuil sont moyennées
 
 mean_spm_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94) %>%
+  filter(date == as.Date("2024-03-04"), analysed_spim > 0.94) %>%
   summarise(mean_spm = mean(analysed_spim, na.rm = TRUE))
 
 
 
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03"), analysed_spim > 0.94)
+  filter(date == as.Date("2024-03-04"), analysed_spim > 0.94)
 
 # Valeur moyenne unique
 mean_val <- mean(df_jour$analysed_spim, na.rm = TRUE)
@@ -379,64 +379,138 @@ ggplot() +
 
 # patchwork ---------------------------------------------------------------
 
+# df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+#   filter(date == as.Date("2024-03-04"))
+# 
+# p1 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+#   geom_raster() +
+#   geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+#           inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+#   coord_sf(
+#     xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+#     ylim   = range(df_jour$lat),
+#     expand = FALSE
+#   ) +
+#   scale_fill_viridis_c(
+#     name     = "Concentration en MES (g/m³)",
+#     option   = "turbo",
+#     na.value = "transparent"
+#   ) +
+#   labs(
+#     title = "Concentration en MES — 04 mars 2024",
+#     x     = "Longitude",
+#     y     = "Latitude"
+#   ) +
+#   theme_bw() +
+#   theme(
+#     plot.title   = element_text(size = 13, face = "bold"),
+#     axis.text    = element_text(size = 11, color = "grey30"),
+#     panel.border = element_rect(color = "grey70", linewidth = 0.5)
+#   )
+# 
+# df_jour <- SEXTANT_1998_2025_spm_pixels %>%
+#   filter(date == as.Date("2024-03-04")) %>%
+#   mutate(analysed_spim = ifelse(analysed_spim > 1.2, analysed_spim, NA))
+# 
+# p2 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+#   geom_raster() +
+#   geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
+#           inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
+#   coord_sf(
+#     xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
+#     ylim   = range(df_jour$lat),
+#     expand = FALSE
+#   ) +
+#   scale_fill_viridis_c(
+#     name     = "Concentration en MES (g/m³)",
+#     option   = "turbo",
+#     na.value = "transparent"
+#   ) +
+#   labs(
+#     title = "Concentration en MES — 04 mars 2024",
+#     x     = "Longitude",
+#     y     = "Latitude"
+#   ) +
+#   theme_bw() +
+#   theme(
+#     plot.title   = element_text(size = 13, face = "bold"),
+#     axis.text    = element_text(size = 11, color = "grey30"),
+#     panel.border = element_rect(color = "grey70", linewidth = 0.5)
+#   )
+# 
+# (p1 | p2) +
+#   plot_annotation(
+#     title      = "Identification du panache le 04 mars 2024 - Sextant OC5",
+#     tag_levels = "a", tag_prefix = "(", tag_suffix = ")",
+#     theme      = theme(
+#       plot.title = element_text(size = 14, face = "bold", hjust = 0.5)
+#     )
+#   )
+
+# Définir les limites communes
+lim_communes <- range(SEXTANT_1998_2025_spm_pixels %>%
+                        filter(date == as.Date("2023-12-02")) %>%
+                        pull(analysed_spim), na.rm = TRUE)
+
+# p1 et p2 avec les mêmes limites
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03"))
+  filter(date == as.Date("2023-12-02"))
 
 p1 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
   geom_raster() +
   geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
-          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
-  coord_sf(
-    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
-    ylim   = range(df_jour$lat),
-    expand = FALSE
-  ) +
+          inherit.aes = FALSE) +
+  coord_sf(xlim = range(df_jour$lon), ylim = range(df_jour$lat), expand = FALSE) +
   scale_fill_viridis_c(
-    name     = "Concentration en MES (g/m³)",
+    name     = "MES (g/m³)",
     option   = "turbo",
+    limits   = lim_communes,   # ← limites communes
     na.value = "transparent"
   ) +
-  labs(
-    title = "Concentration en MES — 03 octobre 2020",
-    x     = "Longitude",
-    y     = "Latitude"
-  ) +
+  labs(x = "Longitude", y = "Latitude") +
   theme_bw() +
-  theme(
-    plot.title   = element_text(size = 13, face = "bold"),
-    axis.text    = element_text(size = 11, color = "grey30"),
-    panel.border = element_rect(color = "grey70", linewidth = 0.5)
-  )
+  theme(plot.title   = element_text(size = 13, face = "bold"),
+        axis.text    = element_text(size = 11, color = "grey30"),
+        panel.border = element_rect(color = "grey70", linewidth = 0.5))
 
-df_jour <- SEXTANT_1998_2025_spm_pixels %>%
-  filter(date == as.Date("2020-10-03")) %>%
+df_jour2 <- df_jour %>%
   mutate(analysed_spim = ifelse(analysed_spim > 0.94, analysed_spim, NA))
 
-p2 <- ggplot(df_jour, aes(x = lon, y = lat, fill = analysed_spim)) +
+p2 <- ggplot(df_jour2, aes(x = lon, y = lat, fill = analysed_spim)) +
   geom_raster() +
   geom_sf(data = countries_giscoR, colour = "black", linewidth = 0.3,
-          inherit.aes = FALSE) +  # ← important : évite que geom_sf hérite de x/y
-  coord_sf(
-    xlim   = range(df_jour$lon),  # utiliser df_jour, pas un autre objet
-    ylim   = range(df_jour$lat),
-    expand = FALSE
-  ) +
+          inherit.aes = FALSE) +
+  coord_sf(xlim = range(df_jour$lon), ylim = range(df_jour$lat), expand = FALSE) +
   scale_fill_viridis_c(
-    name     = "Concentration en MES (g/m³)",
+    name     = "MES (g/m³)",
     option   = "turbo",
+    limits   = lim_communes,   # ← limites communes
     na.value = "transparent"
   ) +
-  labs(
-    title = "Concentration en MES — 03 octobre 2020",
-    x     = "Longitude",
-    y     = "Latitude"
-  ) +
+  labs(x = "Longitude", y = "Latitude") +
   theme_bw() +
+  theme(plot.title   = element_text(size = 13, face = "bold"),
+        axis.text    = element_text(size = 11, color = "grey30"),
+        panel.border = element_rect(color = "grey70", linewidth = 0.5))
+
+# Patchwork
+(p1 | p2) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    title      = "Identification du panache le 02 décembre 2023 - Sextant OC5",
+    tag_levels = "a", tag_prefix = "(", tag_suffix = ")",
+    theme      = theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+  ) &
   theme(
-    plot.title   = element_text(size = 13, face = "bold"),
-    axis.text    = element_text(size = 11, color = "grey30"),
-    panel.border = element_rect(color = "grey70", linewidth = 0.5)
+    legend.position  = "bottom",
+    legend.key.width = unit(2.5, "cm"),   # ← largeur de la barre de couleur
+    legend.key.height = unit(0.5, "cm"),  # ← épaisseur de la barre
+    legend.text      = element_text(size = 12),  # ← taille des valeurs
+    legend.title     = element_text(size = 13, face = "bold"),  # ← titre légende
+    axis.text        = element_text(size = 13, color = "grey30"),  # ← valeurs des axes
+    axis.title       = element_text(size = 13, face = "bold")      # ← "Longitude"/"Latitude"
   )
+
 
 # maintenant, on regarde la carte après avoir appliqué les valeurs de filtre au
 # 95ème percentile
@@ -451,6 +525,7 @@ mean_spm_jour <- SEXTANT_1998_2025_spm_pixels %>%
   filter(date == as.Date("2020-10-03"), analysed_spim > 0.94) %>%
   summarise(mean_spm = mean(analysed_spim, na.rm = TRUE))
 
+  
 
 
 df_jour <- SEXTANT_1998_2025_spm_pixels %>%

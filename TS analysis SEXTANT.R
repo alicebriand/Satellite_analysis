@@ -1900,78 +1900,28 @@ ggplot(saisonnalite_clim_pluie, aes(x = month, y = mean_sais, group = 1)) +
 
 # superposition -----------------------------------------------------------
 
-# ensuite on veut supperposer les quatres
-ggplot() +
-  # Aire des panaches
-  geom_ribbon(data = saisonnalite_clim_panache,
-              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-              fill = "#00897B", alpha = 0.15) +
-  geom_line(data = saisonnalite_clim_panache,
-            aes(x = month, y = mean_sais, color = "Aire des panaches", group = 1),
-            linewidth = 1.1) +
-  geom_point(data = saisonnalite_clim_panache,
-             aes(x = month, y = mean_sais, color = "Aire des panaches", group = 1),
-             size = 2.5) +
-  # Débit du Var
-  geom_ribbon(data = saisonnalite_clim_débit,
-              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-              fill = "blue", alpha = 0.15) +
-  geom_line(data = saisonnalite_clim_débit,
-            aes(x = month, y = mean_sais, color = "Débit du Var", group = 1),
-            linewidth = 1.1) +
-  geom_point(data = saisonnalite_clim_débit,
-             aes(x = month, y = mean_sais, color = "Débit du Var", group = 1),
-             size = 2.5) +
-  # Chlorophylle a
-  geom_ribbon(data = saisonnalite_clim_chl,
-              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-              fill = "chartreuse3", alpha = 0.15) +
-  geom_line(data = saisonnalite_clim_chl,
-            aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
-            linewidth = 1.1) +
-  geom_point(data = saisonnalite_clim_chl,
-             aes(x = month, y = mean_sais, color = "Concentration en chlorophylle a", group = 1),
-             size = 2.5) +
-  # ── AJOUT : Concentration en MES ──────────────────────────────────────────
-  geom_ribbon(data = saisonnalite_clim_spm,
-              aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-              fill = "red3", alpha = 0.15) +
-  geom_line(data = saisonnalite_clim_spm,
-            aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
-            linewidth = 1.1) +
-  geom_point(data = saisonnalite_clim_spm,
-             aes(x = month, y = mean_sais, color = "Concentration en MES", group = 1),
-             size = 2.5) +
-  # ──────────────────────────────────────────────────────────────────────────
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
-  scale_color_manual(
-    values = c(
-      "Aire des panaches"              = "#00897B",
-      "Débit du Var"                   = "blue",
-      "Concentration en chlorophylle a" = "chartreuse3",
-      "Concentration en MES"           = "red3"   # ← ajout
-    ),
-    guide = guide_legend(override.aes = list(linewidth = 1.5, size = 3))
-  ) +
-  labs(
-    title    = "Saisonnalité X11 — Débit du Var, aire des panaches turbides, MES et chlorophylle a",
-    subtitle = "Moyenne mensuelle 2008–2019 · enveloppe = min/max interannuel",
-    x        = NULL,
-    y        = "Facteur saisonnier",
-    color    = NULL
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid.minor  = element_blank(),
-    panel.grid.major  = element_line(color = "grey93"),
-    plot.title        = element_text(face = "bold", size = 13),
-    plot.subtitle     = element_text(color = "grey50", size = 10, margin = margin(b = 10)),
-    legend.position   = "top",
-    legend.text       = element_text(size = 11),
-    axis.text         = element_text(color = "grey30"),
-    axis.text.x       = element_text(size = 11)
-  )
+# normaliser les données pour qu'elles soient entre 10 et 1
 
+# Fonction de normalisation min-max
+norm_01 <- function(x) (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+
+# Appliquer à chaque df de saisonnalité
+saisonnalite_clim_panache <- saisonnalite_clim_panache |>
+  mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
+
+saisonnalite_clim_débit <- saisonnalite_clim_débit |>
+  mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
+
+saisonnalite_clim_chl <- saisonnalite_clim_chl |>
+  mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
+
+saisonnalite_clim_spm <- saisonnalite_clim_spm |>
+  mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
+
+saisonnalite_clim_pluie <- saisonnalite_clim_pluie |>
+  mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
+
+# ensuite on veut supperposer les cinq
 ggplot() +
   # Aire des panaches
   geom_ribbon(data = saisonnalite_clim_panache,
@@ -2024,7 +1974,7 @@ ggplot() +
              aes(x = month, y = mean_sais, color = "Précipitations", group = 1),
              size = 2.5) +
   # ──────────────────────────────────────────────────────────────────────────
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
+  # geom_hline(yintercept = 1, linetype = "dashed", color = "grey50", linewidth = 0.4) +
   scale_color_manual(
     values = c(
       "Aire des panaches"               = "#00897B",
@@ -2039,7 +1989,7 @@ ggplot() +
     title    = "Saisonnalité X11 — Débit du Var, panaches turbides, MES, chlorophylle a et précipitations",
     subtitle = "Moyenne mensuelle 2008–2019 · enveloppe = min/max interannuel",
     x        = NULL,
-    y        = "Facteur saisonnier",
+    y = "Facteur saisonnier normalisé (0–1)",
     color    = NULL
   ) +
   theme_minimal(base_size = 12) +

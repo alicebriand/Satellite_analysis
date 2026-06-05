@@ -20,7 +20,7 @@
 source("func.R")
 
 load("~/River_runoff_analysis/data/Hydro France/Var_crues.Rdata")
-Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017_propre.csv",
+Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017.csv",
                                         delim = ",", locale = locale(decimal_mark = ","))
 Log_Var_Paillon_07_05_2026 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_07_05_2026.csv",
            delim = ",", locale = locale(decimal_mark = ","))
@@ -44,6 +44,7 @@ library(tidyterra)
 library(patchwork)
 library(giscoR) # Hi-res coastlines
 library(ggspatial)  # pour la flèche nord et l'échelle
+library(magick)
 
 # function ---------------------------------------------------------------
 
@@ -233,17 +234,16 @@ countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 # set the maximum values
 # max_spm <- max(study_area_df_25_11_2016$SPM_Morin_Var, na.rm = TRUE)
-max_spm <- 200
+max_spm <- 75
 
-pl_map <- study_area_df_25_11_2016 %>%
+study_area_df_04_03_2024 %>%
   ggplot() +
-  annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Morin_Var)) +
   geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
   
   # Flèche nord
   annotation_north_arrow(
-    location = "tr",          # top-right
+    location = "tr",
     which_north = "true",
     style = north_arrow_fancy_orienteering(),
     height = unit(1.5, "cm"),
@@ -252,7 +252,7 @@ pl_map <- study_area_df_25_11_2016 %>%
   
   scale_fill_viridis_c(
     option = "plasma",
-    name   = expression("MES (g m"^{-3}*")"),  # ← écriture scientifique
+    name   = expression("MES (g m"^{-3}*")"),
     limits = c(0, max_spm)
   ) +
   guides(fill = guide_colorbar(
@@ -262,14 +262,14 @@ pl_map <- study_area_df_25_11_2016 %>%
     title.hjust    = 0.5
   )) +
   labs(
-    title    = "Concentration en matières en suspension — 25 novembre 2016",
+    title    = "Concentration en MES — 25 novembre 2016",
     subtitle = "Algorithme de Morin et al. (Var) appliqué aux données MODIS",
     x        = "Longitude (°E)",
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_07_05_2026$lon),
-    ylim   = range(study_area_df_07_05_2026$lat),
+    xlim   = range(study_area_df_04_03_2024$lon),   # ← corrigé : même df que le ggplot
+    ylim   = range(study_area_df_04_03_2024$lat),   # ← corrigé
     expand = FALSE
   ) +
   theme_bw() +
@@ -284,7 +284,7 @@ pl_map <- study_area_df_25_11_2016 %>%
     axis.title       = element_text(size = 14),
     axis.text        = element_text(size = 12)
   )
-                              
+              
 # Save as desired
 ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_2016_Morin_Var_max_200.png", pl_map, height = 9, width = 14)
 
@@ -356,10 +356,10 @@ ggsave("~/Downloads/MODIS NASA/L2 2016 Terra/SPM/bande 1/fig_MODIS_SPM_25_11_201
 
 ## Teng MO -------------------------------------------------------------------
 
-max_spm <- max(study_area_df_25_11_2016$SPM_Teng_MO, na.rm = TRUE)
-max_spm <- 100
+max_spm <- max(study_area_df_04_03_2024$SPM_Teng_MO, na.rm = TRUE)
+# max_spm <- 100
 
-pl_map <- study_area_df_25_11_2016 %>%
+pl_map1 <- study_area_df_04_03_2024 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Teng_MO)) +
@@ -392,8 +392,8 @@ pl_map <- study_area_df_25_11_2016 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(study_area_df_25_11_2016$lon),
-    ylim   = range(study_area_df_25_11_2016$lat),
+    xlim   = range(study_area_df_04_03_2024$lon),
+    ylim   = range(study_area_df_04_03_2024$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -660,6 +660,7 @@ ggsave("~/Downloads/MODIS NASA/L2 2024 Aqua/SPM/bande 1/fig_MODIS_SPM_04_03_2024
 # we want to erase them so maybe the map will be better
 study_area_df_04_03_2024_1 <- study_area_df_04_03_2024 |>
   filter(SPM_Doxaran <= 100)
+
 max_spm <- max(study_area_df_04_03_2024_1$SPM_Doxaran)
 
 # Utiliser le 99e percentile pour éviter que les valeurs extrêmes écrasent l'échelle
@@ -669,7 +670,7 @@ max_spm <- quantile(study_area_df_25_11_2016$SPM_Doxaran, 0.99, na.rm = TRUE)
 summary(study_area_df_25_11_2016$SPM_Doxaran)
 hist(study_area_df_25_11_2016$SPM_Doxaran, breaks = 50)
 
-pl_map <- study_area_df_04_03_2024_1 %>%
+pl_map2 <- study_area_df_04_03_2024_1 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = SPM_Doxaran)) +
@@ -778,6 +779,10 @@ study_area_df_clean_2016_in_situ <- inner_join(study_area_df_25_11_2016, Var_201
 
 # st_as_sf : convert foreign object to an sf object
 # ce sont des df dont l'une des colonnes contient une géométrie
+
+# Ajouter ceci avant st_as_sf
+Var_2016 <- Var_2016 |> 
+  filter(!is.na(lat), !is.na(lon))
 
 # Convertir les points in situ en objet spatial
 pts_insitu <- st_as_sf(Var_2016, coords = c("lon", "lat"), crs = 4326) # crs = coordinate reference system
@@ -2182,4 +2187,111 @@ ggplot() +
 unique(study_area_df_2024$date)
 
 
+# liquid flow rate vs plume area ------------------------------------------
 
+
+
+# patchwork ---------------------------------------------------------------
+
+# on veut assembler le screenshot de la crue du 04/03/2026 avec les cartographies
+# et les scatter plot
+
+# Charger l'image
+img <- magick::image_read("~/Pictures/Captures d’écran/Capture d’écran du 2026-06-04 10-46-45.png")
+
+# Convertir en ggplot via ggplotify ou directement avec annotation_raster
+img_raster <- as.raster(img)
+
+p_img <- ggplot() +
+  annotation_raster(img_raster, 
+                    xmin = -Inf, xmax = Inf, 
+                    ymin = -Inf, ymax = Inf) +
+  theme_void()
+
+# assembler
+p_img
+
+# Équations
+
+# définir un seuil au P99
+max_spm_global <- max(
+  quantile(study_area_df_04_03_2024$SPM_Morin_Var,     0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Morin_Paillon, 0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Teng_MO,       0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Teng_MM,       0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Teng_extrm_MM, 0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Tsapanou,      0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Nechad,        0.99, na.rm = TRUE),
+  quantile(study_area_df_04_03_2024$SPM_Doxaran,       0.99, na.rm = TRUE)
+)
+
+make_spm_map <- function(df, var, titre,
+                         show_x = FALSE,
+                         show_y = FALSE) {
+  
+  max_spm_local <- quantile(df[[var]], 0.99, na.rm = TRUE)
+  
+  ggplot(df) +
+    geom_tile(aes(x = lon, y = lat, fill = .data[[var]])) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    annotation_north_arrow(
+      location = "tr", which_north = "true",
+      style = north_arrow_fancy_orienteering(),
+      height = unit(0.8, "cm"), width = unit(0.8, "cm")
+    ) +
+    scale_fill_viridis_c(
+      option = "viridis",
+      name   = expression("MES (g m"^{-3}*")"),
+      limits = c(0, max_spm_local),
+      oob    = scales::squish
+    ) +
+    labs(
+      title = titre,
+      x = if (show_x) "Longitude (°E)" else NULL,
+      y = if (show_y) "Latitude (°N)"  else NULL
+    ) +
+    coord_sf(xlim = range(df$lon), ylim = range(df$lat), expand = FALSE) +
+    theme_bw() +
+    theme(
+      plot.title        = element_text(size = 10, face = "bold", hjust = 0.5),
+      legend.position   = c(0.18, 0.22),
+      legend.background = element_rect(fill = "white", colour = "grey70", linewidth = 0.3),
+      legend.key.height = unit(0.4, "cm"),
+      legend.key.width  = unit(1.2, "cm"),
+      legend.title      = element_text(size = 9),   # ← titre légende
+      legend.text       = element_text(size = 9),   # ← nombres de l'échelle
+      axis.text.x  = if (show_x) element_text(size = 7) else element_blank(),
+      axis.text.y  = if (show_y) element_text(size = 7) else element_blank(),
+      axis.ticks.x = if (show_x) element_line() else element_blank(),
+      axis.ticks.y = if (show_y) element_line() else element_blank(),
+      axis.title   = element_text(size = 9),
+      plot.margin  = margin(2, 2, 2, 2)
+    )
+}
+p1 <- make_spm_map(study_area_df_04_03_2024, "SPM_Morin_Var",     "Équation propre au Var")
+p2 <- make_spm_map(study_area_df_04_03_2024, "SPM_Morin_Paillon", "Équation propre au Paillon")
+p3 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_MO",       "Teng et al. (1)")
+p4 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_MM",       "Teng et al. (2)")
+p5 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_extrm_MM", "Teng et al. (3)")
+p6 <- make_spm_map(study_area_df_04_03_2024, "SPM_Nechad",        "Nechad et al.")
+
+# plot
+wrap_plots(p1, p2, p3, p4,
+           p5, p6,
+           ncol = 3, nrow = 2) +
+  plot_annotation(
+    title   = "Cartographie de la concentration en MES dans les panaches turbides du Var et du Paillon (04/03/2024)",
+    caption = "(1) : pour des eaux chargées en MO\n(2) : pour des eaux chargées en matière minérale\n(3) : pour des eaux extrêmement chargées en matière minérale",
+    tag_levels = "a",
+    tag_suffix = ")",
+    theme = theme(
+      plot.title   = element_text(size = 15, face = "bold", hjust = 0.5,
+                                  margin = margin(b = 8)),
+      plot.caption = element_text(size = 13, color = "black", hjust = 0,
+                                  margin = margin(t = 8),
+                                  lineheight = 1.4)   # ← espace entre les lignes
+    )
+  ) &
+  theme(
+    plot.tag = element_text(size = 10, face = "bold")
+  )

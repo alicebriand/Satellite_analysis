@@ -1434,7 +1434,139 @@ ggplot(SEXTANT_panache_metrics, aes(x = débit, y = max_spm)) +
     plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
   )
 
+# corrélation crue et taille de panache -----------------------------------
 
+Y6442010_2008_2019 <- Y6442010_depuis_2000 |> 
+  filter(date >= as.Date("2008-01-01"), date <= as.Date("2019-12-31"))
+
+sum(is.na(Y6442010_2008_2019))
+
+# Localiser et caractériser les trous
+Y6442010_2008_2019 |>
+  mutate(est_na = is.na(débit)) |>
+  filter(est_na) |>
+  mutate(
+    groupe = cumsum(c(1, diff(as.numeric(date)) > 1))
+  ) |>
+  group_by(groupe) |>
+  summarise(
+    debut     = min(date),
+    fin       = max(date),
+    n_jours   = n()
+  ) |>
+  arrange(debut)
+
+Y6442010_2008_2019 <- Y6442010_2008_2019 |>
+  arrange(date) |>
+  mutate(
+    debit_interp = na.approx(débit, x = date, na.rm = FALSE)
+  )
+
+# garder seulment les jours en crues
+Var_crue <- Y6442010_2008_2019 |> 
+  filter(débit > 121)
+
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
+
+# Tout en une fois
+df_corr <- Y6442010_2008_2019 |>
+  filter(débit > 121) |>
+  mutate(date_panache = date + 1) |>        # lag 1 jour créé ici
+  left_join(
+    SEXTANT_1998_2025_spm_95 |> select(date, aire_panache_km2),
+    by = c("date_panache" = "date")
+  ) |>
+  filter(!is.na(aire_panache_km2))
+
+# Vérifier
+nrow(df_corr)
+colnames(df_corr)
+head(df_corr)
+
+# 5. Test de corrélation
+cor_test <- cor.test(df_corr$débit, df_corr$aire_panache_km2)
+print(cor_test)
+
+df_corr <- df_corr |>
+  mutate(saison = case_when(
+    month(date) %in% c(12, 1, 2)  ~ "Hiver",
+    month(date) %in% c(3, 4, 5)   ~ "Printemps",
+    month(date) %in% c(6, 7, 8)   ~ "Été",
+    month(date) %in% c(9, 10, 11) ~ "Automne"
+  ))
+
+# Vérifier
+table(df_corr$saison)
+
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x = max(df_corr$débit) * 0.95,
+           y = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r = ", round(cor_test$estimate, 2),
+                          "\np = ", format(cor_test$p.value, digits = 2,
+                                           scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 4) +
+  labs(
+    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
+    subtitle = "Crues > 121 m³/s — 2008–2019",
+    x = "Débit du Var J (m³/s)",
+    y = "Aire du panache J+1 (km²)",
+    color = "Saison"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+
+# Transformation log du débit
+df_corr <- df_corr |>
+  mutate(log_debit = log10(débit))
+
+# Corrélation de Pearson sur log10(débit)
+cor_log <- cor.test(df_corr$log_debit, df_corr$aire_panache_km2)
+print(cor_log)
+
+# Graphique avec axe x en log10
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8,
+              formula = y ~ log10(x)) +          # régression sur log10(x)
+  scale_x_log10(
+    breaks = c(125, 200, 300, 500, 750, 1000, 2000, 5000),
+    labels = scales::comma
+  ) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x = max(df_corr$débit) * 0.6,
+           y = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r (log₁₀Q) = ", round(cor_log$estimate, 2),
+                          "\nR² = ", round(cor_log$estimate^2, 2),
+                          "\np = ", format(cor_log$p.value, digits = 2,
+                                           scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 4) +
+  labs(
+    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
+    subtitle = "Crues > 121 m³/s — 2008–2019 — axe x en échelle log₁₀",
+    x = "Débit du Var J (m³/s, échelle log₁₀)",
+    y = "Aire du panache J+1 (km²)",
+    color = "Saison"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
 
 # CHL ---------------------------------------------------------------------
 
@@ -2577,5 +2709,9 @@ ggarrange(
       color = "grey50", size = 10
     )
   )
+
+
+# débit en crue vs extension des panaches ---------------------------------
+
 
 
