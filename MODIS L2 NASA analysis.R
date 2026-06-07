@@ -28,6 +28,7 @@ load("data/Hydro France/All_debit_2024.Rdata")
 load("data/MODIS L2 NASA/study_area_df_2024")
 load("data/MODIS L2 NASA/study_area_df_07_05_2026.RData")
 load("data/MODIS L2 NASA/study_area_df_2016.Rdata")
+load("~/Downloads/MODIS NASA/03_10_2020/study_area_df_03_10_2020.Rdata")
 
 # Load necessary libraries
 library(tidyverse)
@@ -153,52 +154,8 @@ Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
   return(df)
 }
 
-# data analysis -----------------------------------------------------------
 
-# we first start to exclude negative reflectance
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>  
-  filter(sur_refl_b01_1 > 0, sur_refl_b02_1 > 0)
-
-# It is a single equation, we can apply it directly to the data.frame with mutate()
-# SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
-# and values come from? I do not find them in the literature?
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>  
-  mutate(SPM_Morin_Var = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)),
-         SPM_Morin_Paillon = (39 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.2563)))
-
-# Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
-  mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
-         SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
-
-# A different algorithm based on Teng et al. 2025
-# https://www.sciencedirect.com/science/article/pii/S003442572500149X
-# SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
-# NB: lambda_RED is taken here to be the MODIS band 1 waveband
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |> 
-mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
-       Rrs_b02_01 = (sur_refl_b02_1/pi), # First convert Rhow_w to Rrs
-       SPM_Teng_MO = 1992.2 * Rrs_b01_01^1.027,
-       SPM_Teng_MM = 12662.7 * Rrs_b02_01^1.157,
-       SPM_Teng_extrm_MM = 50556.7 * Rrs_b02_01^1.371)
-# But these values are crazy high...
-
-# So then this paper by Tsapanou et al. 2020
-# http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
-# Though this is for LandSat 8
-# SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
-# A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
-  mutate(SPM_Tsapanou = ((366.53 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.0324))))
-# this produce a lot of negative values
-
-# So we digress to the Nechad formula of 
-# SPM = ((A * Rhow)/(1-(Rhow/C)))+B
-# A = 289.29, C = 0.1686, B = 2.10 
-study_area_df_04_03_2024 <- study_area_df_04_03_2024 |>
-  mutate(SPM_Nechad = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686))) + 2.10)
-
-# plotting -----------------------------------------------------------
+# period of time ----------------------------------------------------------
 
 # we have to choose some dates and look at what data look like : 
 study_area_df_04_03_2024 <- study_area_df_2024 |> 
@@ -221,6 +178,57 @@ study_area_df_26_03_2017 <- study_area_df_clean_2017 |>
 
 study_area_df_28_03_2017 <- study_area_df_clean_2017 |> 
   filter(date == "2017-03-28")
+
+study_area_df_03_10_2020 <- study_area_df_2024 |> 
+  filter(date == "2020-10-03")
+
+# data analysis -----------------------------------------------------------
+
+# we first start to exclude negative reflectance
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>  
+  filter(sur_refl_b01_1 > 0, sur_refl_b02_1 > 0)
+
+# It is a single equation, we can apply it directly to the data.frame with mutate()
+# SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
+# and values come from? I do not find them in the literature?
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>  
+  mutate(SPM_Morin_Var = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)),
+         SPM_Morin_Paillon = (39 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.2563)))
+
+# Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+  mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
+         SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
+
+# A different algorithm based on Teng et al. 2025
+# https://www.sciencedirect.com/science/article/pii/S003442572500149X
+# SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
+# NB: lambda_RED is taken here to be the MODIS band 1 waveband
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |> 
+mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
+       Rrs_b02_01 = (sur_refl_b02_1/pi), # First convert Rhow_w to Rrs
+       SPM_Teng_MO = 1992.2 * Rrs_b01_01^1.027,
+       SPM_Teng_MM = 12662.7 * Rrs_b02_01^1.157,
+       SPM_Teng_extrm_MM = 50556.7 * Rrs_b02_01^1.371)
+# But these values are crazy high...
+
+# So then this paper by Tsapanou et al. 2020
+# http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
+# Though this is for LandSat 8
+# SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
+# A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+  mutate(SPM_Tsapanou = ((366.53 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.0324))))
+# this produce a lot of negative values
+
+# So we digress to the Nechad formula of 
+# SPM = ((A * Rhow)/(1-(Rhow/C)))+B
+# A = 289.29, C = 0.1686, B = 2.10 
+study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+  mutate(SPM_Nechad = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686))) + 2.10)
+
+# plotting -----------------------------------------------------------
+
 
 ## Morin Var -------------------------------------------------------------------
 
@@ -2215,14 +2223,14 @@ p_img
 
 # définir un seuil au P99
 max_spm_global <- max(
-  quantile(study_area_df_04_03_2024$SPM_Morin_Var,     0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Morin_Paillon, 0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Teng_MO,       0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Teng_MM,       0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Teng_extrm_MM, 0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Tsapanou,      0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Nechad,        0.99, na.rm = TRUE),
-  quantile(study_area_df_04_03_2024$SPM_Doxaran,       0.99, na.rm = TRUE)
+  quantile(study_area_df_03_10_2020$SPM_Morin_Var,     0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Morin_Paillon, 0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Teng_MO,       0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Teng_MM,       0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Teng_extrm_MM, 0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Tsapanou,      0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Nechad,        0.99, na.rm = TRUE),
+  quantile(study_area_df_03_10_2020$SPM_Doxaran,       0.99, na.rm = TRUE)
 )
 
 make_spm_map <- function(df, var, titre,
@@ -2268,19 +2276,19 @@ make_spm_map <- function(df, var, titre,
       plot.margin  = margin(2, 2, 2, 2)
     )
 }
-p1 <- make_spm_map(study_area_df_04_03_2024, "SPM_Morin_Var",     "Équation propre au Var")
-p2 <- make_spm_map(study_area_df_04_03_2024, "SPM_Morin_Paillon", "Équation propre au Paillon")
-p3 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_MO",       "Teng et al. (1)")
-p4 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_MM",       "Teng et al. (2)")
-p5 <- make_spm_map(study_area_df_04_03_2024, "SPM_Teng_extrm_MM", "Teng et al. (3)")
-p6 <- make_spm_map(study_area_df_04_03_2024, "SPM_Nechad",        "Nechad et al.")
+p1 <- make_spm_map(study_area_df_03_10_2020, "SPM_Morin_Var",     "Équation propre au Var")
+p2 <- make_spm_map(study_area_df_03_10_2020, "SPM_Morin_Paillon", "Équation propre au Paillon")
+p3 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_MO",       "Teng et al. (1)")
+p4 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_MM",       "Teng et al. (2)")
+p5 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_extrm_MM", "Teng et al. (3)")
+p6 <- make_spm_map(study_area_df_03_10_2020, "SPM_Nechad",        "Nechad et al.")
 
 # plot
 wrap_plots(p1, p2, p3, p4,
            p5, p6,
            ncol = 3, nrow = 2) +
   plot_annotation(
-    title   = "Cartographie de la concentration en MES dans les panaches turbides du Var et du Paillon (04/03/2024)",
+    title   = "Cartographie de la concentration en MES dans les panaches turbides du Var et du Paillon (03/10/2020)",
     caption = "(1) : pour des eaux chargées en MO\n(2) : pour des eaux chargées en matière minérale\n(3) : pour des eaux extrêmement chargées en matière minérale",
     tag_levels = "a",
     tag_suffix = ")",

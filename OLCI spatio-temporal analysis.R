@@ -1385,7 +1385,7 @@ OLCI_2024 <- OLCI_2016_2024_spm_pixels |>
 # max_spm <- max(OLCI_03_10_2020$`SPM-G-PO_mean`, na.rm = TRUE)
 # max_spm <- 100
 # max_spm <- max(OLCI_03_05_2013$`SPM-G-PO_mean`, na.rm = TRUE)
-max_spm <- max(OLCI_16_04_2024$`SPM-G-PO_mean`, na.rm = TRUE)
+max_spm <- 30
 
 
 pl_map <- OLCI_16_04_2024 %>%
@@ -1483,21 +1483,21 @@ plots <- map2(dates_semaine, lettres, function(d, lettre) {
     )
 })
 
-# Légende commune
+# Légende commune verticale (côté droit)
 legende <- get_legend(
   plots[[1]] +
     guides(fill = guide_colorbar(
-      barwidth       = 15,
-      barheight      = 1,
+      barwidth       = 1,      # ← fin et vertical
+      barheight      = 15,     # ← long et vertical
       title.position = "top",
       title.hjust    = 0.5
     )) +
-    theme(legend.position = "bottom",
+    theme(legend.position = "right",
           legend.title    = element_text(size = 11),
           legend.text     = element_text(size = 9))
 )
 
-# Assembler
+# Assembler les cartes
 figure <- ggarrange(
   plotlist = plots,
   ncol     = 4,
@@ -1505,21 +1505,21 @@ figure <- ggarrange(
   legend   = "none"
 )
 
-# Ajouter titre général et légende
+# Ajouter la légende à droite
 ggarrange(
   figure,
   legende,
-  ncol    = 1,
-  heights = c(10, 1)
+  ncol   = 2,              # ← côte à côte
+  widths = c(10, 1)        # ← cartes larges, légende étroite
 ) |>
   annotate_figure(
     top = text_grob(
-      "Distribution spatiale des MES — semaine du 12 au 18 avril 2024",
-      face = "bold", size = 13
+      "Distribution spatiale de la MES — semaine du 12 au 18 avril 2024",
+      face = "bold", size = 15
     ),
     bottom = text_grob(
       "OLCI - Correction atmosphérique = Polymer",
-      color = "grey50", size = 10
+      color = "black", size = 14
     )
   )
 

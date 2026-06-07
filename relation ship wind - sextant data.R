@@ -20,6 +20,7 @@ library(scales)
 library(ggspatial)
 library(effectsize)
 library(moments)
+library(rstatix)
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
@@ -516,31 +517,138 @@ panache_vent |>
   ) |> 
   print(width =  Inf)
 
+# graphique propre
+# Calculer les médianes par groupe
+med_sud <- panache_vent |>
+  group_by(wind_type) |>
+  summarise(med = median(dist_sud_km, na.rm = TRUE))
+
+med_ouest <- panache_vent |>
+  group_by(wind_type) |>
+  summarise(med = median(dist_ouest_km, na.rm = TRUE))
+
+# Wilcoxon
+w_sud   <- wilcox.test(dist_sud_km   ~ wind_type, data = panache_vent)
+w_ouest <- wilcox.test(dist_ouest_km ~ wind_type, data = panache_vent)
+
+# d de Cohen
+d_sud   <- cohens_d(dist_sud_km   ~ wind_type, data = panache_vent)
+d_ouest <- cohens_d(dist_ouest_km ~ wind_type, data = panache_vent)
+
 p1 <- ggplot(panache_vent |> filter(!is.na(dist_sud_km)),
-       aes(x = FFM, y = dist_sud_km, color = wind_type, shape = wind_type)) +
+             aes(x = FFM, y = dist_sud_km, color = wind_type, shape = wind_type)) +
+  geom_point(alpha = 0.5, size = 2) +
+  # Lignes de médiane
+  geom_hline(data = med_sud,
+             aes(yintercept = med, color = wind_type),
+             linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),
+                     name = "Direction du vent") +
+  scale_shape_manual(values = c("Nord-Ouest" = 16, "Est" = 17),
+                     name = "Direction du vent") +
+  coord_cartesian(xlim = c(0, 10)) +
+  # Annotation Wilcoxon + Cohen
+  annotate("text",
+           x = 9.5, y = max(panache_vent$dist_sud_km, na.rm = TRUE) * 0.95,
+           hjust = 1, vjust = 1, size = 8, fontface = "italic", family = "serif",
+           color = "grey20",
+           label = paste0("Wilcoxon : p < 2.2×10⁻¹⁶",
+                          "\nd de Cohen = ", round(d_sud$effsize, 3), " (petit)",
+                          "\nMéd. Est = ", round(med_sud$med[med_sud$wind_type == "Est"], 1), " km",
+                          "\nMéd. NO = ",  round(med_sud$med[med_sud$wind_type == "Nord-Ouest"], 1), " km")) +
+  labs(
+    x = expression("Vitesse du vent (m.s"^{-1}*")"),
+    y = "Distance d'extension sud (km)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.title     = element_text(face = "bold", family = "serif"),
+    legend.text      = element_text(family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank()
+  )
+
+p2 <- ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
+             aes(x = FFM, y = dist_ouest_km, color = wind_type, shape = wind_type)) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_hline(data = med_ouest,
+             aes(yintercept = med, color = wind_type),
+             linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),
+                     name = "Direction du vent") +
+  scale_shape_manual(values = c("Nord-Ouest" = 16, "Est" = 17),
+                     name = "Direction du vent") +
+  coord_cartesian(xlim = c(0, 10)) +
+  annotate("text",
+           x = 9.5, y = max(panache_vent$dist_ouest_km, na.rm = TRUE) * 0.95,
+           hjust = 1, vjust = 1, size = 8, fontface = "italic", family = "serif",
+           color = "grey20",
+           label = paste0("Wilcoxon : p < 2.2×10⁻¹⁶",
+                          "\nd de Cohen = ", round(d_ouest$effsize, 3), " (petit)",
+                          "\nMéd. Est = ", round(med_ouest$med[med_ouest$wind_type == "Est"], 1), " km",
+                          "\nMéd. NO = ",  round(med_ouest$med[med_ouest$wind_type == "Nord-Ouest"], 1), " km")) +
+  labs(
+    x = expression("Vitesse du vent (m.s"^{-1}*")"),
+    y = "Distance d'extension ouest (km)"
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.title     = element_text(face = "bold", family = "serif"),
+    legend.text      = element_text(family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank()
+  )
+
+(p1 | p2) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    caption = "Source : Sextant OC5",
+    theme   = theme(
+      plot.caption = element_text(size = 14, color = "grey50", hjust = 0)
+    )
+  ) &
+  theme(legend.position = "top")
+
+
+
+
+
+
+
+# Calculer les médianes par groupe
+med_sud <- panache_vent |>
+  group_by(wind_type) |>
+  summarise(med = median(dist_sud_km, na.rm = TRUE))
+
+# Ajouter sur p1
+p1 + geom_hline(data = med_sud, 
+                aes(yintercept = med, color = wind_type),
+                linetype = "dashed", linewidth = 0.8)
+
+p1 <- ggplot(panache_vent |> filter(!is.na(dist_sud_km)),
+             aes(x = FFM, y = dist_sud_km, color = wind_type, shape = wind_type)) +
   geom_point(alpha = 0.5, size = 2) +
   scale_color_manual(
-    values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),  # tiret, pas espace
+    values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),
     name = "Direction du vent"
   ) +
   scale_shape_manual(
-    values = c("Nord-Ouest" = 16, "Est" = 17),                 # tiret, pas espace
+    values = c("Nord-Ouest" = 16, "Est" = 17),
     name = "Direction du vent"
   ) +
+  coord_cartesian(xlim = c(0, 10)) +   # ← coupe l'axe x à 10
   labs(
     x = expression("Vitesse du vent (m.s"^{-1}*")"),
-    y = "Distance d'extension sud (km)",
-    # title = "Réponse du panache turbide du Var aux conditions de vent"
-    ) +
+    y = "Distance d'extension sud (km)"
+  ) +
   theme_bw(base_size = 14) +
   theme(
-    legend.position   = "top",
     legend.title      = element_text(face = "bold", family = "serif"),
     legend.text       = element_text(family = "serif"),
     axis.title        = element_text(face = "bold", family = "serif"),
     axis.text         = element_text(color = "grey30", family = "serif"),
-    plot.title        = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.subtitle     = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
     panel.grid.minor  = element_blank()
   )
 
@@ -548,42 +656,37 @@ p2 <- ggplot(panache_vent |> filter(!is.na(dist_ouest_km)),
              aes(x = FFM, y = dist_ouest_km, color = wind_type, shape = wind_type)) +
   geom_point(alpha = 0.5, size = 2) +
   scale_color_manual(
-    values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),  # tiret, pas espace
+    values = c("Nord-Ouest" = "steelblue", "Est" = "tomato"),
     name = "Direction du vent"
   ) +
   scale_shape_manual(
-    values = c("Nord-Ouest" = 16, "Est" = 17),                 # tiret, pas espace
+    values = c("Nord-Ouest" = 16, "Est" = 17),
     name = "Direction du vent"
   ) +
+  coord_cartesian(xlim = c(0, 10)) +   # ← coupe l'axe x à 10
   labs(
     x = expression("Vitesse du vent (m.s"^{-1}*")"),
-    y = "Distance d'extension ouest (km)",
-    # title = "Réponse du panache turbide du Var aux conditions de vent"
+    y = "Distance d'extension ouest (km)"
   ) +
   theme_bw(base_size = 14) +
   theme(
-    legend.position   = "top",
     legend.title      = element_text(face = "bold", family = "serif"),
     legend.text       = element_text(family = "serif"),
     axis.title        = element_text(face = "bold", family = "serif"),
     axis.text         = element_text(color = "grey30", family = "serif"),
-    plot.title        = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.subtitle     = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
     panel.grid.minor  = element_blank()
   )
 
-# patchwork
-
-(p1 / p2) +
+# patchwork côte à côte
+(p1 | p2) +
+  plot_layout(guides = "collect") +
   plot_annotation(
-    title   = "Réponse du panache turbide du Var aux conditions de vent",
     caption = "Source : Sextant OC5",
     theme   = theme(
-      plot.title   = element_text(size = 14, face = "bold"),
-      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+      plot.caption = element_text(size = 14, color = "grey50", hjust = 0)
     )
-  )
-
+  ) &
+  theme(legend.position = "top")
 
 Wind_new <- panache_vent |> 
   dplyr::select(FFM, wind_type, dist_sud_km, dist_ouest_km, dist_est_km) |> 

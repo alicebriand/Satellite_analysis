@@ -72,7 +72,11 @@ Wind_T <- Wind_T |>
 
 Wind_T <- Wind_T |> 
   filter(date >= "1998-01-01", date <= "2024-12-31")
-  
+
+# other data --------------------------------------------------------------
+
+load("data/Hydro France/All_debit.Rdata")
+
 ## separate wind -----------------------------------------------------------
 
 # West
@@ -1357,13 +1361,6 @@ Wind_T <- Wind_T |>
     mois = month(date)
   )
 
-# Option 1 — Totaux annuels (le plus courant)
-pluie_annuelle <- Wind_T |>
-  group_by(annee) |>
-  summarise(total = sum(RR, na.rm = TRUE))
-
-mk.test(pluie_annuelle$total)
-
 # Option 2 — Totaux mensuels (plus de points, tendance saisonnière possible)
 pluie_mensuelle <- Wind_T |>
   group_by(annee, mois) |>
@@ -1547,3 +1544,377 @@ ggplot() +
     date_labels = "%Y"
   )
 
+
+# mettre en relation précipitation et débit -------------------------------
+
+## estimate liquid flow rate trend -----------------------------------------
+
+### Var ---------------------------------------------------------------------
+
+load("data/Hydro France/Y6442010_depuis_2000.Rdata")
+
+Y6442010_depuis_2006 <- Y6442010_depuis_2000 |> 
+  filter(date >= "2006-01-01", date <= "2025-12-31")  # ← ajout
+
+debit_clean <- Y6442010_depuis_2006 |>
+  drop_na(débit)
+
+mk_debit <- mk.test(debit_clean$débit)
+print(mk_debit)
+
+debit_clean <- debit_clean |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_debit       <- sens.slope(debit_clean$débit)
+slope_debit_jan <- sen_debit$estimates * 365
+
+intercept_debit <- median(
+  debit_clean$débit - sen_debit$estimates * debit_clean$date_num,
+  na.rm = TRUE
+)
+
+debit_clean <- debit_clean |>
+  mutate(theilsen_fit_debit = intercept_debit + sen_debit$estimates * date_num)
+
+cat("Tendance débit :", round(slope_debit_jan, 3), "m³/s/an\n")
+cat("Mann-Kendall p =", round(mk_debit$p.value, 4), "\n")
+
+debit_clean_var <- debit_clean
+mk_var  <- mk_debit
+sen_var <- sen_debit
+
+### Paillon ---------------------------------------------------------------------
+
+load("~/River_runoff_analysis/data/MNCA/Paillon_all_debit.Rdata")
+
+Paillon_all_debit <- Paillon_all_debit |> 
+  filter(date <= "2025-12-31")   # ← ajout
+
+debit_clean <- Paillon_all_debit |>
+  drop_na(ABA_debit_mean)
+
+mk_debit <- mk.test(debit_clean$ABA_debit_mean)
+print(mk_debit)
+
+debit_clean <- debit_clean |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_debit       <- sens.slope(debit_clean$ABA_debit_mean)
+slope_debit_jan <- sen_debit$estimates * 365
+
+intercept_debit <- median(
+  debit_clean$ABA_debit_mean - sen_debit$estimates * debit_clean$date_num,
+  na.rm = TRUE
+)
+
+debit_clean <- debit_clean |>
+  mutate(theilsen_fit_debit = intercept_debit + sen_debit$estimates * date_num)
+
+cat("Tendance débit :", round(slope_debit_jan, 3), "m³/s/an\n")
+cat("Mann-Kendall p =", round(mk_debit$p.value, 4), "\n")
+
+debit_clean_paillon <- debit_clean
+mk_paillon  <- mk_debit
+sen_paillon <- sen_debit
+
+### Magnan ---------------------------------------------------------------------
+
+load("~/River_runoff_analysis/data/MNCA/Magnan_all_debit.Rdata")
+
+Magnan_all_debit <- Magnan_all_debit |> 
+  filter(date <= "2025-12-31")   # ← ajout
+
+debit_clean <- Magnan_all_debit |>
+  drop_na(AAM_debit_mean)
+
+mk_debit <- mk.test(debit_clean$AAM_debit_mean)
+print(mk_debit)
+
+debit_clean <- debit_clean |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_debit       <- sens.slope(debit_clean$AAM_debit_mean)
+slope_debit_jan <- sen_debit$estimates * 365
+
+intercept_debit <- median(
+  debit_clean$AAM_debit_mean - sen_debit$estimates * debit_clean$date_num,
+  na.rm = TRUE
+)
+
+debit_clean <- debit_clean |>
+  mutate(theilsen_fit_debit = intercept_debit + sen_debit$estimates * date_num)
+
+cat("Tendance débit :", round(slope_debit_jan, 3), "m³/s/an\n")
+cat("Mann-Kendall p =", round(mk_debit$p.value, 4), "\n")
+
+debit_clean_magnan <- debit_clean
+mk_magnan  <- mk_debit
+sen_magnan <- sen_debit
+
+### afficher les plots -------------------------------------------------------
+
+plot_tendance <- function(data, date_col, debit_col,
+                          mk_pval, slope_an, titre, ylim_max = NULL) {
+  
+  sig_label   <- ifelse(mk_pval < 2.2e-16,
+                        "p < 2.2×10⁻¹⁶ *",
+                        ifelse(mk_pval < 0.05,
+                               paste0("p = ", round(mk_pval, 4), " *"),
+                               paste0("p = ", round(mk_pval, 4), " (ns)")))
+  slope_label <- paste0("Pente = ", round(slope_an, 3), " m³/s/an")
+  
+  y_max_visible <- if (!is.null(ylim_max)) ylim_max else max(data[[debit_col]], na.rm = TRUE)
+  
+  p <- ggplot(data, aes(x = .data[[date_col]])) +
+    geom_line(aes(y = .data[[debit_col]]),
+              color = "steelblue", alpha = 0.6, linewidth = 0.4) +
+    annotate("text",
+             x     = min(data[[date_col]]),
+             y     = y_max_visible * 0.95,
+             label = paste(sig_label, slope_label, sep = "\n"),
+             hjust = 0, vjust = 1, size = 8,
+             color = ifelse(mk_pval < 0.05, "firebrick", "gray40")) +
+    labs(title = titre, x = NULL, y = "Débit (m³/s)") +
+    theme_bw(base_size = 11)
+  
+  if (!is.null(ylim_max)) {
+    p <- p + coord_cartesian(ylim = c(0, ylim_max))
+  }
+  
+  return(p)
+}
+
+# Graphiques
+p1 <- plot_tendance(debit_clean_var,     "date", "débit",
+                    mk_var$p.value,     sen_var$estimates     * 365, "Var")
+
+p2 <- plot_tendance(debit_clean_paillon, "date", "ABA_debit_mean",
+                    mk_paillon$p.value, sen_paillon$estimates * 365, "Paillon")
+
+p3 <- plot_tendance(debit_clean_magnan,  "date", "AAM_debit_mean",
+                    mk_magnan$p.value,  sen_magnan$estimates  * 365, "Magnan")
+
+p1 / p2 / p3
+
+
+# ── Panneau d : précipitations + corrélation avec débit du Var ──────────────
+
+# Filtrer les précipitations sur la même période que le Var
+Wind_T_filtered <- Wind_T |>
+  filter(date >= "2006-01-01", date <= "2025-12-31") |>
+  mutate(annee = year(date), mois = month(date))
+
+# Totaux mensuels
+pluie_mensuelle <- Wind_T_filtered |>
+  group_by(annee, mois) |>
+  summarise(total = sum(RR, na.rm = TRUE), .groups = "drop") |>
+  arrange(annee, mois)
+
+# Série temporelle mensuelle
+pluie_ts <- ts(pluie_mensuelle$total,
+               start     = c(min(pluie_mensuelle$annee), 1),
+               frequency = 12)
+
+# Test saisonnier de Mann-Kendall
+smk_result <- smk.test(pluie_ts)
+smk_pval   <- smk_result$p.value
+
+# Label tendance
+smk_label <- ifelse(smk_pval < 2.2e-16,
+                    "p < 2.2×10⁻¹⁶ *",
+                    ifelse(smk_pval < 0.05,
+                           paste0("p = ", round(smk_pval, 4), " *"),
+                           paste0("p = ", round(smk_pval, 4), " (ns)")))
+
+# Corrélation Spearman débit Var ~ précipitations lag 1 jour
+merged_pluie_debit <- debit_clean_var |>
+  select(date, débit) |>
+  inner_join(
+    Wind_T_filtered |> select(date, RR),
+    by = "date"
+  ) |>
+  mutate(RR_lag1 = lag(RR, n = 1)) |>
+  drop_na(débit, RR_lag1)
+
+cor_result <- cor.test(merged_pluie_debit$débit,
+                       merged_pluie_debit$RR_lag1,
+                       method = "spearman")
+
+cor_label <- paste0(
+  "r = ", round(cor_result$estimate, 2),
+  "\np ", ifelse(cor_result$p.value < 0.001, "< 0.001",
+                 paste0("= ", round(cor_result$p.value, 3)))
+)
+
+# Mise à l'échelle pour double axe
+adjust_factors <- sec_axis_adjustement_factors(Wind_T_filtered$RR,
+                                               debit_clean_var$débit)
+Wind_T_filtered <- Wind_T_filtered |>
+  mutate(RR_scaled = RR * adjust_factors$diff + adjust_factors$adjust)
+
+# Graphique
+p4 <- ggplot() +
+  geom_line(data = debit_clean_var,
+            aes(x = date, y = débit, color = "Débit Var"),
+            linewidth = 0.4, alpha = 0.6) +
+  geom_line(data = Wind_T_filtered,
+            aes(x = date, y = RR_scaled, color = "Précipitations"),
+            linewidth = 0.4, alpha = 0.6) +
+  scale_color_manual(
+    values = c("Débit Var" = "steelblue", "Précipitations" = "darkorange"),
+    name   = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = "Précipitations (mm)"
+    )
+  ) +
+  annotate("text",
+           x = min(debit_clean_var$date),
+           y = max(debit_clean_var$débit, na.rm = TRUE) * 0.95,
+           hjust = 0, vjust = 1, size = 8, color = "darkorange",
+           label = paste0("Tendance pluie : ", smk_label)) +
+  annotate("text",
+           x = min(debit_clean_var$date),
+           y = max(debit_clean_var$débit, na.rm = TRUE) * 0.75,
+           hjust = 0, vjust = 1, size = 8, color = "grey20",
+           label = cor_label) +
+  labs(title = "Précipitations et débit du Var (2006–2025)",
+       x = NULL, y = "Débit (m³/s)") +
+  theme_bw(base_size = 11) +
+  theme(legend.position = "top")
+
+# ── Assemblage final ────────────────────────────────────────────────────────
+
+(p1 / p2 / p3 / p4) +
+  plot_annotation(
+    title   = "Évolution des débits fluviaux et des précipitations — 2006–2025",
+    caption = "Sources : Hydro France, MNCA, Météo France",
+    theme   = theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+
+
+# ── Assemblage final ────────────────────────────────────────────────────────
+
+# Label tendance précipitations sans (ns)
+smk_label <- ifelse(smk_pval < 2.2e-16,
+                    "p < 2.2×10⁻¹⁶ *",
+                    ifelse(smk_pval < 0.05,
+                           paste0("p = ", round(smk_pval, 4), " *"),
+                           paste0("p = ", round(smk_pval, 4))))  # ← (ns) supprimé
+
+# Refaire p4 avec le label corrigé
+p4 <- ggplot() +
+  geom_line(data = debit_clean_var,
+            aes(x = date, y = débit, color = "Débit Var"),
+            linewidth = 0.4, alpha = 0.6) +
+  geom_line(data = Wind_T_filtered,
+            aes(x = date, y = RR_scaled, color = "Précipitations"),
+            linewidth = 0.4, alpha = 0.6) +
+  scale_color_manual(
+    values = c("Débit Var" = "steelblue", "Précipitations" = "darkorange"),
+    name   = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
+      name = "Précipitations (mm)"
+    )
+  ) +
+  scale_x_date(limits = c(as.Date("2006-01-01"), as.Date("2025-12-31"))) +
+  # Tendance pluie → à gauche
+  annotate("text",
+           x = as.Date("2006-01-01"),
+           y = max(debit_clean_var$débit, na.rm = TRUE) * 0.95,
+           hjust = 0, vjust = 1, size = 8, color = "darkorange",
+           label = paste0("Tendance pluie : ", smk_label)) +
+  # Corrélation → à droite
+  annotate("text",
+           x = as.Date("2025-12-31"),      # ← x à droite
+           y = max(debit_clean_var$débit, na.rm = TRUE) * 0.95,
+           hjust = 1, vjust = 1, size = 8, color = "grey20",  # ← hjust = 1
+           label = cor_label) +
+  labs(title = "d) Précipitations et débit du Var (2006–2025)",
+       x = NULL, y = "Débit (m³/s)") +
+  theme_bw(base_size = 11) +
+  theme(legend.position = "top")
+
+# Refaire p1, p2, p3 avec annotations a), b), c)
+p1 <- plot_tendance(debit_clean_var,     "date", "débit",
+                    mk_var$p.value,     sen_var$estimates     * 365, "a) Var",
+                    date_min = "2006-01-01", date_max = "2025-12-31")
+
+p2 <- plot_tendance(debit_clean_paillon, "date", "ABA_debit_mean",
+                    mk_paillon$p.value, sen_paillon$estimates * 365, "b) Paillon",
+                    date_min = "2013-01-01", date_max = "2025-12-31")
+
+p3 <- plot_tendance(debit_clean_magnan,  "date", "AAM_debit_mean",
+                    mk_magnan$p.value,  sen_magnan$estimates  * 365, "c) Magnan",
+                    date_min = "2014-01-01", date_max = "2025-12-31")
+
+# Et supprimer le (ns) dans la fonction plot_tendance
+plot_tendance <- function(data, date_col, debit_col,
+                          mk_pval, slope_an, titre,
+                          date_min, date_max,
+                          ylim_max = NULL) {
+  
+  sig_label   <- ifelse(mk_pval < 2.2e-16,
+                        "p < 2.2×10⁻¹⁶ *",
+                        ifelse(mk_pval < 0.05,
+                               paste0("p = ", round(mk_pval, 4), " *"),
+                               paste0("p = ", round(mk_pval, 4))))
+  slope_label <- paste0("Pente = ", round(slope_an, 3), " m³/s/an")
+  
+  y_max_visible <- if (!is.null(ylim_max)) ylim_max else max(data[[debit_col]], na.rm = TRUE)
+  
+  p <- ggplot(data, aes(x = .data[[date_col]])) +
+    geom_line(aes(y = .data[[debit_col]]),
+              color = "steelblue", alpha = 0.6, linewidth = 0.4) +
+    scale_x_date(limits = c(as.Date(date_min), as.Date(date_max))) +
+    annotate("text",
+             x     = as.Date(date_min),
+             y     = y_max_visible * 0.95,
+             label = paste(sig_label, slope_label, sep = "\n"),
+             hjust = 0, vjust = 1, size = 8,
+             color = ifelse(mk_pval < 0.05, "firebrick", "gray40")) +
+    labs(title = titre, x = NULL, y = "Débit (m³/s)") +
+    theme_bw(base_size = 11)
+  
+  if (!is.null(ylim_max)) {
+    p <- p + coord_cartesian(ylim = c(0, ylim_max))
+  }
+  
+  return(p)
+}
+
+# Regénérer p1, p2, p3 avec la fonction corrigée
+p1 <- plot_tendance(debit_clean_var,     "date", "débit",
+                    mk_var$p.value,     sen_var$estimates     * 365, "a) Var",
+                    date_min = "2006-01-01", date_max = "2025-12-31")
+
+p2 <- plot_tendance(debit_clean_paillon, "date", "ABA_debit_mean",
+                    mk_paillon$p.value, sen_paillon$estimates * 365, "b) Paillon",
+                    date_min = "2013-01-01", date_max = "2025-12-31")
+
+p3 <- plot_tendance(debit_clean_magnan,  "date", "AAM_debit_mean",
+                    mk_magnan$p.value,  sen_magnan$estimates  * 365, "c) Magnan",
+                    date_min = "2014-01-01", date_max = "2025-12-31")
+
+# Assemblage
+(p1 / p2 / p3 / p4) +
+  plot_annotation(
+    caption = "Sources : Hydro France, MNCA, Météo France",
+    theme   = theme(
+      plot.caption = element_text(size = 10, color = "grey50", hjust = 0)
+    )
+  )
+
+cat("r de Spearman =", round(cor_result$estimate, 3), "\n")
+print(cor_result$p.value)
