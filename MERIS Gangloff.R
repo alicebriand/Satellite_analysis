@@ -500,20 +500,6 @@ ggplot(MERIS_panache_metrics, aes(x = débit, y = max_spm)) +
     plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # climatologie ------------------------------------------------------------
 
 # période de 10 ans

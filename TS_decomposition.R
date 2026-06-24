@@ -21,7 +21,6 @@ library(fpp3) # For more advanced tidyverse-like TS modelling workflows # NB: Th
 library(GGally) # For ggplot2 functionality with advanced TS models
 library(seasonal) # For X11
 
-
 # Functions ---------------------------------------------------------------
 
 # Scale one value to another for tidier double-y-axis plots

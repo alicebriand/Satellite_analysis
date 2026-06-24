@@ -29,6 +29,7 @@ load("data/MODIS L2 NASA/study_area_df_2024")
 load("data/MODIS L2 NASA/study_area_df_07_05_2026.RData")
 load("data/MODIS L2 NASA/study_area_df_2016.Rdata")
 load("~/Downloads/MODIS NASA/03_10_2020/study_area_df_03_10_2020.Rdata")
+load("~/Downloads/MODIS NASA/07_05_2026/study_area_df_07_05_2026.Rdata")
 
 # Load necessary libraries
 library(tidyverse)
@@ -74,87 +75,6 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
                     trans_axis_operation = "var_to_scale = {scaled_var - adjust} / diff)"))
 }
 
-# This function will convert reflectance into SPM concentration with the Var parameters :
-Var_Morin <- function(study_area_df, sur_refl_b01_1 = "sur_refl_b01_1", A = 80, C = 0.1562, SPM_max = 500) {
-  
-  # Vérifier que la colonne de réflectance existe
-  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
-    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
-  }
-  
-  # Calculer SPM avec une approche conditionnelle
-  study_area_df <- study_area_df %>%
-    mutate(
-      SPM = case_when(
-        .data[[sur_refl_b01_1]] >= C ~ SPM_max,  # Si ρw >= C, SPM = SPM_max
-        TRUE ~ (A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C)  # Sinon, appliquer la formule
-      )
-    )
-  
-  return(study_area_df)
-}
-
-# This function will convert reflectance into SPM concentration with the Paillon parameters :
-Paillon_Morin <- function(study_area_df, sur_refl_b01_1, A = 39, C = 0.2563) {
-  # Vérifier que la colonne de réflectance existe
-  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
-    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
-  }
-  
-  # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
-  study_area_df <- study_area_df %>%
-    mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
-    )
-  
-  return(study_area_df)
-}
-
-# NB: When writing a function it is a good idea (but not necessary) to name your arguments
-# in a way that is not found in your code outside of the function
-# E.g. Here I changed 'study_area_df' to 'df' and 'sur_refl_b01_1' to 'col_name'
-MODIS_L2_SPM <- function(df, col_name, A = 80, C = 0.1562){
-  
-  # Vérifier que la colonne de réflectance existe
-  if (!(col_name %in% names(df))) {
-    stop(paste("La colonne", col_name, "n'existe pas dans le data frame."))
-  }
-  
-  # Calculer SPM avec la formule : SPM = A * ρw / (1 - ρw / C)
-
-  study_area_df <- study_area_df %>%
-    mutate(SPM = pmin((A * .data[[sur_refl_b01_1]]) / (1 - .data[[sur_refl_b01_1]] / C), 500)
-    )
-  
-  return(study_area_df)
-}
-
-# This is a formula seen in the paper of Doxaran et al., ... : 
-Gironde_Doxaran <- function(study_area_df, sur_refl_b01_1, sur_refl_b02_1) {
-  
-  # Vérifier que les colonnes de réflectance existent
-  if (!(sur_refl_b01_1 %in% names(study_area_df))) {
-    stop(paste("La colonne", sur_refl_b01_1, "n'existe pas dans le data frame."))
-  }
-  if (!(sur_refl_b02_1 %in% names(study_area_df))) {
-    stop(paste("La colonne", sur_refl_b02_1, "n'existe pas dans le data frame."))
-  } 
-  
-  # Calculer SPM avec la formule : SPM = 12.996 * exp((R(B2)/R(B1)) / 0.189)
-  study_area_df <- study_area_df %>%
-    mutate(
-      SPM = case_when(
-        .data[[sur_refl_b01_1]] <= 0 ~ NA_real_,  # Évite la division par zéro ou des valeurs négatives
-        TRUE ~ 12.996 * exp((.data[[sur_refl_b02_1]] / .data[[sur_refl_b01_1]]) / 0.189)
-      )
-    )
-
-  df <- df |> 
-    mutate(SPM = (A * .data[[col_name]]) / (1 - (.data[[col_name]] / C)))
-  
-  return(df)
-}
-
-
 # period of time ----------------------------------------------------------
 
 # we have to choose some dates and look at what data look like : 
@@ -185,18 +105,18 @@ study_area_df_03_10_2020 <- study_area_df_2024 |>
 # data analysis -----------------------------------------------------------
 
 # we first start to exclude negative reflectance
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>  
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |>  
   filter(sur_refl_b01_1 > 0, sur_refl_b02_1 > 0)
 
 # It is a single equation, we can apply it directly to the data.frame with mutate()
 # SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
 # and values come from? I do not find them in the literature?
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>  
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |>  
   mutate(SPM_Morin_Var = (80 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.1562)),
          SPM_Morin_Paillon = (39 * sur_refl_b01_1) / (1 - (sur_refl_b01_1 / 0.2563)))
 
 # Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |>
   mutate(SPM_Doxaran = 12.996 * exp((sur_refl_b02_1/sur_refl_b01_1)/0.189),
          SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
 
@@ -204,7 +124,7 @@ study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
 # https://www.sciencedirect.com/science/article/pii/S003442572500149X
 # SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
 # NB: lambda_RED is taken here to be the MODIS band 1 waveband
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |> 
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |> 
 mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
        Rrs_b02_01 = (sur_refl_b02_1/pi), # First convert Rhow_w to Rrs
        SPM_Teng_MO = 1992.2 * Rrs_b01_01^1.027,
@@ -217,18 +137,17 @@ mutate(Rrs_b01_01 = (sur_refl_b01_1/pi), # First convert Rhow_w to Rrs
 # Though this is for LandSat 8
 # SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
 # A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |>
   mutate(SPM_Tsapanou = ((366.53 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.0324))))
 # this produce a lot of negative values
 
 # So we digress to the Nechad formula of 
 # SPM = ((A * Rhow)/(1-(Rhow/C)))+B
 # A = 289.29, C = 0.1686, B = 2.10 
-study_area_df_03_10_2020 <- study_area_df_03_10_2020 |>
+study_area_df_07_05_2026 <- study_area_df_07_05_2026 |>
   mutate(SPM_Nechad = ((289.29 * sur_refl_b01_1)/(1-(sur_refl_b01_1/0.1686))) + 2.10)
 
 # plotting -----------------------------------------------------------
-
 
 ## Morin Var -------------------------------------------------------------------
 
@@ -2194,50 +2113,29 @@ ggplot() +
 
 unique(study_area_df_2024$date)
 
-
-# liquid flow rate vs plume area ------------------------------------------
-
-
-
 # patchwork ---------------------------------------------------------------
-
-# on veut assembler le screenshot de la crue du 04/03/2026 avec les cartographies
-# et les scatter plot
-
-# Charger l'image
-img <- magick::image_read("~/Pictures/Captures d’écran/Capture d’écran du 2026-06-04 10-46-45.png")
-
-# Convertir en ggplot via ggplotify ou directement avec annotation_raster
-img_raster <- as.raster(img)
-
-p_img <- ggplot() +
-  annotation_raster(img_raster, 
-                    xmin = -Inf, xmax = Inf, 
-                    ymin = -Inf, ymax = Inf) +
-  theme_void()
-
-# assembler
-p_img
-
-# Équations
 
 # définir un seuil au P99
 max_spm_global <- max(
-  quantile(study_area_df_03_10_2020$SPM_Morin_Var,     0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Morin_Paillon, 0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Teng_MO,       0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Teng_MM,       0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Teng_extrm_MM, 0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Tsapanou,      0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Nechad,        0.99, na.rm = TRUE),
-  quantile(study_area_df_03_10_2020$SPM_Doxaran,       0.99, na.rm = TRUE)
+  quantile(study_area_df_07_05_2026$SPM_Morin_Var,     0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Morin_Paillon, 0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Teng_MO,       0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Teng_MM,       0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Teng_extrm_MM, 0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Tsapanou,      0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Nechad,        0.99, na.rm = TRUE),
+  quantile(study_area_df_07_05_2026$SPM_Doxaran,       0.99, na.rm = TRUE)
 )
 
 make_spm_map <- function(df, var, titre,
                          show_x = FALSE,
-                         show_y = FALSE) {
+                         show_y = FALSE,
+                         max_limit = NULL) {   # ← nouvel argument
   
-  max_spm_local <- quantile(df[[var]], 0.99, na.rm = TRUE)
+  max_spm_local <- if (!is.null(max_limit)) max_limit else quantile(df[[var]], 0.99, na.rm = TRUE)
+  
+  df <- df |>
+    mutate(!!var := ifelse(.data[[var]] > max_spm_local, NA, .data[[var]]))
   
   ggplot(df) +
     geom_tile(aes(x = lon, y = lat, fill = .data[[var]])) +
@@ -2248,10 +2146,10 @@ make_spm_map <- function(df, var, titre,
       height = unit(0.8, "cm"), width = unit(0.8, "cm")
     ) +
     scale_fill_viridis_c(
-      option = "viridis",
-      name   = expression("MES (g m"^{-3}*")"),
-      limits = c(0, max_spm_local),
-      oob    = scales::squish
+      option   = "viridis",
+      name     = expression("MES (g m"^{-3}*")"),
+      limits   = c(0, max_spm_local),
+      na.value = "transparent"   # ← pixels aberrants transparents
     ) +
     labs(
       title = titre,
@@ -2266,8 +2164,8 @@ make_spm_map <- function(df, var, titre,
       legend.background = element_rect(fill = "white", colour = "grey70", linewidth = 0.3),
       legend.key.height = unit(0.4, "cm"),
       legend.key.width  = unit(1.2, "cm"),
-      legend.title      = element_text(size = 9),   # ← titre légende
-      legend.text       = element_text(size = 9),   # ← nombres de l'échelle
+      legend.title      = element_text(size = 9),
+      legend.text       = element_text(size = 9),
       axis.text.x  = if (show_x) element_text(size = 7) else element_blank(),
       axis.text.y  = if (show_y) element_text(size = 7) else element_blank(),
       axis.ticks.x = if (show_x) element_line() else element_blank(),
@@ -2276,19 +2174,24 @@ make_spm_map <- function(df, var, titre,
       plot.margin  = margin(2, 2, 2, 2)
     )
 }
-p1 <- make_spm_map(study_area_df_03_10_2020, "SPM_Morin_Var",     "Équation propre au Var")
-p2 <- make_spm_map(study_area_df_03_10_2020, "SPM_Morin_Paillon", "Équation propre au Paillon")
-p3 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_MO",       "Teng et al. (1)")
-p4 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_MM",       "Teng et al. (2)")
-p5 <- make_spm_map(study_area_df_03_10_2020, "SPM_Teng_extrm_MM", "Teng et al. (3)")
-p6 <- make_spm_map(study_area_df_03_10_2020, "SPM_Nechad",        "Nechad et al.")
+
+# p1 <- make_spm_map(study_area_df_07_05_2026, "SPM_Morin_Var",     "Équation propre au Var")
+# p2 <- make_spm_map(study_area_df_07_05_2026, "SPM_Morin_Paillon", "Équation propre au Paillon")
+p1 <- make_spm_map(study_area_df_07_05_2026, "SPM_Morin_Var",     "Équation propre au Var",
+                   max_limit = 150)
+p2 <- make_spm_map(study_area_df_07_05_2026, "SPM_Morin_Paillon", "Équation propre au Paillon",
+                   max_limit = 150)
+p3 <- make_spm_map(study_area_df_07_05_2026, "SPM_Teng_MO",       "Teng et al. (1)")
+p4 <- make_spm_map(study_area_df_07_05_2026, "SPM_Teng_MM",       "Teng et al. (2)")
+p5 <- make_spm_map(study_area_df_07_05_2026, "SPM_Teng_extrm_MM", "Teng et al. (3)")
+p6 <- make_spm_map(study_area_df_07_05_2026, "SPM_Nechad",        "Nechad et al.")
 
 # plot
 wrap_plots(p1, p2, p3, p4,
            p5, p6,
            ncol = 3, nrow = 2) +
   plot_annotation(
-    title   = "Cartographie de la concentration en MES dans les panaches turbides du Var et du Paillon (03/10/2020)",
+    title   = "Cartographie de la concentration en MES dans les panaches turbides du Var et du Paillon (07/05/2026)",
     caption = "(1) : pour des eaux chargées en MO\n(2) : pour des eaux chargées en matière minérale\n(3) : pour des eaux extrêmement chargées en matière minérale",
     tag_levels = "a",
     tag_suffix = ")",
@@ -2303,3 +2206,256 @@ wrap_plots(p1, p2, p3, p4,
   theme(
     plot.tag = element_text(size = 10, face = "bold")
   )
+
+# plotting MSI 04/03/2024 -------------------------------------------------
+
+# on sélectionne seulement les bandes intéressantes
+df_MSI <- df_MSI |> 
+  select(lon,lat,refl_b04, refl_b08)
+
+# appliquer les équations 
+
+# we first start to exclude negative reflectance
+df_MSI <- df_MSI |>  
+    filter(refl_b04 > 0, refl_b08 > 0)
+
+# It is a single equation, we can apply it directly to the data.frame with mutate()
+# SPM = A * ρw / (1 - ρw / C); A = 80, C = 0.1562 # But where does this equation 
+# and values come from? I do not find them in the literature?
+df_MSI <- df_MSI |>  
+  mutate(SPM_Morin_Var = (80 * refl_b04) / (1 - (refl_b04 / 0.1562)),
+         SPM_Morin_Paillon = (39 * refl_b04) / (1 - (refl_b04 / 0.2563)))
+
+# Équation Doxaran et al., 2009 (il faut les deux bandes réflectance)
+df_MSI <- df_MSI |>
+  mutate(SPM_Doxaran = 12.996 * exp((refl_b08/refl_b04)/0.189),
+         SPM_Doxaran = ifelse(is.infinite(SPM_Doxaran), NA, SPM_Doxaran))
+
+# A different algorithm based on Teng et al. 2025
+# https://www.sciencedirect.com/science/article/pii/S003442572500149X
+# SPM_org = a Rrs(lambda_RED)^b; a = 1992.2, b = 1.027
+# NB: lambda_RED is taken here to be the MODIS band 1 waveband
+df_MSI <- df_MSI |> 
+  mutate(Rrs_b04_01 = (refl_b04/pi), # First convert Rhow_w to Rrs
+         Rrs_b08_01 = (refl_b08/pi), # First convert Rhow_w to Rrs
+         SPM_Teng_MO = 1992.2 * Rrs_b04_01^1.027,
+         SPM_Teng_MM = 12662.7 * Rrs_b08_01^1.157,
+         SPM_Teng_extrm_MM = 50556.7 * Rrs_b08_01^1.371)
+# But these values are crazy high...
+
+# So then this paper by Tsapanou et al. 2020
+# http://www.teiath.gr/userfiles/pdrak/lab/coupling_remote_sensing_data.pdf
+# Though this is for LandSat 8
+# SPM = ((A * Rho_W)/(1-(Rhow_w/C)))+B
+# A = 366,53 g m−3 , B = 0 g m−3 and C = 0.0324
+df_MSI <- df_MSI |>
+  mutate(SPM_Tsapanou = ((366.53 * refl_b04)/(1-(refl_b04/0.0324))))
+# this produce a lot of negative values
+
+# So we digress to the Nechad formula of 
+# SPM = ((A * Rhow)/(1-(Rhow/C)))+B
+# A = 289.29, C = 0.1686, B = 2.10 
+df_MSI <- df_MSI |>
+  mutate(SPM_Nechad = ((289.29 * refl_b04)/(1-(refl_b04/0.1686))) + 2.10)
+
+make_spm_map_MSI <- function(df, var, titre,
+                             show_x = FALSE,
+                             show_y = FALSE,
+                             max_limit = NULL) {
+  
+  max_spm_local <- if (!is.null(max_limit)) max_limit else quantile(df[[var]], 0.99, na.rm = TRUE)
+  
+  df <- df |>
+    mutate(!!var := ifelse(.data[[var]] > max_spm_local | .data[[var]] < 0, NA, .data[[var]]))
+  
+  ggplot(df) +
+    geom_tile(aes(x = lon, y = lat, fill = .data[[var]])) +
+    geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+    annotation_north_arrow(
+      location = "tr", which_north = "true",
+      style = north_arrow_fancy_orienteering(),
+      height = unit(0.8, "cm"), width = unit(0.8, "cm")
+    ) +
+    scale_fill_viridis_c(
+      option   = "viridis",
+      name     = expression("MES (g m"^{-3}*")"),
+      limits   = c(0, max_spm_local),
+      na.value = "red"                # ← pixels aberrants en rouge
+    ) +
+    # ← annotation en bas à gauche
+    annotate("text",
+             x     = min(df$lon, na.rm = TRUE) + 0.005,
+             y     = min(df$lat, na.rm = TRUE) + 0.005,
+             label = "■ Valeurs hors domaine de validité",
+             color = "red",
+             size  = 2.5,
+             hjust = 0,
+             vjust = 0) +
+    labs(
+      title = titre,
+      x = if (show_x) "Longitude (°E)" else NULL,
+      y = if (show_y) "Latitude (°N)"  else NULL
+    ) +
+    coord_sf(xlim = range(df$lon, na.rm = TRUE),
+             ylim = range(df$lat, na.rm = TRUE),
+             expand = FALSE) +
+    theme_bw() +
+    theme(
+      plot.title        = element_text(size = 10, face = "bold", hjust = 0.5),
+      legend.position   = c(0.18, 0.22),
+      legend.background = element_rect(fill = "white", colour = "grey70", linewidth = 0.3),
+      legend.key.height = unit(0.4, "cm"),
+      legend.key.width  = unit(1.2, "cm"),
+      legend.title      = element_text(size = 9),
+      legend.text       = element_text(size = 9),
+      axis.text.x  = if (show_x) element_text(size = 7) else element_blank(),
+      axis.text.y  = if (show_y) element_text(size = 7) else element_blank(),
+      axis.ticks.x = if (show_x) element_line() else element_blank(),
+      axis.ticks.y = if (show_y) element_line() else element_blank(),
+      axis.title   = element_text(size = 9),
+      plot.margin  = margin(2, 2, 2, 2)
+    )
+}
+
+# Graphiques
+p1 <- make_spm_map_MSI(df_MSI, "SPM_Morin_Var",     "Équation propre au Var",     max_limit = 75)
+p2 <- make_spm_map_MSI(df_MSI, "SPM_Morin_Paillon", "Équation propre au Paillon", max_limit = 45)
+p3 <- make_spm_map_MSI(df_MSI, "SPM_Teng_MO",       "Teng et al. (1)")
+p4 <- make_spm_map_MSI(df_MSI, "SPM_Teng_MM",       "Teng et al. (2)")
+p5 <- make_spm_map_MSI(df_MSI, "SPM_Teng_extrm_MM", "Teng et al. (3)")
+p6 <- make_spm_map_MSI(df_MSI, "SPM_Nechad",        "Nechad et al.")
+
+# Assemblage
+wrap_plots(p1, p2, p3, p4, p5, p6, ncol = 3, nrow = 2) +
+  plot_annotation(
+    title   = "Cartographie de la concentration en MES — MSI Sentinel-2 (04/03/2024)",
+    caption = "(1) : pour des eaux chargées en MO\n(2) : pour des eaux chargées en matière minérale\n(3) : pour des eaux extrêmement chargées en matière minérale",
+    tag_levels = "a",
+    tag_suffix = ")",
+    theme = theme(
+      plot.title   = element_text(size = 15, face = "bold", hjust = 0.5,
+                                  margin = margin(b = 8)),
+      plot.caption = element_text(size = 13, color = "black", hjust = 0,
+                                  margin = margin(t = 8),
+                                  lineheight = 1.4)
+    )
+  ) &
+  theme(plot.tag = element_text(size = 10, face = "bold"))
+
+
+# diagnostique des concentrations à l'embouchure 
+# 1. Regarder la distribution des valeurs à l'embouchure
+# Définir une zone proche de l'embouchure du Var
+embouchure <- df_MSI |>
+  filter(lon >= 7.18, lon <= 7.22,
+         lat >= 43.63, lat <= 43.67)
+
+# Résumé des valeurs brutes de réflectance
+cat("=== Réflectance brute à l'embouchure ===\n")
+summary(embouchure$refl_b04)
+summary(embouchure$refl_b08)
+
+# 2. Regarder les concentrations calculées à l'embouchure
+cat("\n=== Concentrations à l'embouchure ===\n")
+embouchure |>
+  summarise(across(starts_with("SPM_"), 
+                   list(min  = ~min(., na.rm = TRUE),
+                        mean = ~mean(., na.rm = TRUE),
+                        max  = ~max(., na.rm = TRUE),
+                        pct99 = ~quantile(., 0.99, na.rm = TRUE),
+                        n_na  = ~sum(is.na(.))),
+                   .names = "{.col}_{.fn}")) |>
+  pivot_longer(everything()) |>
+  print(n = 100)
+
+# 3. Vérifier si c'est dû au seuil max_limit
+cat("\n=== P99 global vs embouchure ===\n")
+cat("P99 SPM_Morin_Var global     :", quantile(df_MSI$SPM_Morin_Var,     0.99, na.rm = TRUE), "\n")
+cat("P99 SPM_Morin_Var embouchure :", quantile(embouchure$SPM_Morin_Var, 0.99, na.rm = TRUE), "\n")
+cat("Max SPM_Morin_Var embouchure :", max(embouchure$SPM_Morin_Var, na.rm = TRUE), "\n")
+
+# 4. Compter les NA à l'embouchure
+cat("\n=== NA à l'embouchure ===\n")
+embouchure |>
+  summarise(across(starts_with("SPM_"), ~sum(is.na(.)))) |>
+  print()
+
+# 5. Visualiser la distribution de la réflectance à l'embouchure
+ggplot(embouchure, aes(x = refl_b04)) +
+  geom_histogram(bins = 50, fill = "steelblue") +
+  geom_vline(xintercept = 0.1562, color = "red", linetype = "dashed") +  # ← seuil C de Morin Var
+  labs(title = "Distribution de refl_b04 à l'embouchure",
+       subtitle = "Ligne rouge = seuil C de l'équation Morin Var",
+       x = "Réflectance B04", y = "Count") +
+  theme_bw()
+
+# afficher les pixels hors domaine
+# Option 1 — Afficher explicitement les pixels hors domaine de validité
+df_MSI_spm <- df_MSI |>
+  mutate(
+    # Marquer les pixels hors domaine avant de calculer
+    hors_domaine_Morin_Var     = refl_b04 >= 0.1562,
+    hors_domaine_Morin_Paillon = refl_b04 >= 0.2563,
+    hors_domaine_Nechad        = refl_b04 >= 0.1686,
+    # Remplacer par NA explicitement
+    SPM_Morin_Var     = ifelse(hors_domaine_Morin_Var,     NA, SPM_Morin_Var),
+    SPM_Morin_Paillon = ifelse(hors_domaine_Morin_Paillon, NA, SPM_Morin_Paillon),
+    SPM_Nechad        = ifelse(hors_domaine_Nechad,        NA, SPM_Nechad)
+  )
+
+# Combien de pixels hors domaine ?
+cat("Pixels hors domaine Morin Var :", 
+    sum(df_MSI_spm$hors_domaine_Morin_Var, na.rm = TRUE), 
+    "(", round(mean(df_MSI_spm$hors_domaine_Morin_Var)*100, 1), "%)\n")
+
+cat("Pixels hors domaine Nechad :", 
+    sum(df_MSI_spm$hors_domaine_Nechad, na.rm = TRUE),
+    "(", round(mean(df_MSI_spm$hors_domaine_Nechad)*100, 1), "%)\n")
+
+# Option 2 — Utiliser une couleur distincte pour les pixels hors domaine
+# Dans make_spm_map_MSI, changer na.value :
+scale_fill_viridis_c(
+  option   = "viridis",
+  name     = expression("MES (g m"^{-3}*")"),
+  limits   = c(0, max_spm_local),
+  na.value = "red"   # ← rouge = hors domaine de validité
+)
+
+# échelle sur screenshot --------------------------------------------------
+
+# Charger l'image
+img <- png::readPNG("~/Pictures/Captures d’écran/Capture d’écran du 2026-06-07 19-38-24.png")
+
+# Définir les coordonnées réelles de l'image
+xmin <- 6.8925000
+xmax <- 7.4200000
+ymin <- 43.2136389
+ymax <- 43.7300000
+
+ggplot() +
+  annotation_raster(img,
+                    xmin = xmin, xmax = xmax,
+                    ymin = ymin, ymax = ymax) +
+  scale_x_continuous(name = "Longitude (°E)") +
+  scale_y_continuous(name = "Latitude (°N)") +
+  annotation_scale(
+    location      = "bl",
+    width_hint    = 0.3,
+    unit_category = "metric",
+    bar_cols      = c("white", "grey70"),  # ← barre blanche
+    text_col      = "white",               # ← texte blanc
+    line_col      = "white"                # ← bordure blanche
+  ) +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering()) +
+  coord_sf(xlim   = c(xmin, xmax),
+           ylim   = c(ymin, ymax),
+           crs    = sf::st_crs(4326),
+           datum  = sf::st_crs(4326),
+           expand = FALSE) +
+  theme_bw(base_size = 14) +          # ← taille de base augmentée
+  theme(
+    axis.title = element_text(face = "bold", size = 14),  # ← titre des axes
+    axis.text  = element_text(size = 12)                  # ← valeurs des axes
+  )
+

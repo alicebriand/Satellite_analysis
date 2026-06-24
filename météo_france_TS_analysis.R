@@ -2,6 +2,8 @@
 
 # pathway : ~/Satellite_analysis/météo_france_TS_analysis/
 
+# données météo france relevées in situ à l'aéroport de Nice
+
 # library -----------------------------------------------------------------
 
 library(tidyverse)
@@ -404,32 +406,6 @@ ggplot(Wind_2015_2024, aes(x = date, y = FFM)) +
 speed <- Wind_T$FFM
 direction <- Wind_T$DXY
 
-# p1 <- ggwindrose(
-#   speed         = speed,
-#   direction     = direction,
-#   n_directions  = 8,
-#   n_speeds      = 5,
-#   speed_cuts    = NA,
-#   col_pal       = "GnBu",
-#   legend_title  = "Vitesse du vent (m/s)",
-#   calm_wind     = 0,
-#   n_col         = 1,
-#   facet         = NULL,
-#   plot_title    = "Direction et vitesse du vent près de Nice",
-#   stack_reverse = TRUE) +
-#   labs(
-#     subtitle = "1998–2025"
-#     # caption  = "Source : Archives Météo France"
-#   ) +
-#   theme(
-#     plot.title       = element_text(face = "bold", size = 14, hjust = 0.5),
-#     plot.subtitle    = element_text(size = 14, hjust = 0.5, color = "grey50"),
-#     plot.caption     = element_text(size = 10, color = "grey50", hjust = 0),
-#     axis.text        = element_text(size = 13),   # ← labels N/S/E/O
-#     legend.title     = element_text(size = 12, face = "bold"),
-#     legend.text      = element_text(size = 13)
-#   )
-
 p1 <- ggwindrose(
   speed         = speed,
   direction     = direction,
@@ -453,35 +429,6 @@ p1 <- ggwindrose(
     legend.title    = element_text(size = 12, face = "bold"),
     legend.text     = element_text(size = 13)
   )
-
-# ggwindrose(
-#   speed = speed,
-#   direction = direction,
-#   n_directions = 8,
-#   n_speeds = 5,
-#   col_pal = "GnBu",  # Utilise une palette discrète
-#   legend_title = "Vitesse du vent (m/s)",
-#   calm_wind = 2,
-#   plot_title = "Rose des vents | Nice (2008-2019)",
-#   stack_reverse = TRUE
-# ) +
-#   labs(
-#     # subtitle = "Direction et vitesse moyenne du vent (1991-2024)",
-#     caption = "Source: Archives Météo France"
-#   ) +
-#   theme(
-#     legend.position = "right",
-#     legend.text = element_text(size = 13),
-#     legend.title = element_text(size = 12, face = "bold"),
-#     plot.title = element_text(size = 16, face = "bold", hjust = 0.5, color = "darkblue"),
-#     plot.subtitle = element_text(size = 13, hjust = 0.5),
-#     plot.caption = element_text(size = 13, color = "gray50"),
-#     panel.background = element_rect(fill = "white"),
-#     panel.grid = element_blank()
-#   ) +
-#   annotate("text", x = 0, y = 0, label = "", size = 3, color = "red")
-
-
 
 
 # Wind vs plume datas -----------------------------------------------------
@@ -521,7 +468,6 @@ Vent_SEXTANT_panache <- inner_join(Wind_T, SEXTANT_1998_2025_spm_95, by = "date"
 
 cor.test(Vent_SEXTANT_panache$FFM, Vent_SEXTANT_panache$aire_panache_km2, method = "spearman")
 
-
 ## wind direction vs plume area --------------------------------------------
 
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_1998_2025_spm_95$aire_panache_km2, North_West$DXY)
@@ -545,7 +491,6 @@ ggplot() +
     date_breaks = "1 year",  
     date_labels = "%Y"       
   )
-
 
 # wind climatology --------------------------------------------------------
 

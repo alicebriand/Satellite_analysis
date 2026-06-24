@@ -905,8 +905,6 @@ ggplot(SEXTANT_panache_metrics, aes(x = débit, y = max_spm)) +
     plot.margin = margin(1, 1.5, 1, 1, "cm")  # Plus de marge à droite pour l'annotation
   )
 
-
-
 # cartographie ------------------------------------------------------------
 
 max_spm <- max(MODIS_03_10_2020$`SPM-G-NS_mean`, na.rm = TRUE)

@@ -19,6 +19,7 @@ library(rnaturalearth)
 library(ggpmisc)
 library(data.table)
 library(giscoR) # Hi-res coastlines
+library(purrr)
 library(doParallel); registerDoParallel(cores = 14)
 
 # Get satellite download function
@@ -76,33 +77,9 @@ sec_axis_adjustement_factors <- function(var_to_scale, var_ref) {
                     trans_axis_operation = "var_to_scale = {scaled_var - adjust} / diff)"))
 }
 
-
 ## loading function -----------------------------------------------------------
 
 # filename <- "~/Downloads/OLCI/SPM/2016/OLCI_A_ODATIS_MR_2016_SPM/L3m_20160426__FRANCE_03_OLA_SPM-G-PO_DAY_00.nc"
-
-# load_OLCI_spm <- function(file_name, lon_range, lat_range) {
-#   file_caracter <- substr(basename(file_name), start = 5, stop = 12)
-#   file_date <- as.Date(file_caracter, format = "%Y%m%d")
-#   
-#   OLCI_one <- tidync(file_name) %>%
-#     hyper_filter(
-#       lon = lon >= lon_range[1] & lon <= lon_range[2],
-#       lat = lat >= lat_range[1] & lat <= lat_range[2]
-#     ) %>%
-#     hyper_tibble() %>%
-#     mutate(
-#       lon = as.numeric(lon),
-#       lat = as.numeric(lat),
-#       date = file_date
-#     ) %>%
-#     dplyr::select(lon, lat, date,`SPM-G-PO_mean`) |> 
-#     filter(`SPM-G-PO_mean` >= 1.2) |> 
-#     summarise(pixel_count = n(),
-#               mean_spm = mean(`SPM-G-PO_mean`, na.rm = TRUE), .by = "date")
-#   
-#   return(OLCI_one)
-# }
 
 load_OLCI_spm_pixels <- function(file_name, lon_range, lat_range){
   file_caracter <- substr(basename(file_name), start = 5, stop = 12)
@@ -122,6 +99,26 @@ load_OLCI_spm_pixels <- function(file_name, lon_range, lat_range){
   return(OLCI_one)
 }
 
+load_OLCI_chl_pixels <- function(file_name, lon_range, lat_range){
+  tryCatch({
+    file_caracter <- substr(basename(file_name), start = 5, stop = 12)
+    file_date <- as.Date(file_caracter, format = "%Y%m%d")
+    
+    tidync(file_name) |> 
+      hyper_filter(lon = lon >= lon_range[1] & lon <= lon_range[2],
+                   lat = lat >= lat_range[1] & lat <= lat_range[2]) |> 
+      hyper_tibble() |> 
+      mutate(lon = as.numeric(lon),
+             lat = as.numeric(lat),
+             date = file_date) |> 
+      dplyr::select(lon, lat, date, `CHL-OC5-PO_mean`)
+    
+  }, error = function(e) {
+    message("Fichier ignoré : ", basename(file_name), " — ", conditionMessage(e))
+    return(NULL)  # retourne NULL pour ce fichier, ldply l'ignorera
+  })
+}
+
 # load data ---------------------------------------------------------------
 ## Hydro France data ---------------------------------------------------------------------
 
@@ -132,19 +129,15 @@ load("data/Hydro France/All_debit.Rdata")
 All_debit_2016_2024 <- All_debit |> 
   filter(date >= as.Date("2014-01-01"), date <= as.Date("2024-12-31"))
 
-
 load("data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
 
 load("data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
 
 load("data/OLCI/SPM/all_spm_propre_OLCI_B_2020.Rdata")
 
-load("data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
+load("data/OLCI/CHL/OLCI_2016_2024_chl_pixels.Rdata")
 
 ## SPM ---------------------------------------------------------------------
-### threshold of 1.2 --------------------------------------------------------
-
-# on commence à 2018 car c'est là qu'on a les deux capteurs
 
 OLCI_A_2016_dir <- dir("~/Downloads/OLCI/SPM/2016/OLCI_A_ODATIS_MR_2016_SPM/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 OLCI_A_2017_dir <- dir("~/Downloads/OLCI/SPM/2017/OLCI_A_ODATIS_MR_2017_SPM/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
@@ -163,6 +156,26 @@ OLCI_B_2021_dir <- dir("~/Downloads/OLCI/SPM/2021/OLCI_B_ODATIS_MR_2021_SPM/", p
 OLCI_B_2022_dir <- dir("~/Downloads/OLCI/SPM/2022/OLCI_B_ODATIS_MR_2022_SPM/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 OLCI_B_2023_dir <- dir("~/Downloads/OLCI/SPM/2023/OLCI_B_ODATIS_MR_2023_SPM/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 OLCI_B_2024_dir <- dir("~/Downloads/OLCI/SPM/2024/OLCI_B_ODATIS_MR_2024_SPM/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+
+## CHL ---------------------------------------------------------------------
+
+OLCI_A_2016_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2016_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2017_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2017_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2018_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2018_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2019_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2019_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2020_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2020_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2021_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2021_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2022_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2022_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2023_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2023_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_A_2024_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_A_ODATIS_MR_2024_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+
+OLCI_B_2018_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2018_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2019_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2019_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2020_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2020_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2021_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2021_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2022_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2022_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2023_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2023_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
+OLCI_B_2024_dir_chl <- dir("~/Downloads/OLCI/CHL/OLCI_B_ODATIS_MR_2024_CHL/", pattern = ".nc", recursive = TRUE, full.names = TRUE)
 
 ### threshold of 1.2 --------------------------------------------------------
 
@@ -185,151 +198,123 @@ OLCI_B_2024_dir <- dir("~/Downloads/OLCI/SPM/2024/OLCI_B_ODATIS_MR_2024_SPM/", p
 # 
 # load("data/OLCI/SPM/OLCI_2016_2024_spm_spatial.Rdata")
 
-### define threshold with percentile 95 --------------------------------------------------------
+### SPM --------------------------------------------------------
 
-OLCI_A_2016_spm_pixels <- plyr::ldply(OLCI_A_2016_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2017_spm_pixels <- plyr::ldply(OLCI_A_2017_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2018_spm_pixels <- plyr::ldply(OLCI_A_2018_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2019_spm_pixels <- plyr::ldply(OLCI_A_2019_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2020_spm_pixels <- plyr::ldply(OLCI_A_2020_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2021_spm_pixels <- plyr::ldply(OLCI_A_2021_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2022_spm_pixels <- plyr::ldply(OLCI_A_2022_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2023_spm_pixels <- plyr::ldply(OLCI_A_2023_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_A_2024_spm_pixels <- plyr::ldply(OLCI_A_2024_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2016_spm_pixels <- plyr::ldply(OLCI_A_2016_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2017_spm_pixels <- plyr::ldply(OLCI_A_2017_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2018_spm_pixels <- plyr::ldply(OLCI_A_2018_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2019_spm_pixels <- plyr::ldply(OLCI_A_2019_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2020_spm_pixels <- plyr::ldply(OLCI_A_2020_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2021_spm_pixels <- plyr::ldply(OLCI_A_2021_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2022_spm_pixels <- plyr::ldply(OLCI_A_2022_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2023_spm_pixels <- plyr::ldply(OLCI_A_2023_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_A_2024_spm_pixels <- plyr::ldply(OLCI_A_2024_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# 
+# OLCI_B_2018_spm_pixels <- plyr::ldply(OLCI_B_2018_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2019_spm_pixels <- plyr::ldply(OLCI_B_2019_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2020_spm_pixels <- plyr::ldply(OLCI_B_2020_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2021_spm_pixels <- plyr::ldply(OLCI_B_2021_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2022_spm_pixels <- plyr::ldply(OLCI_B_2022_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2023_spm_pixels <- plyr::ldply(OLCI_B_2023_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# OLCI_B_2024_spm_pixels <- plyr::ldply(OLCI_B_2024_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+# 
+# OLCI_A_2016_2024_spm_pixels <- rbind(OLCI_A_2016_spm_pixels, OLCI_A_2017_spm_pixels, OLCI_A_2018_spm_pixels,
+#                                      OLCI_A_2019_spm_pixels, OLCI_A_2020_spm_pixels, OLCI_A_2021_spm_pixels, 
+#                                      OLCI_A_2022_spm_pixels, OLCI_A_2023_spm_pixels, OLCI_A_2024_spm_pixels)
+# 
+# OLCI_B_2018_2024_spm_pixels <- rbind(OLCI_B_2018_spm_pixels,
+#                                      OLCI_B_2019_spm_pixels, OLCI_B_2020_spm_pixels, OLCI_B_2021_spm_pixels, 
+#                                      OLCI_B_2022_spm_pixels, OLCI_B_2023_spm_pixels, OLCI_B_2024_spm_pixels)
 
-OLCI_B_2018_spm_pixels <- plyr::ldply(OLCI_B_2018_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2019_spm_pixels <- plyr::ldply(OLCI_B_2019_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2020_spm_pixels <- plyr::ldply(OLCI_B_2020_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2021_spm_pixels <- plyr::ldply(OLCI_B_2021_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2022_spm_pixels <- plyr::ldply(OLCI_B_2022_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2023_spm_pixels <- plyr::ldply(OLCI_B_2023_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
-OLCI_B_2024_spm_pixels <- plyr::ldply(OLCI_B_2024_dir, load_OLCI_spm_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+### CHL --------------------------------------------------------
 
-OLCI_A_2016_2024_spm_pixels <- rbind(OLCI_A_2016_spm_pixels, OLCI_A_2017_spm_pixels, OLCI_A_2018_spm_pixels,
-                                     OLCI_A_2019_spm_pixels, OLCI_A_2020_spm_pixels, OLCI_A_2021_spm_pixels, 
-                                     OLCI_A_2022_spm_pixels, OLCI_A_2023_spm_pixels, OLCI_A_2024_spm_pixels)
+OLCI_A_2016_chl_pixels <- plyr::ldply(OLCI_A_2016_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2017_chl_pixels <- plyr::ldply(OLCI_A_2017_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2018_chl_pixels <- plyr::ldply(OLCI_A_2018_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2019_chl_pixels <- plyr::ldply(OLCI_A_2019_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2020_chl_pixels <- plyr::ldply(OLCI_A_2020_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2021_chl_pixels <- plyr::ldply(OLCI_A_2021_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2022_chl_pixels <- plyr::ldply(OLCI_A_2022_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2023_chl_pixels <- plyr::ldply(OLCI_A_2023_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_A_2024_chl_pixels <- plyr::ldply(OLCI_A_2024_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 
-OLCI_B_2018_2024_spm_pixels <- rbind(OLCI_B_2018_spm_pixels,
-                                     OLCI_B_2019_spm_pixels, OLCI_B_2020_spm_pixels, OLCI_B_2021_spm_pixels, 
-                                     OLCI_B_2022_spm_pixels, OLCI_B_2023_spm_pixels, OLCI_B_2024_spm_pixels)
+OLCI_B_2018_chl_pixels <- plyr::ldply(OLCI_B_2018_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2019_chl_pixels <- plyr::ldply(OLCI_B_2019_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2020_chl_pixels <- plyr::ldply(OLCI_B_2020_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2021_chl_pixels <- plyr::ldply(OLCI_B_2021_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2022_chl_pixels <- plyr::ldply(OLCI_B_2022_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2023_chl_pixels <- plyr::ldply(OLCI_B_2023_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
+OLCI_B_2024_chl_pixels <- plyr::ldply(OLCI_B_2024_dir_chl, load_OLCI_chl_pixels, .parallel = TRUE, lon_range = lon_range, lat_range = lat_range)
 
-# créer un df avec :
-# quand 1 seul passage : on garde tous les pixels, qu'importe s'ils sont remplis ou pas
-# quand deux passages (OLCI A et B): faire la moyenne des valeurs des pixels (ou alors
-# garder la valeur maximale calculée ?)
-# quand pas de passage, on garde quand même les pixels vides
+OLCI_A_2016_2024_chl_pixels <- rbind(OLCI_A_2016_chl_pixels, OLCI_A_2017_chl_pixels, OLCI_A_2018_chl_pixels,
+                                     OLCI_A_2019_chl_pixels, OLCI_A_2020_chl_pixels, OLCI_A_2021_chl_pixels, 
+                                     OLCI_A_2022_chl_pixels, OLCI_A_2023_chl_pixels, OLCI_A_2024_chl_pixels)
 
-# Combiner les deux satellites
-OLCI_2016_2024_spm_pixels <- rbind(
-  OLCI_A_2016_2024_spm_pixels,
-  OLCI_B_2018_2024_spm_pixels
-)
+OLCI_B_2018_2024_chl_pixels <- rbind(OLCI_B_2018_chl_pixels,
+                                     OLCI_B_2019_chl_pixels, OLCI_B_2020_chl_pixels, OLCI_B_2021_chl_pixels, 
+                                     OLCI_B_2022_chl_pixels, OLCI_B_2023_chl_pixels, OLCI_B_2024_chl_pixels)
 
-fusionner_annee <- function(annee) {
+## SPM ---------------------------------------------------------------------
+
+fusionner_annee_spm <- function(annee) {
   
   a <- get(paste0("OLCI_A_", annee, "_spm_pixels"))
   
   if (annee >= 2018) {
     b <- get(paste0("OLCI_B_", annee, "_spm_pixels"))
     df_raw <- rbind(a, b)
-    rm(a, b)
   } else {
     df_raw <- a
-    rm(a)
   }
-  gc()
+  rm(a); gc()
   
   df_fusionne <- df_raw |>
     group_by(lon, lat, date) |>
     summarise(
-      `SPM-G-PO_mean` = case_when(
-        sum(!is.na(`SPM-G-PO_mean`)) == 2 ~ mean(`SPM-G-PO_mean`, na.rm = TRUE),
-        sum(!is.na(`SPM-G-PO_mean`)) == 1 ~ sum(`SPM-G-PO_mean`,  na.rm = TRUE),
-        TRUE                               ~ NA_real_
-      ),
+      `SPM-G-PO_mean` = if (all(is.na(`SPM-G-PO_mean`))) NA_real_
+      else mean(`SPM-G-PO_mean`, na.rm = TRUE),
       .groups = "drop"
     )
   
-  rm(df_raw)
-  gc()
-  
+  rm(df_raw); gc()
   return(df_fusionne)
 }
 
-annees <- 2016:2024
-OLCI_2016_2024_spm_pixels <- map_dfr(annees, fusionner_annee)
+OLCI_2016_2024_spm_pixels <- map_dfr(2016:2024, fusionner_annee_spm)
 
 save(OLCI_2016_2024_spm_pixels,
      file = "data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
 
+## CHL ---------------------------------------------------------------------
 
-
-# Combien de pixels par satellite ce jour-là ?
-OLCI_2016_2024_spm_pixels |>
-  filter(date == "2024-01-12") |>
-  summarise(
-    n_total        = n(),
-    n_valides      = sum(!is.na(`SPM-G-PO_mean`)),
-    couverture     = n_valides / n()
-  )
-
-# Avant déduplication, les deux satellites avaient-ils des pixels ?
-# Recharge les fichiers bruts pour ce jour
-files_12jan_A <- list.files(
-  "~/Downloads/OLCI/SPM/2024/OLCI_A_ODATIS_MR_2024_SPM/",
-  pattern = "20240112",
-  full.names = TRUE
-)
-files_12jan_B <- list.files(
-  "~/Downloads/OLCI/SPM/2024/OLCI_B_ODATIS_MR_2024_SPM/",
-  pattern = "20240112",
-  full.names = TRUE
-)
-
-cat("Fichiers S3A :", length(files_12jan_A), "\n")
-cat("Fichiers S3B :", length(files_12jan_B), "\n")
-
-# Pixels valides dans chaque fichier
-if (length(files_12jan_A) > 0) {
-  nc <- nc_open(files_12jan_A[1])
-  spm_a <- ncvar_get(nc, "SPM-G-PO_mean")
-  nc_close(nc)
-  cat("S3A pixels valides :", sum(!is.na(spm_a)), "/", length(spm_a), "\n")
-}
-
-if (length(files_12jan_B) > 0) {
-  nc <- nc_open(files_12jan_B[1])
-  spm_b <- ncvar_get(nc, "SPM-G-PO_mean")
-  nc_close(nc)
-  cat("S3B pixels valides :", sum(!is.na(spm_b)), "/", length(spm_b), "\n")
-}
-# Combien de lignes avant déduplication pour ce jour ?
-OLCI_2016_2024_spm_pixels |>
-  filter(date == "2024-01-12") |>
-  count(lon, lat) |>
-  count(n)  # combien de pixels ont 1 observation vs 2 observations
-
-OLCI_2016_2024_spm_pixels <- OLCI_2016_2024_spm_pixels |>
-  group_by(lon, lat, date) |>
-  summarise(
-      `SPM_G_PO_mean` = if (all(is.na(`SPM-G-PO_mean`))) NA_real_
-      else mean(`SPM-G-PO_mean`, na.rm = TRUE),
+fusionner_annee_chl <- function(annee) {
+  
+  a <- get(paste0("OLCI_A_", annee, "_chl_pixels"))
+  
+  if (annee >= 2018) {
+    b <- get(paste0("OLCI_B_", annee, "_chl_pixels"))
+    df_raw <- rbind(a, b)
+  } else {
+    df_raw <- a
+  }
+  rm(a); gc()
+  
+  df_fusionne <- df_raw |>
+    group_by(lon, lat, date) |>
+    summarise(
+      `CHL-OC5-PO_mean` = if (all(is.na(`CHL-OC5-PO_mean`))) NA_real_
+      else mean(`CHL-OC5-PO_mean`, na.rm = TRUE),
       .groups = "drop"
-      )
+    )
+  
+  rm(df_raw); gc()
+  return(df_fusionne)
+}
 
-OLCI_2016_2024_spm_pixels <- OLCI_2016_2024_spm_pixels |>
-  filter(!is.na(`SPM-G-PO_mean`)) |>   # on vire les NA avant de grouper
-  group_by(lon, lat, date) |>
-  summarise(SPM-G-PO_mean = mean(`SPM-G-PO_mean`), .groups = "drop")
+OLCI_2016_2024_chl_pixels <- map_dfr(2016:2024, fusionner_annee_chl)
 
-# OLCI_2016_2024_spm_pixels <- OLCI_2016_2024_spm_pixels
-
-save(OLCI_2016_2024_spm_pixels, 
-     file = "data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
-
-save(OLCI_2016_2024_spm_pixels, 
-     file = "data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
-
+save(OLCI_2016_2024_chl_pixels,
+     file = "data/OLCI/CHL/OLCI_2016_2024_chl_pixels.Rdata")
 
 # Spatial analysis --------------------------------------------------------
 
@@ -352,7 +337,6 @@ ggplot(data = OLCI_2017_spm_monthly, aes(x = lon, y = lat)) +
 ## cleaning data -----------------------------------------------------------
 
 ### CHL ---------------------------------------------------------------------
-
 
 # OLCI A and B take photos for the same day sometimes and the dates is thus duplicate
 # we want only one date so we take the mean of the 2 days
@@ -425,6 +409,7 @@ ggplot() +
 
 ### CHL ---------------------------------------------------------------------
 
+load("data/OLCI/CHL/OLCI_A_2016_2024_CHL.Rdata")
 
 # OLCI A and B take photos for the same day sometimes and the dates is thus duplicate
 # we want only one date so we take the mean of the 2 days
@@ -623,14 +608,53 @@ cat("Résolution lat :", round(res_lat_km, 3), "km\n")
 aire_pixel_km2 <- res_lon_km * res_lat_km
 cat("Aire d'un pixel :", round(aire_pixel_km2, 4), "km²\n")
 
-## define 95ème percentile -------------------------------------------------
+# 1. Vérifier combien de pixels valides (non NA) existent par jour
+OLCI_pixels_par_jour <- OLCI_2016_2024_spm_pixels |>
+  group_by(date) |>
+  summarise(
+    n_pixels_total  = n(),                                          # pixels dans la zone
+    n_pixels_valides = sum(!is.na(`SPM-G-PO_mean`)),               # pixels non NA
+    n_pixels_seuil  = sum(`SPM-G-PO_mean` >= seuil_99, na.rm = TRUE),  # pixels > seuil
+    pct_couverture  = n_pixels_valides / n_pixels_total * 100      # % de couverture
+  )
 
-# Calculer le 95ème percentile
+# 2. Regarder la distribution de la couverture
+summary(OLCI_pixels_par_jour$pct_couverture)
+
+# Combien de jours ont une couverture quasi nulle ?
+OLCI_pixels_par_jour |>
+  count(couverture = case_when(
+    pct_couverture == 0        ~ "0% (aucune observation)",
+    pct_couverture < 10        ~ "< 10%",
+    pct_couverture < 50        ~ "10-50%",
+    pct_couverture >= 50       ~ "> 50%"
+  ))
+
+# 3. Joindre avec ton df de métriques pour voir le problème
+OLCI_2016_2024_spm_99 <- OLCI_2016_2024_spm_99 |>
+  left_join(OLCI_pixels_par_jour |> select(date, pct_couverture, n_pixels_valides),
+            by = "date") |>
+  mutate(
+    statut = case_when(
+      n_pixels_valides == 0  ~ "aucune observation",      # ← vrai problème
+      aire_panache_km2 == 0  ~ "observation mais pas de panache",
+      TRUE                   ~ "panache détecté"
+    )
+  )
+
+# 4. Résumé
+OLCI_2016_2024_spm_99 |> count(statut)
+
+# 5. Filtrer les jours sans observations avant la corrélation
+OLCI_2016_2024_spm_99_clean <- OLCI_2016_2024_spm_99 |>
+  filter(n_pixels_valides > 0,          # ← exclure jours sans données
+         pct_couverture >= 10)          # ← exclure jours avec < 10% de couverture
+
+## define 99ème percentile -------------------------------------------------
+
 seuil_99 <- quantile(OLCI_2016_2024_spm_pixels$`SPM-G-PO_mean`, 0.99, na.rm = TRUE)
 # cat("Seuil 95ème percentile :", seuil_95, "mg/m³\n")
-# seuil_95 = 1.7
-
-# Seuil 95ème percentile : 0.4883142 mg/m³
+# seuil_99 = 1.51
 
 # Stats du panache par jour
 OLCI_2016_2024_spm_99 <- OLCI_2016_2024_spm_pixels |> 
@@ -642,7 +666,7 @@ OLCI_2016_2024_spm_99 <- OLCI_2016_2024_spm_pixels |>
     aire_panache_km2 = pixel_count * aire_pixel_km2  # si tu as déjà calculé aire_pixel_km2
   )
 
-# save(OLCI_2016_2024_spm_95, file = "data/OLCI/SPM/OLCI_2016_2024_spm_95.Rdata")
+save(OLCI_2016_2024_spm_99, file = "data/OLCI/OLCI_2016_2024_spm_99.Rdata")
 
 # plotting ----------------------------------------------------------------
 
@@ -917,70 +941,104 @@ ggplot() +
     plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
-# comparison between liquid flow rate and mean SPM concentration
 
-adjust_factors <- sec_axis_adjustement_factors(OLCI_2016_2024_spm_95$median_spm, Y6442010_2016_2024$débit)
+correlation_OLCI <- cor(merged_data_OLCI$debit_cumule, merged_data_OLCI$aire_panache_km2,
+                        method = "spearman", use = "complete.obs")
+p_value_OLCI     <- cor.test(merged_data_OLCI$debit_cumule, merged_data_OLCI$aire_panache_km2,
+                             method = "spearman")$p.value
+n_commun_OLCI    <- nrow(merged_data_OLCI)
 
-OLCI_2016_2024_spm_95$scaled_median_spm <- OLCI_2016_2024_spm_95$median_spm * adjust_factors$diff + adjust_factors$adjust
+cat("R =", round(correlation_OLCI, 3), "\n")
+cat("p =", round(p_value_OLCI, 4), "\n")
+cat("n =", n_commun_OLCI, "\n")
+
+# Mise à l'échelle pour double axe
+adjust_factors_OLCI <- sec_axis_adjustement_factors(
+  merged_data_OLCI$aire_panache_km2,
+  merged_data_OLCI$debit_cumule)
+
+# Série complète de dates pour éviter l'interpolation
+merged_data_OLCI_complet <- merged_data_OLCI |>
+  complete(date = seq(min(date), max(date), by = "day")) |>
+  mutate(scaled_aire = aire_panache_km2 * adjust_factors_OLCI$diff + adjust_factors_OLCI$adjust)
 
 ggplot() +
-  geom_point(data = Y6442010_2016_2024, 
-             aes(x = date, y = débit, color = "Débit du Var"), size = 0.5) +
-  geom_point(data = OLCI_2016_2024_spm_95, 
-             aes(x = date, y = scaled_median_spm, color = "Concentration en MES"), size = 0.5) +
-  scale_color_manual(values = c("Débit du Var" = "blue", "Concentration en MES" = "red3")) +
+  geom_line(
+    data = merged_data_OLCI_complet,
+    aes(x = date, y = debit_cumule, color = "Débit cumulé"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  geom_line(
+    data = merged_data_OLCI_complet,
+    aes(x = date, y = scaled_aire, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  scale_color_manual(
+    values = c(
+      "Débit cumulé"      = "darkolivegreen3",
+      "Aire des panaches" = "darkcyan"
+    ),
+    name = NULL
+  ) +
   scale_y_continuous(
-    name = "Débit (m³/s)",
-    sec.axis = sec_axis(~ (. - adjust_factors$adjust) / adjust_factors$diff, name = "Matière particulaire en suspension moyenne (en g/m³)")
+    name     = "Débit cumulé (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors_OLCI$adjust) / adjust_factors_OLCI$diff,
+      name = expression("Aire des panaches (km²)")
+    )
   ) +
-  labs(title = "Évolution de la concentration médiane en MES et du débit du Var vu par le produit OLCI (ODATIS-MR)",
-       x = "Date") +
-  theme_minimal() +
-  scale_x_date(
-    date_breaks = "1 year",  
-    date_labels = "%Y"       
+  coord_cartesian(ylim = c(0, 250)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  annotate(
+    "text",
+    x = as.Date("2024-01-01"),
+    y = 240,
+    hjust = 1, vjust = 1, size = 8,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation_OLCI, 2),
+      "\np ", ifelse(p_value_OLCI < 0.001, "< 0.001", format(p_value_OLCI, digits = 3)),
+      "\nn = ", n_commun_OLCI
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit cumulé",
+    subtitle = "Produit OLCI — ODATIS-MR (2016–2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 18, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey30", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif", size = 16),
+    axis.text        = element_text(color = "grey30", family = "serif", size = 14),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 16, family = "serif"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
-# runoff vs mean SPM concentration correlation ---------------------------------
 
-Var_OLCI_panache <- inner_join(Y6442010_2016_2024, OLCI_2016_2024_spm_95, by = "date")
+# Fusionner débit Var avec panaches OLCI
+merged_OLCI_var <- merge(
+  debit_2016_2024 |> select(date, débit),
+  OLCI_2016_2024_spm_99 |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
 
-cor.test(Var_OLCI_panache$débit, Var_OLCI_panache$median_spm, method = "spearman")
+# Corrélation Spearman
+correlation_OLCI_var <- cor(merged_OLCI_var$débit, 
+                            merged_OLCI_var$aire_panache_km2,
+                            method = "spearman", use = "complete.obs")
+p_value_OLCI_var     <- cor.test(merged_OLCI_var$débit, 
+                                 merged_OLCI_var$aire_panache_km2,
+                                 method = "spearman")$p.value
+n_OLCI_var           <- nrow(merged_OLCI_var)
 
-
-
-# scatter plot
-
-# Fusionner les données
-Var_OLCI <- Y6442010_2016_2024 %>% 
-  select(date, débit) %>% 
-  left_join(
-    OLCI_2016_2024_spm_95 %>% select(date, aire_panache_km2, mean_spm),
-    by = "date"
-  )
-
-ggplot(data = Var_OLCI, aes(x = débit, y = mean_spm)) +
-  geom_smooth(method = "lm", se = FALSE, colour = "red", linewidth = 1) +
-  stat_poly_eq(
-    aes(label = paste(after_stat(eq.label), after_stat(rr.label), sep = "~~~~")),
-    formula = y ~ x,
-    parse = TRUE,
-    colour = "red",
-    size = 6,
-    label.x = 0.05,  # position horizontale (0 = gauche, 1 = droite)
-    label.y = 0.90   # position verticale (0 = bas, 1 = haut)
-  ) +
-  geom_bin2d(bins = 100) +
-  scale_fill_continuous(type = "viridis", name = "Nombre d'observations") +
-  theme_bw() +
-  labs(x = "Débit (m³/s)", y = "Concentration moyenne en MES (en mg/m³)", 
-       title = "Débit liquide du Var contre la concentration moyenne en MES dans les panaches vue par OLCI (ODATIS -MR)") +
-  theme_minimal()
-
-
-
-
-
+cat("R =", round(correlation_OLCI_var, 3), "\n")
+cat("p =", round(p_value_OLCI_var, 4), "\n")
+cat("n =", n_OLCI_var, "\n")
 
 # Gangloff SPM ------------------------------------------------------------
 
@@ -1036,7 +1094,7 @@ ggplot(data = Var_OLCI, aes(x = débit, y = mean_spm)) +
 # cat("Seuil retenu :", seuil_retenu, "g/m³\n", na.rm = TRUE)
 # # 0.4844611 g/m³
 
-seuil_retenu <- 0.4883142
+seuil_retenu <- 1.7
 
 ## ROPP --------------------------------------------------------------------
 
@@ -1054,9 +1112,6 @@ ROPP <- OLCI_2016_2024_spm_pixels |>
 
 cat("Nombre de clean dans la ROPP :", nrow(ROPP), "\n")
 # 1740
-
-coastline_giscoR <- gisco_get_coastallines(resolution = "01")
-countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
 
 ggplot(ROPP) +
   annotation_borders(fill = "grey80") +
@@ -1365,6 +1420,117 @@ ggplot(OLCI_panache_metrics, aes(x = debit_cumule, y = max_spm)) +
     plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
+# corrélation crue et taille de panache -------------------------------------------
+
+Y6442010_2016_2024 <- Y6442010_depuis_2000 |> 
+  filter(date >= as.Date("2016-01-01"), date <= as.Date("2024-12-31"))
+
+sum(is.na(Y6442010_2016_2024))
+
+# garder seulment les jours en crues
+Var_crue <- Y6442010_2016_2024 |> 
+  filter(débit > 121)
+
+# Tout en une fois
+df_corr <- Y6442010_2016_2024 |>
+  filter(débit > 121) |>
+  mutate(date_panache = date + 1) |>       
+  left_join(
+    OLCI_2016_2024_spm_99 |> select(date, aire_panache_km2),
+    by = c("date_panache" = "date")
+  ) |>
+  filter(!is.na(aire_panache_km2))
+
+# Vérifier
+nrow(df_corr)
+colnames(df_corr)
+head(df_corr)
+
+# 5. Test de corrélation
+cor_test <- cor.test(df_corr$débit, df_corr$aire_panache_km2)
+print(cor_test)
+
+df_corr <- df_corr |>
+  mutate(saison = case_when(
+    month(date) %in% c(12, 1, 2)  ~ "Hiver",
+    month(date) %in% c(3, 4, 5)   ~ "Printemps",
+    month(date) %in% c(6, 7, 8)   ~ "Été",
+    month(date) %in% c(9, 10, 11) ~ "Automne"
+  ))
+
+# Vérifier
+table(df_corr$saison)
+
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x = max(df_corr$débit) * 0.95,
+           y = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r = ", round(cor_test$estimate, 2),
+                          "\np = ", format(cor_test$p.value, digits = 2,
+                                           scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 4) +
+  labs(
+    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
+    subtitle = "Crues > 121 m³/s — 2008–2019",
+    x = "Débit du Var J (m³/s)",
+    y = "Aire du panache J+1 (km²)",
+    color = "Saison"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+
+# Transformation log du débit
+df_corr <- df_corr |>
+  mutate(log_debit = log10(débit))
+
+# Corrélation de Pearson sur log10(débit)
+cor_log <- cor.test(df_corr$log_debit, df_corr$aire_panache_km2)
+print(cor_log)
+
+# Graphique avec axe x en log10
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8,
+              formula = y ~ log10(x)) +          # régression sur log10(x)
+  scale_x_log10(
+    breaks = c(125, 200, 300, 500, 750, 1000, 2000, 5000),
+    labels = scales::comma
+  ) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x = max(df_corr$débit) * 0.6,
+           y = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r (log₁₀Q) = ", round(cor_log$estimate, 2),
+                          "\nR² = ", round(cor_log$estimate^2, 2),
+                          "\np = ", format(cor_log$p.value, digits = 2,
+                                           scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 4) +
+  labs(
+    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
+    subtitle = "Crues > 121 m³/s — 2008–2019 — axe x en échelle log₁₀",
+    x = "Débit du Var J (m³/s, échelle log₁₀)",
+    y = "Aire du panache J+1 (km²)",
+    color = "Saison"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
 # cartographie ------------------------------------------------------------
 
 coastline_giscoR <- gisco_get_coastallines(resolution = "01")
@@ -1382,13 +1548,17 @@ OLCI_16_04_2024 <- OLCI_A_2024_spm_pixels |>
 OLCI_2024 <- OLCI_2016_2024_spm_pixels |> 
   filter(date >= as.Date("2024-04-12"), date <= as.Date("2024-04-18"))
 
+OLCI_04_29_2016 <- OLCI_2016_2024_spm_pixels |> 
+  filter(date == "2016-04-29")
+
+OLCI_11_22_2016 <- OLCI_2016_2024_spm_pixels |> 
+  filter(date == "2016-11-22")
+
 # max_spm <- max(OLCI_03_10_2020$`SPM-G-PO_mean`, na.rm = TRUE)
 # max_spm <- 100
-# max_spm <- max(OLCI_03_05_2013$`SPM-G-PO_mean`, na.rm = TRUE)
-max_spm <- 30
+max_spm <- max(OLCI_11_22_2016$`SPM-G-PO_mean`, na.rm = TRUE)
 
-
-pl_map <- OLCI_16_04_2024 %>%
+OLCI_11_22_2016 %>%
   ggplot() +
   annotation_borders(fill = "grey80") +
   geom_tile(aes(x = lon, y = lat, fill = `SPM-G-PO_mean`)) +
@@ -1421,8 +1591,8 @@ pl_map <- OLCI_16_04_2024 %>%
     y        = "Latitude (°N)"
   ) +
   coord_sf(
-    xlim   = range(OLCI_16_04_2024$lon),
-    ylim   = range(OLCI_16_04_2024$lat),
+    xlim   = range(OLCI_11_22_2016$lon),
+    ylim   = range(OLCI_11_22_2016$lat),
     expand = FALSE
   ) +
   theme_bw() +
@@ -1439,7 +1609,7 @@ pl_map <- OLCI_16_04_2024 %>%
   )
 
 # Save as desired
-ggsave("~/Satellite_analysis/Graphiques/OLCI/carto_OLCI_A_16_04_2024.png", pl_map, height = 9, width = 14)
+# ggsave("~/Satellite_analysis/Graphiques/OLCI/carto_OLCI_A_16_04_2024.png", pl_map, height = 9, width = 14)
 
 # on plotte la semaine entière pour montrer qu'on loupe de la dynamique
 
@@ -1589,9 +1759,9 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = mean_spm)) +
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
-    limits   = c(0.1, 50),
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10"),
+    limits   = c(0.1, 20),
+    breaks   = c(0.1, 1, 20),
+    labels   = c("0.1", "1", "20"),
     oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 6,
@@ -1656,9 +1826,175 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
-    limits   = c(0.1, 50),
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10"),
+    limits   = c(0.1, 20),
+    breaks   = c(0.1, 1, 20),
+    labels   = c("0.1", "1", "20"),
+    oob      = scales::squish
+  ) +
+  facet_wrap(~ month, ncol = 6,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de l'erreur standard à la concentration en MES",
+    subtitle = "2016-2024 · OLCI (ODATIS-MR)",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 15,   # ← large comme SEXTANT
+    barheight      = 0.8,  # ← fine
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5,
+    direction      = "horizontal"
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
+    plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "bottom",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
+
+# climatologie de la concentration en Chl-a ----------------------------------
+
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+OLCI_2016_2024_chl_clean <- OLCI_2016_2024_chl_pixels |> 
+  filter(`CHL-OC5-PO_mean` >= 0)
+
+sum(is.na(OLCI_2016_2024_chl_clean$`CHL-OC5-PO_mean`))
+
+OLCI_2016_2024_chl_clean <- OLCI_2016_2024_chl_clean |> 
+  mutate(
+    date = as.Date(date),  
+    year = year(date),     
+    month = month(date),
+    doy = yday(date)         
+  )
+
+# ── Climatologie spatiale mensuelle (moyenne par pixel et par mois) ──
+clim_spatiale_chl_month_OLCI <- OLCI_2016_2024_chl_clean |>
+  filter(`CHL-OC5-PO_mean` >= 0) |>
+  mutate(month = month(date)) |>
+  group_by(lon, lat, month) |>
+  summarise(
+    mean_chl  = mean(`CHL-OC5-PO_mean`, na.rm = TRUE),
+    median_chl = median(`CHL-OC5-PO_mean`, na.rm = TRUE),
+    sd_chl    = sd(`CHL-OC5-PO_mean`, na.rm = TRUE),
+    .groups   = "drop"
+  )
+
+range(clim_spatiale_chl_month_OLCI$mean_chl, na.rm = TRUE) 
+
+# plot mensuel de la concentration en CHL
+ggplot(clim_spatiale_chl_month_OLCI, aes(x = lon, y = lat, fill = mean_chl)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_chl_month_OLCI$lon),
+    ylim = range(clim_spatiale_chl_month_OLCI$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("MES (g. m"^{-3}*")"),
+    option   = "turbo",
+    na.value = "white",
+    limits   = c(0.1, 10),
+    breaks   = c(0.1, 1, 10),
+    labels   = c("0.1", "1", "10"),
+    oob      = scales::squish
+  ) +
+  facet_wrap(~ month, ncol = 6,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de la concentration en chlorophylle-a",
+    subtitle = "2016-2024 · OLCI (ODATIS-MR)",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 15,   # ← large comme SEXTANT
+    barheight      = 0.8,  # ← fine
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5,
+    direction      = "horizontal"
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
+    plot.caption     = element_text(color = "grey50", size = 8, hjust = 0),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "bottom",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
+
+# plot mensuel de la sd de CHL
+ggplot(clim_spatiale_chl_month_OLCI, aes(x = lon, y = lat, fill = sd_chl)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_chl_month_OLCI$lon),
+    ylim = range(clim_spatiale_chl_month_OLCI$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("MES (g. m"^{-3}*")"),
+    option   = "turbo",
+    na.value = "white",
+    limits   = c(0.1, 10),
+    breaks   = c(0.1, 1, 10),
+    labels   = c("0.1", "1", "10"),
     oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 6,
@@ -1701,5 +2037,461 @@ ggplot(clim_spatiale_spm_month_OLCI, aes(x = lon, y = lat, fill = sd_spm)) +
   )
 
 
-nc <- nc_open("~/Downloads/nommmmm/L3m_20020619__FRANCE_03_MER_CDOM-PO_DAY_00.nc")
-print(nc)
+
+
+# ── Nettoyage ──────────────────────────────────────────────────────────────
+OLCI_2016_2024_chl_clean <- OLCI_A_2016_2024_CHL |>
+  filter(`CHL-G-PO_mean` >= 0, `CHL-G-PO_mean` < 100) |>   # ← seuil à adapter
+  mutate(
+    date  = as.Date(date),
+    year  = year(date),
+    month = month(date),
+    doy   = yday(date)
+  )
+
+# Vérifier les valeurs extrêmes
+cat("Valeurs > 50  :", sum(OLCI_2016_2024_chl_clean$`CHL-G-PO_mean` > 50,  na.rm = TRUE), "\n")
+cat("Valeurs > 100 :", sum(OLCI_2016_2024_chl_clean$`CHL-G-PO_mean` > 100, na.rm = TRUE), "\n")
+
+# ── Climatologie spatiale mensuelle ─────────────────────────────────────────
+clim_spatiale_chl_month_OLCI <- OLCI_2016_2024_chl_clean |>
+  group_by(lon, lat, month) |>
+  summarise(
+    mean_chl   = mean(`CHL-G-PO_mean`,   na.rm = TRUE),
+    median_chl = median(`CHL-G-PO_mean`, na.rm = TRUE),
+    sd_chl     = sd(`CHL-G-PO_mean`,     na.rm = TRUE),
+    .groups    = "drop"
+  )
+
+cat("Range Chl-a OLCI :", range(clim_spatiale_chl_month_OLCI$mean_chl, na.rm = TRUE), "\n")
+
+# ── Graphique mensuel de la concentration en Chl-a ──────────────────────────
+ggplot(clim_spatiale_chl_month_OLCI, aes(x = lon, y = lat, fill = mean_chl)) +
+  geom_raster() +
+  geom_sf(data = countries_giscoR, fill = "grey92", color = "grey40",
+          inherit.aes = FALSE, linewidth = 0.25) +
+  coord_sf(
+    xlim = range(clim_spatiale_chl_month_OLCI$lon),
+    ylim = range(clim_spatiale_chl_month_OLCI$lat),
+    expand = TRUE
+  ) +
+  scale_x_continuous(
+    breaks = seq(6.8, 7.4, by = 0.3),
+    labels = function(x) paste0(x, "°E")
+  ) +
+  scale_y_continuous(
+    breaks = seq(43.2, 43.8, by = 0.3),
+    labels = function(y) paste0(y, "°N")
+  ) +
+  scale_fill_viridis_c(
+    trans    = "log10",
+    name     = expression("Chl-a (µg L"^{-1}*")"),
+    option   = "viridis",          # ← vert pour la Chl-a
+    na.value = "white",
+    limits   = c(0.01, 10),
+    breaks   = c(0.01, 0.1, 1, 10),
+    labels   = c("0.01", "0.1", "1", "10"),
+    oob      = scales::squish
+  ) +
+  facet_wrap(~ month, ncol = 6,
+             labeller = labeller(month = c(
+               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
+               "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
+               "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
+             ))) +
+  labs(
+    title    = "Climatologie spatiale mensuelle de la concentration en chlorophylle-a",
+    subtitle = "2016–2024 · OLCI (ODATIS-MR)",
+    x = NULL, y = NULL
+  ) +
+  guides(fill = guide_colorbar(
+    barwidth       = 15,
+    barheight      = 0.8,
+    ticks          = TRUE,
+    title.position = "top",
+    title.hjust    = 0.5,
+    direction      = "horizontal"
+  )) +
+  theme_bw(base_size = 11) +
+  theme(
+    strip.background = element_rect(fill = "grey20", color = NA),
+    strip.text       = element_text(color = "white", face = "bold", size = 9),
+    axis.text        = element_text(size = 12, color = "grey30"),
+    axis.text.x      = element_text(size = 12, angle = 45, hjust = 1),
+    axis.ticks       = element_line(color = "grey60", linewidth = 0.3),
+    panel.grid       = element_blank(),
+    panel.border     = element_rect(color = "grey60", linewidth = 0.4),
+    panel.spacing    = unit(0.15, "lines"),
+    plot.title       = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle    = element_text(color = "grey40", size = 13, margin = margin(b = 10)),
+    plot.margin      = margin(10, 10, 10, 10),
+    legend.position  = "bottom",
+    legend.title     = element_text(size = 9, face = "bold"),
+    legend.text      = element_text(size = 8)
+  )
+
+
+
+
+
+
+# ── Corrélation aire panache ~ débit cumulé (méthode Gangloff) ──────────────
+
+# 1. Préparer les métriques de panache en excluant les faux zéros
+OLCI_panache_clean <- OLCI_panache_metrics |>
+  # Joindre la couverture par jour pour identifier les jours sans données
+  left_join(
+    OLCI_pixels_par_jour |> select(date, pct_couverture, n_pixels_valides),
+    by = "date"
+  ) |>
+  filter(
+    n_pixels_valides > 0,       # ← exclure jours sans aucune observation
+    pct_couverture >= 10,       # ← exclure jours avec < 10% de couverture
+    aire_panache_km2 > 0        # ← exclure jours sans panache détecté
+  )
+
+cat("Nombre de jours valides pour la corrélation :", nrow(OLCI_panache_clean), "\n")
+
+All_debit_2016_2024 <- All_debit |> 
+  filter(date >= "2016-01-01", date <= "2024-12-31")
+
+# 2. Joindre avec le débit cumulé
+merged_OLCI <- OLCI_panache_clean |>
+  inner_join(
+    All_debit_2016_2024 |> select(date, debit_cumule),
+    by = "date"
+  ) |>
+  drop_na(aire_panache_km2, debit_cumule) |>
+  filter(debit_cumule > 0)
+
+cat("Nombre de jours avec débit ET panache :", nrow(merged_OLCI), "\n")
+
+# 3. Transformation log-log (comme Gangloff et al. 2017)
+merged_OLCI <- merged_OLCI |>
+  mutate(
+    log_aire   = log10(aire_panache_km2),
+    log_debit  = log10(debit_cumule)
+  )
+
+# 4. Corrélation de Spearman (robuste, non paramétrique)
+cor_result <- cor.test(
+  merged_OLCI$log_aire,
+  merged_OLCI$log_debit,
+  method = "spearman"
+)
+print(cor_result)
+
+# 5. Modèle log-log
+modele_log <- lm(log_aire ~ log_debit, data = merged_OLCI)
+r2     <- summary(modele_log)$r.squared
+pente  <- coef(modele_log)[2]
+ordonnee <- coef(modele_log)[1]
+
+cat("R² =", round(r2, 3), "\n")
+cat("Pente =", round(pente, 3), "\n")
+cat("r de Spearman =", round(cor_result$estimate, 3), "\n")
+cat("p-value =", format(cor_result$p.value, scientific = TRUE, digits = 3), "\n")
+
+# 6. Graphique log-log
+label_eq <- paste0(
+  "Aire = 10^", round(ordonnee, 2), " × Q^", round(pente, 2),
+  "\nR² = ", round(r2, 2),
+  "\nr = ", round(cor_result$estimate, 2),
+  "\np ", ifelse(cor_result$p.value < 0.001, "< 0.001",
+                 paste0("= ", format(cor_result$p.value, digits = 2)))
+)
+
+ggplot(merged_OLCI, aes(x = debit_cumule, y = aire_panache_km2)) +
+  geom_point(alpha = 0.5, size = 2, color = "steelblue") +
+  geom_smooth(method = "lm", formula = y ~ x,
+              color = "black", se = TRUE,
+              linewidth = 0.8, fill = "grey80") +
+  scale_x_log10(labels = scales::comma) +
+  scale_y_log10(labels = scales::comma) +
+  annotate("text",
+           x        = max(merged_OLCI$debit_cumule, na.rm = TRUE),
+           y        = min(merged_OLCI$aire_panache_km2, na.rm = TRUE) * 2,
+           label    = label_eq,
+           hjust    = 1, vjust = 0,
+           size     = 5, color = "grey20",
+           fontface = "italic") +
+  labs(
+    x = expression("Débit cumulé (m"^{3}*" s"^{-1}*")"),
+    y = "Aire du panache (km²)",
+    title    = "Relation débit ~ aire du panache turbide",
+    subtitle = "OLCI 2016–2024 — échelle log-log — jours avec observations valides"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.title       = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    plot.title       = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle    = element_text(color = "grey40", hjust = 0.5)
+  )
+
+# corrélation crue et taille de panache -----------------------------------
+
+Y6442010_2016_2024 <- Y6442010_depuis_2000 |> 
+  filter(date >= as.Date("2016-01-01"), date <= as.Date("2024-12-31"))
+
+sum(is.na(Y6442010_2016_2024))
+
+# Tout en une fois
+df_corr <- Y6442010_2016_2024 |>
+  filter(débit > 121) |>
+  mutate(date_panache = date + 1) |>  
+  left_join(
+    OLCI_2016_2024_spm_99 |> select(date, aire_panache_km2),
+    by = c("date_panache" = "date")
+  ) |>
+  filter(!is.na(aire_panache_km2), !is.na(débit))
+
+# Vérifier
+nrow(df_corr)
+colnames(df_corr)
+head(df_corr)
+
+# 5. Test de corrélation
+cor_test <- cor.test(df_corr$débit, df_corr$aire_panache_km2)
+print(cor_test)
+
+df_corr <- df_corr |>
+  mutate(saison = case_when(
+    month(date) %in% c(12, 1, 2)  ~ "Hiver",
+    month(date) %in% c(3, 4, 5)   ~ "Printemps",
+    month(date) %in% c(6, 7, 8)   ~ "Été",
+    month(date) %in% c(9, 10, 11) ~ "Automne"
+  ))
+
+# Vérifier
+table(df_corr$saison)
+
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x = max(df_corr$débit) * 0.95,
+           y = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r = ", round(cor_test$estimate, 2),
+                          "\np = ", format(cor_test$p.value, digits = 2,
+                                           scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 4) +
+  labs(
+    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
+    subtitle = "Crues > 121 m³/s — 2008–2019",
+    x = "Débit du Var J (m³/s)",
+    y = "Aire du panache J+1 (km²)",
+    color = "Saison"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+# Transformation log du débit
+df_corr <- df_corr |>
+  mutate(log_debit = log10(débit))
+
+# Corrélation de Pearson sur log10(débit)
+cor_log <- cor.test(df_corr$log_debit, df_corr$aire_panache_km2)
+print(cor_log)
+
+# Graphique avec axe x en log10
+ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
+  geom_point(alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "black", linetype = "dashed", linewidth = 0.8,
+              formula = y ~ log10(x)) +
+  scale_x_log10(
+    breaks = c(125, 200, 300, 500, 750, 1000, 2000, 5000),
+    labels = scales::comma
+  ) +
+  scale_color_manual(values = c(
+    "Automne"   = "#378ADD",
+    "Printemps" = "#639922",
+    "Été"       = "#E24B4A",
+    "Hiver"     = "#888780"
+  )) +
+  annotate("text",
+           x     = max(df_corr$débit),          # ← bord droit
+           y     = max(df_corr$aire_panache_km2) * 0.95,
+           label = paste0("r (log₁₀Q) = ", round(cor_log$estimate, 2),
+                          "\nR² = ",            round(cor_log$estimate^2, 2),
+                          "\np = ",             format(cor_log$p.value,
+                                                       digits = 2,
+                                                       scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 5,      # ← taille réduite
+           color = "grey20",
+           fontface = "italic") +
+  labs(
+    x     = "Débit du Var (m³/s)",
+    y     = "Aire du panache (km²)",
+    color = "Saison"
+  ) +
+  theme_bw(base_size = 13) +                    # ← theme_bw plus propre
+  theme(
+    legend.position      = "bottom",
+    legend.title         = element_text(face = "bold"),
+    panel.grid.minor     = element_blank(),      # ← supprime grille mineure
+    axis.title           = element_text(face = "bold"),
+    plot.margin          = margin(10, 15, 10, 10) # ← marge droite élargie
+  )
+
+
+
+# corrléation débit cumulé et aire des panaches ---------------------------
+
+#### plotting en scatter plot ----------------------------------------------------------
+
+load("data/OLCI/OLCI_2016_2024_spm_99.Rdata")
+
+load("data/Hydro France/All_debit.Rdata")
+
+# Préparer le débit du Var sur la bonne période
+debit_var_OLCI <- All_debit |>
+  filter(date >= as.Date("2016-01-01"), date <= as.Date("2024-12-31")) |>
+  select(date, debit_cumule)
+
+merged_data_OLCI <- debit_var_OLCI |>
+  mutate(date_panache = date) |>
+  left_join(
+    OLCI_2016_2024_spm_99 |> select(date, aire_panache_km2),
+    by = c("date_panache" = "date")
+  ) |>
+  drop_na(debit_cumule, aire_panache_km2)
+
+# Corrélation Spearman
+correlation_OLCI <- cor(merged_data_OLCI$debit_cumule, merged_data_OLCI$aire_panache_km2,
+                        method = "spearman", use = "complete.obs")
+p_value_OLCI     <- cor.test(merged_data_OLCI$debit_cumule, merged_data_OLCI$aire_panache_km2,
+                             method = "spearman")$p.value
+n_commun_OLCI    <- nrow(merged_data_OLCI)
+
+cat("R =", round(correlation_OLCI, 3), "\n")
+cat("p =", round(p_value_OLCI, 4), "\n")
+cat("n =", n_commun_OLCI, "\n")
+
+merged_data_plot <- merged_data_OLCI |> filter(aire_panache_km2 > 0)
+
+ggplot(merged_data_plot, aes(x = debit_cumule, y = aire_panache_km2)) +
+  geom_point(alpha = 0.25, size = 1.8, color = "steelblue") +
+  annotate(
+    "text",
+    x = Inf, y = Inf,
+    hjust = 1.05, vjust = 1.5,
+    size = 10,
+    color = "grey25", fontface = "italic", family = "serif",
+    label = paste0(
+      "r = ", round(correlation_OLCI, 2),
+      "\np < 0.001",
+      "\nn = ", n_commun_OLCI
+    )
+  ) +
+  coord_cartesian(xlim = c(0, 300)) +
+  scale_x_continuous(name = "Débit cumulé (m³/s)") +
+  scale_y_log10(
+    name   = expression("Aire des panaches (km²)"),
+    breaks = c(1, 10, 100, 1000),
+    labels = c("1", "10", "100", "1000")
+  ) +
+  labs(title = "Corrélation entre le débit cumulé et la surface des panaches turbides") +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    axis.title       = element_text(size = 20, family = "serif"),
+    axis.text        = element_text(color = "grey30", size = 17, family = "serif"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey60"),
+    plot.margin      = margin(10, 15, 10, 10)
+  )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OLCI
+# ══════════════════════════════════════════════════════════════════════════════
+
+merged_OLCI <- merge(
+  debit_cumule_periode |> select(date, debit_cumule),
+  OLCI_2016_2024_spm_99 |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
+
+correlation_OLCI <- cor(merged_OLCI$debit_cumule, merged_OLCI$aire_panache_km2,
+                        method = "spearman", use = "complete.obs")
+p_value_OLCI     <- cor.test(merged_OLCI$debit_cumule, merged_OLCI$aire_panache_km2,
+                             method = "spearman")$p.value
+n_OLCI           <- nrow(merged_OLCI)
+
+cat("OLCI — R =", round(correlation_OLCI, 3),
+    "| p =", round(p_value_OLCI, 4),
+    "| n =", n_OLCI, "\n")
+
+# Mise à l'échelle et série complète
+adjust_OLCI <- sec_axis_adjustement_factors(
+  merged_OLCI$aire_panache_km2,
+  merged_OLCI$debit_cumule
+)
+
+merged_OLCI_complet <- merged_OLCI |>
+  complete(date = seq(min(date), max(date), by = "day")) |>
+  mutate(scaled_aire = aire_panache_km2 * adjust_OLCI$diff + adjust_OLCI$adjust)
+
+# Plot OLCI
+ggplot() +
+  geom_line(
+    data = merged_OLCI_complet,
+    aes(x = date, y = debit_cumule, color = "Débit cumulé"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  geom_line(
+    data = merged_OLCI_complet,
+    aes(x = date, y = scaled_aire, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  scale_color_manual(
+    values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
+    name = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit cumulé (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_OLCI$adjust) / adjust_OLCI$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 250)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  annotate(
+    "text",
+    x = as.Date("2024-01-01"), y = 240,
+    hjust = 2, vjust = 1, size = 10,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation_OLCI, 2),
+      "\np ", ifelse(p_value_OLCI < 0.001, "< 0.001", format(p_value_OLCI, digits = 3)),
+      "\nn = ", n_OLCI
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit cumulé",
+    subtitle = "Produit OLCI — ODATIS-MR (2016–2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 18, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey30", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif", size = 16),
+    axis.text        = element_text(color = "grey30", family = "serif", size = 14),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 16, family = "serif"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )

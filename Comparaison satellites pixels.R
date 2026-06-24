@@ -6,9 +6,11 @@
 # satellitaires
 
 library(bit64)
-
-# load files --------------------------------------------------------------
-
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(scales)
+library(tidyr)
 
 # load functions ----------------------------------------------------------
 
@@ -68,9 +70,16 @@ load("data/OLCI/SPM/OLCI_2016_2024_spm_pixels.Rdata")
 
 # NA count ----------------------------------------------------------------
 
+detach("package:bit64", unload = TRUE)
+detach("package:bit", unload = TRUE)
+
+dates_2024 <- seq(as.Date("2024-01-01"), as.Date("2024-12-31"), by = "day")
+
 # Sextant
-SEXTANT_2024 <- SEXTANT_1998_2025_spm_pixels |> 
-  filter(date >= ("2024-01-01"), date <= ("2024-12-31"))
+SEXTANT_2024 <- SEXTANT_1998_2025_spm_pixels |>
+  mutate(annee = as.integer(format(date, "%Y"))) |>
+  filter(annee == 2024) |>
+  select(-annee)
 
 sextant_valides <- sum(!is.na(SEXTANT_2024$analysed_spim))
 SEXTANT_non_valides <- sum(is.na(SEXTANT_2024$analysed_spim))
@@ -110,7 +119,17 @@ OLCI_2023 <- OLCI_2016_2024_spm_pixels |>
 OLCI_valides <- sum(!is.na(OLCI_2023$`SPM-G-PO_mean`))
 OLCI_non_valides <- sum(is.na(OLCI_2023$`SPM-G-PO_mean`))
 
+SEXTANT_stats_complet <- SEXTANT_stats |>
+  complete(date = dates_2024, fill = list(pixels_valides = 0, pixels_totaux = 1820, couverture = NA, produit = "SEXTANT")) |>
+  mutate(produit = "SEXTANT")
 
+MODIS_stats_complet <- MODIS_stats |>
+  complete(date = dates_2024, fill = list(pixels_valides = 0, pixels_totaux = 25976, couverture = NA, produit = "MODIS")) |>
+  mutate(produit = "MODIS")
+
+OLCI_stats_complet <- OLCI_stats |>
+  complete(date = dates_2024, fill = list(pixels_valides = 0, couverture = NA, produit = "OLCI")) |>
+  mutate(produit = "OLCI")
 
 # visualisation -----------------------------------------------------------
 
@@ -289,7 +308,7 @@ ggplot(comparaison,
   ) +
   
   scale_fill_manual(values = c(
-    "SEXTANT" = "#1b9e77",
+    "SEXTANT OC5" = "#1b9e77",
     "MODIS"   = "#d95f02",
     "OLCI"    = "#7570b3"
   )) +
@@ -308,7 +327,23 @@ ggplot(comparaison,
     plot.title = element_text(face = "bold")
   )
 
-comparaison |>
+
+
+# Assembler
+comparaison_complet <- bind_rows(
+  SEXTANT_stats_complet,
+  MODIS_stats_complet,
+  OLCI_stats_complet
+)
+
+# Corriger SEXTANT et remplacer 0 par NA
+comparaison_plot <- comparaison_complet |>
+  mutate(
+    couverture = ifelse(produit == "SEXTANT" & !is.na(couverture) & couverture > 0, 1, couverture),
+    couverture = ifelse(!is.na(couverture) & couverture == 0, NA, couverture)
+  )
+
+comparaison_plot |>
   mutate(
     mois = lubridate::month(date, label = TRUE),
     jour = lubridate::day(date)
@@ -317,20 +352,80 @@ comparaison |>
   geom_tile(color = "white", linewidth = 0.3) +
   facet_wrap(~produit, ncol = 1) +
   scale_fill_gradientn(
-    colors = c("grey90", "#ffffcc", "#41b6c4", "#0c2c84"),
-    labels = scales::percent,
-    na.value = "grey95"
+    colors   = c("#ffffcc", "#41b6c4", "#0c2c84"),
+    labels   = scales::percent,
+    na.value = "grey85",
+    limits   = c(0, 1)
   ) +
-  labs(title = "Couverture journalière par produit en 2024",
-       fill = "Couverture")
+  labs(
+    title    = "Couverture journalière par produit en 2024",
+    fill     = "Couverture",
+    x        = "Jour",
+    y        = NULL
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "grey50", size = 10),
+    strip.text    = element_text(face = "bold")
+  )
 
-ggplot(comparaison, aes(date, couverture, color = produit, fill = produit)) +
-  geom_ribbon(stat = "smooth", alpha = 0.15, color = NA) +
-  geom_smooth(se = FALSE, linewidth = 1.2, method = "loess", span = 0.2) +
-  geom_point(data = ~filter(.x, couverture == 0),  # marquer les jours sans données
-             aes(y = 0), shape = 124, size = 3, alpha = 0.5) +
-  scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~produit, ncol = 1)
+# comparaison_plot <- comparaison |>
+#   mutate(
+#     couverture = ifelse(produit == "SEXTANT" & couverture > 0, 1, couverture)
+#   )
+# 
+# comparaison_plot |>
+#   mutate(
+#     mois = lubridate::month(date, label = TRUE),
+#     jour = lubridate::day(date)
+#   ) |>
+#   ggplot(aes(x = jour, y = mois, fill = couverture)) +
+#   geom_tile(color = "white", linewidth = 0.3) +
+#   facet_wrap(~produit, ncol = 1) +
+#   scale_fill_gradientn(
+#     colors = c("grey90", "#ffffcc", "#41b6c4", "#0c2c84"),
+#     labels = scales::percent,
+#     na.value = "grey95",
+#     limits = c(0, 1)           # ← forcer l'échelle de 0 à 1
+#   ) +
+#   labs(
+#     title    = "Couverture journalière par produit en 2024",
+#     subtitle = "SEXTANT OC5 : couverture corrigée du masque terrestre",
+#     fill     = "Couverture",
+#     x        = "Jour",
+#     y        = NULL
+#   ) +
+#   theme_bw(base_size = 12) +
+#   theme(
+#     plot.title    = element_text(face = "bold"),
+#     plot.subtitle = element_text(color = "grey50", size = 10),
+#     strip.text    = element_text(face = "bold")
+#   )
+
+# comparaison |>
+#   mutate(
+#     mois = lubridate::month(date, label = TRUE),
+#     jour = lubridate::day(date)
+#   ) |>
+#   ggplot(aes(x = jour, y = mois, fill = couverture)) +
+#   geom_tile(color = "white", linewidth = 0.3) +
+#   facet_wrap(~produit, ncol = 1) +
+#   scale_fill_gradientn(
+#     colors = c("grey90", "#ffffcc", "#41b6c4", "#0c2c84"),
+#     labels = scales::percent,
+#     na.value = "grey95"
+#   ) +
+#   labs(title = "Couverture journalière par produit en 2024",
+#        fill = "Couverture")
+# 
+# ggplot(comparaison, aes(date, couverture, color = produit, fill = produit)) +
+#   geom_ribbon(stat = "smooth", alpha = 0.15, color = NA) +
+#   geom_smooth(se = FALSE, linewidth = 1.2, method = "loess", span = 0.2) +
+#   geom_point(data = ~filter(.x, couverture == 0),  # marquer les jours sans données
+#              aes(y = 0), shape = 124, size = 3, alpha = 0.5) +
+#   scale_y_continuous(labels = scales::percent) +
+#   facet_wrap(~produit, ncol = 1)
 
 comparaison |>
   mutate(mois = lubridate::floor_date(date, "month"),
@@ -345,11 +440,6 @@ comparaison |>
   geom_col() +
   facet_wrap(~produit, ncol = 1) +
   scale_fill_brewer(palette = "RdYlGn", direction = 1)
-
-library(ggplot2)
-library(dplyr)
-library(lubridate)
-library(scales)
 
 couleurs <- c("SEXTANT" = "#1b9e77", "MODIS" = "#d95f02", "OLCI" = "#7570b3")
 

@@ -4,11 +4,9 @@
 
 # pathway : "~/Satellite_analysis/TS analysis SEXTANT.R
 
-
 # This script will load Sextant satellite data
 # Then perform a temporal analysis analysis
 # and then compare it to the runoff of the Var river
-
 
 # Setup ------------------------------------------------------------------
 
@@ -180,6 +178,11 @@ sextant_1998_2025_panache_monthly_anom <- SEXTANT_1998_2025_spm_95 |>
   mutate(panache_month_anomaly = mean_panache_month - mean_panache_month_clim)
 
 # climatology of chl ------------------------------------------------------------
+
+load("data/SEXTANT/CHL/SEXTANT_1998_2025_chl_pixels.RData")
+
+SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |> 
+  filter(analysed_chl_a >= 0)
 
 # on choisit une période de longue (1998 - 2025)
 SEXTANT_1998_2025 <- SEXTANT_1998_2025_chl_clean |> 
@@ -1309,8 +1312,20 @@ p3 <- ggplot(composantes_panache, aes(x = date, y = residus)) +
   )
 
 # Moyenne de la saisonnalité par mois + min/max
+# saisonnalite_clim_panache <- composantes_panache |>
+#   mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+#   group_by(month) |>
+#   summarise(
+#     mean_sais = mean(saisonnalite, na.rm = TRUE),
+#     min_sais  = min(saisonnalite,  na.rm = TRUE),
+#     max_sais  = max(saisonnalite,  na.rm = TRUE)
+#   )
+
 saisonnalite_clim_panache <- composantes_panache |>
-  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  mutate(month = factor(
+    format(date, "%b", locale = "fr_FR"),
+    levels = format(seq(as.Date("2000-01-01"), by = "month", length.out = 12), "%b", locale = "fr_FR")
+  )) |>
   group_by(month) |>
   summarise(
     mean_sais = mean(saisonnalite, na.rm = TRUE),
@@ -1435,8 +1450,12 @@ p3 <- ggplot(composantes_chl, aes(x = date, y = residus)) +
   )
 
 # Moyenne de la saisonnalité par mois + min/max
+
 saisonnalite_clim_chl <- composantes_chl |>
-  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  mutate(month = factor(
+    format(date, "%b", locale = "fr_FR"),
+    levels = format(seq(as.Date("2000-01-01"), by = "month", length.out = 12), "%b", locale = "fr_FR")
+  )) |>
   group_by(month) |>
   summarise(
     mean_sais = mean(saisonnalite, na.rm = TRUE),
@@ -1562,7 +1581,10 @@ p3 <- ggplot(composantes_spm, aes(x = date, y = residus)) +
 
 # Moyenne de la saisonnalité par mois + min/max
 saisonnalite_clim_spm <- composantes_spm |>
-  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  mutate(month = factor(
+    format(date, "%b", locale = "fr_FR"),
+    levels = format(seq(as.Date("2000-01-01"), by = "month", length.out = 12), "%b", locale = "fr_FR")
+  )) |>
   group_by(month) |>
   summarise(
     mean_sais = mean(saisonnalite, na.rm = TRUE),
@@ -1586,7 +1608,7 @@ ggplot(saisonnalite_clim_spm, aes(x = month, y = mean_sais, group = 1)) +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank())
 
-# décomposition X11 du débit ---------------------------------------
+# décomposition X11 du débit du Var ---------------------------------------
 
 load("data/Hydro France/Y6442010_depuis_2000.Rdata")
 
@@ -1735,7 +1757,10 @@ p3 <- ggplot(composantes_debit, aes(x = date, y = residus)) +
 
 # Moyenne de la saisonnalité par mois + min/max
 saisonnalite_clim_débit <- composantes_debit |>
-  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  mutate(month = factor(
+    format(date, "%b", locale = "fr_FR"),
+    levels = format(seq(as.Date("2000-01-01"), by = "month", length.out = 12), "%b", locale = "fr_FR")
+  )) |>
   group_by(month) |>
   summarise(
     mean_sais = mean(saisonnalite, na.rm = TRUE),
@@ -1758,6 +1783,75 @@ ggplot(saisonnalite_clim_débit, aes(x = month, y = mean_sais, group = 1)) +
   ) +
   theme_bw(base_size = 12) +
   theme(panel.grid.minor = element_blank())
+
+## saisonnalité ---------------------------------------
+
+# Extraire la saisonnalité par mois et par année
+saisonnalite_evolution <- composantes_debit |>
+  mutate(
+    annee = year(date),
+    mois  = month(date),
+    periode = ifelse(annee <= 2013, "2008–2013", "2014–2019")
+  ) |>
+  group_by(mois, periode) |>
+  summarise(
+    mean_sais = mean(saisonnalite, na.rm = TRUE),
+    sd_sais   = sd(saisonnalite, na.rm = TRUE),
+    .groups   = "drop"
+  ) |>
+  mutate(mois_label = factor(mois, labels = c("Jan", "Fév", "Mar", "Avr", "Mai",
+                                              "Jun", "Jul", "Aoû", "Sep", "Oct",
+                                              "Nov", "Déc")))
+
+# Plot comparatif
+ggplot(saisonnalite_evolution, aes(x = mois_label, y = mean_sais,
+                                   color = periode, group = periode)) +
+  geom_ribbon(aes(ymin = mean_sais - sd_sais,
+                  ymax = mean_sais + sd_sais,
+                  fill = periode), alpha = 0.15, color = NA) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  scale_color_manual(values = c("2008–2013" = "steelblue", "2014–2019" = "firebrick")) +
+  scale_fill_manual(values  = c("2008–2013" = "steelblue", "2014–2019" = "firebrick")) +
+  labs(
+    title    = "Évolution de la saisonnalité X11 du débit du Var",
+    subtitle = "Comparaison 2008–2013 vs 2014–2019",
+    x        = NULL,
+    y        = "Facteur saisonnier",
+    color    = NULL, fill = NULL
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 14, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 11, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(size = 15, face = "bold", family = "serif"),
+    axis.text        = element_text(size = 15, color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 18, family = "serif")
+  )
+
+# Test de Wilcoxon mois par mois
+composantes_debit |>
+  mutate(
+    annee  = year(date),
+    mois   = month(date),
+    periode = ifelse(annee <= 2013, "debut", "fin")
+  ) |>
+  group_by(mois) |>
+  summarise(
+    p_value = wilcox.test(
+      saisonnalite[periode == "debut"],
+      saisonnalite[periode == "fin"]
+    )$p.value,
+    .groups = "drop"
+  ) |>
+  mutate(
+    mois_label = factor(mois, labels = c("Jan","Fév","Mar","Avr","Mai","Jun",
+                                         "Jul","Aoû","Sep","Oct","Nov","Déc")),
+    significatif = ifelse(p_value < 0.05, "oui", "non")
+  )
 
 # décomposition X11 des précipitations ---------------------------------------
 
@@ -1873,7 +1967,10 @@ p3 <- ggplot(composantes_pluie, aes(x = date, y = residus)) +
 
 # Moyenne de la saisonnalité par mois + min/max
 saisonnalite_clim_pluie <- composantes_pluie |>
-  mutate(month = month(date, label = TRUE, abbr = TRUE, locale = "fr_FR")) |>
+  mutate(month = factor(
+    format(date, "%b", locale = "fr_FR"),
+    levels = format(seq(as.Date("2000-01-01"), by = "month", length.out = 12), "%b", locale = "fr_FR")
+  )) |>
   group_by(month) |>
   summarise(
     mean_sais = mean(saisonnalite, na.rm = TRUE),
@@ -1921,6 +2018,46 @@ saisonnalite_clim_spm <- saisonnalite_clim_spm |>
 saisonnalite_clim_pluie <- saisonnalite_clim_pluie |>
   mutate(across(c(mean_sais, min_sais, max_sais), norm_01))
 
+# Recalculer les saisonnalités depuis les composantes brutes
+mois_labels <- c("Jan", "Fév", "Mar", "Avr", "Mai", "Jun",
+                 "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc")
+
+faire_clim_sais <- function(composantes_df) {
+  composantes_df |>
+    mutate(month_num = month(date),
+           month     = factor(mois_labels[month_num], levels = mois_labels)) |>
+    group_by(month) |>
+    summarise(
+      mean_sais = mean(saisonnalite, na.rm = TRUE),
+      min_sais  = min(saisonnalite,  na.rm = TRUE),
+      max_sais  = max(saisonnalite,  na.rm = TRUE),
+      .groups   = "drop"
+    )
+}
+
+saisonnalite_clim_panache <- faire_clim_sais(composantes_panache)
+saisonnalite_clim_débit   <- faire_clim_sais(composantes_debit)
+saisonnalite_clim_chl     <- faire_clim_sais(composantes_chl)
+saisonnalite_clim_spm     <- faire_clim_sais(composantes_spm)
+saisonnalite_clim_pluie   <- faire_clim_sais(composantes_pluie)
+
+# Maintenant normaliser correctement
+norm_commun <- function(df) {
+  val_min <- min(c(df$min_sais, df$mean_sais, df$max_sais), na.rm = TRUE)
+  val_max <- max(c(df$min_sais, df$mean_sais, df$max_sais), na.rm = TRUE)
+  df |> mutate(
+    mean_sais = (mean_sais - val_min) / (val_max - val_min),
+    min_sais  = (min_sais  - val_min) / (val_max - val_min),
+    max_sais  = (max_sais  - val_min) / (val_max - val_min)
+  )
+}
+
+saisonnalite_clim_panache <- norm_commun(saisonnalite_clim_panache)
+saisonnalite_clim_débit   <- norm_commun(saisonnalite_clim_débit)
+saisonnalite_clim_chl     <- norm_commun(saisonnalite_clim_chl)
+saisonnalite_clim_spm     <- norm_commun(saisonnalite_clim_spm)
+saisonnalite_clim_pluie   <- norm_commun(saisonnalite_clim_pluie)
+
 # ensuite on veut supperposer les cinq
 ggplot() +
   # Aire des panaches
@@ -1966,7 +2103,7 @@ ggplot() +
   # ── AJOUT : Précipitations ─────────────────────────────────────────────────
   geom_ribbon(data = saisonnalite_clim_pluie,
               aes(x = month, ymin = min_sais, ymax = max_sais, group = 1),
-              fill = "steelblue", alpha = 0.15) +
+              fill = "darkorchid3", alpha = 0.15) +
   geom_line(data = saisonnalite_clim_pluie,
             aes(x = month, y = mean_sais, color = "Précipitations", group = 1),
             linewidth = 1.1) +
@@ -1981,7 +2118,7 @@ ggplot() +
       "Débit du Var"                    = "blue",
       "Concentration en chlorophylle a" = "chartreuse3",
       "Concentration en MES"            = "red3",
-      "Précipitations"                  = "steelblue"  # ← ajout
+      "Précipitations"                  = "darkorchid3"  # ← ajout
     ),
     guide = guide_legend(override.aes = list(linewidth = 1.5, size = 3))
   ) +
@@ -1989,7 +2126,7 @@ ggplot() +
     title    = "Saisonnalité X11 — Débit du Var, panaches turbides, MES, chlorophylle a et précipitations",
     subtitle = "Moyenne mensuelle 2008–2019 · enveloppe = min/max interannuel",
     x        = NULL,
-    y = "Facteur saisonnier normalisé (0–1)",
+    y = "Facteur saisonnier normalisé",
     color    = NULL
   ) +
   theme_minimal(base_size = 12) +
@@ -1998,16 +2135,20 @@ ggplot() +
     panel.grid.major  = element_line(color = "grey93"),
     plot.title        = element_text(face = "bold", size = 13),
     plot.subtitle     = element_text(color = "grey50", size = 10, margin = margin(b = 10)),
-    legend.position   = "top",
-    legend.text       = element_text(size = 11),
-    axis.text         = element_text(color = "grey30"),
-    axis.text.x       = element_text(size = 11)
+    legend.position   = "bottom",
+    legend.text       = element_text(size = 15),
+    axis.text         = element_text(size = 13, color = "grey30"),
+    axis.text.x       = element_text(size = 13),
+    axis.title.y = element_text(size = 16),
+    axis.text.y  = element_text(size = 14, color = "grey30"),
   )
-
 
 # spatial climatology -----------------------------------------------------
 
 ## MES and panache extension -----------------------------------------------
+
+SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_pixels |> 
+  filter(analysed_spim >= 0)
 
 SEXTANT_1998_2025_spm_pixels <- SEXTANT_1998_2025_spm_pixels |> 
   mutate(
@@ -2029,6 +2170,8 @@ clim_spatiale_spm_month_sextant <- SEXTANT_1998_2025_spm_pixels |>
     sd_spm    = sd(analysed_spim, na.rm = TRUE),
     .groups   = "drop"
   )
+
+range(clim_spatiale_spm_month_sextant$mean_spm, na.rm = TRUE)
 
 # ── Climatologie spatiale annuelle (moyenne par pixel et par année) ──
 clim_spatiale_spm_year <- SEXTANT_2008_2019_spm_pixels |>
@@ -2074,8 +2217,9 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = mean_spm)) 
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    limits   = c(0.1, 20),
+    breaks   = c(0.1, 1, 20),
+    labels   = c("0.1", "1", "20")
   ) +
   facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
@@ -2116,8 +2260,6 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = mean_spm)) 
     legend.text      = element_text(size = 8)
   )
 
-
-
 # plot mensuel de l'erreur standard à la concentration en MES
 ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = sd_spm)) +
   geom_raster() +
@@ -2141,8 +2283,10 @@ ggplot(clim_spatiale_spm_month_sextant, aes(x = lon, y = lat, fill = sd_spm)) +
     name     = expression("MES (g. m"^{-3}*")"),
     option   = "turbo",
     na.value = "white",
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    limits   = c(0.1, 20),
+    breaks   = c(0.1, 1, 20),
+    labels   = c("0.1", "1", "20"),
+    oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
@@ -2191,7 +2335,7 @@ sum(SEXTANT_1998_2025_chl_pixels$analysed_chl_a < 0, na.rm = TRUE)
 
 # supprimer seulement les valeurs négatives
 SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_pixels |>
-  filter(analysed_chl_a >= 0, analysed_chl_a <= 20 | is.na(analysed_chl_a))
+  filter(analysed_chl_a >= 0)
 
 SEXTANT_1998_2025_chl_clean <- SEXTANT_1998_2025_chl_clean |> 
   mutate(
@@ -2212,6 +2356,8 @@ clim_spatiale_chl_month <- SEXTANT_1998_2025_chl_clean |>
     sd_chl    = sd(analysed_chl_a, na.rm = TRUE),
     .groups   = "drop"
   )
+
+range(clim_spatiale_chl_month$mean_chl, na.rm = TRUE)
 
 # plot mensuel
 ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = mean_chl)) +
@@ -2234,14 +2380,15 @@ ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = mean_chl)) +
   scale_fill_viridis_c(
     trans    = "log10",
     name     = expression("Chl a (µg. L"^{-1}*")"),
-    option   = "plasma",
+    option   = "turbo",
     na.value = "white",
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    limits   = c(0.1, 10),
+    breaks   = c(0.1, 1, 10),
+    labels   = c("0.1", "1", "10")
   ) +
   facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(
-               "1"  = "Janvier",  "2"  = "Février",   "3"  = "Mars",
+               "1"  = "Janvier",  "2"  = "Février",   "3"   = "Mars",
                "4"  = "Avril",    "5"  = "Mai",        "6"  = "Juin",
                "7"  = "Juillet",  "8"  = "Août",       "9"  = "Septembre",
                "10" = "Octobre",  "11" = "Novembre",   "12" = "Décembre"
@@ -2278,6 +2425,8 @@ ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = mean_chl)) +
     legend.text      = element_text(size = 8)
   )
 
+range(clim_spatiale_chl_month$sd_chl, na.rm = TRUE)
+
 # sd chl
 ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = sd_chl)) +
   geom_raster() +
@@ -2299,10 +2448,12 @@ ggplot(clim_spatiale_chl_month, aes(x = lon, y = lat, fill = sd_chl)) +
   scale_fill_viridis_c(
     trans    = "log10",
     name     = expression("Chl a (µg. L"^{-1}*")"),
-    option   = "plasma",
+    option   = "turbo",
     na.value = "white",
-    breaks   = c(0.01, 0.1, 1, 10),
-    labels   = c("0.01", "0.1", "1", "10")
+    limits   = c(0.1, 10),
+    breaks   = c(0.1, 1, 10),
+    labels   = c("0.1", "1", "10"),
+    oob      = scales::squish
   ) +
   facet_wrap(~ month, ncol = 6,
              labeller = labeller(month = c(

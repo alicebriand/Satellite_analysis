@@ -250,7 +250,6 @@ MODIS_catalogue <- earth_data_catalogue[grepl("MOD|MYD", earth_data_catalogue$sh
 # NB: While this does list products, accessing them isn't working well
 S3_catalogue <- earth_data_catalogue[grepl("OLCI|Sentinel|SENTINEL", earth_data_catalogue$short_name, fixed = FALSE),]
 
-
 # Workflow ----------------------------------------------------------------
 
 ## 1) Setup ---------------------------------------------------------------
@@ -1741,3 +1740,95 @@ study_area_df_03_10_2020 |>
   theme_minimal()
 
 save(study_area_df_03_10_2020, file = "~/Downloads/MODIS NASA/03_10_2020/study_area_df_03_10_2020.Rdata")
+
+
+
+# 07/05/2026 --------------------------------------------------------------
+## 1) Setup ---------------------------------------------------------------
+dl_dir <- "~/Downloads/MODIS NASA/07_05_2026/"
+dir.create(dl_dir, recursive = TRUE, showWarnings = FALSE)
+
+start_date <- "2026-05-07"
+end_date   <- "2026-05-07"
+
+study_coords <- matrix(c(
+  7.1000000, 43.5000000,
+  7.4200000, 43.5000000,
+  7.4200000, 43.7300000,
+  7.1000000, 43.7300000,
+  7.1000000, 43.5000000
+), ncol = 2, byrow = TRUE)
+study_bbox <- vect(study_coords, crs = "EPSG:4326", type = "polygons")
+
+product_ID      <- "MOD09GQ"   # Terra ← changé de MYD09GQ
+product_server  <- "LPCLOUD"
+product_version <- "061"
+
+## 2) Download ------------------------------------------------------------
+luna::getNASA(product = product_ID,
+              start_date = start_date, end_date = end_date,
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              server = product_server, version = product_version,
+              path = dl_dir,
+              username = earth_up$username, password = earth_up$password)
+
+# Masque terre/eau
+luna::getNASA(product = "MOD44W",
+              start_date = "2020-01-01", end_date = "2020-01-01",
+              aoi = study_bbox, download = TRUE, overwrite = FALSE,
+              path = dl_dir,
+              username = earth_up$username, password = earth_up$password)
+
+## 3) Process -------------------------------------------------------------
+mask_files <- luna::modisDate(list.files(dl_dir, pattern = "MOD44W\\.", full.names = TRUE))
+rast_files <- luna::modisDate(list.files(dl_dir, pattern = "MOD09GQ\\.", full.names = TRUE))  # ← changé
+
+# Masque eau/terre
+plyr::d_ply(mask_files[1,], "date", proc_MODIS_hdf,
+            bbox = study_bbox, out_dir = dl_dir, layer_num = 2, land_mask = TRUE)
+
+dir.create(file.path(dl_dir, "tif_bande_1/"), recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(dl_dir, "tif_bande_2/"), recursive = TRUE, showWarnings = FALSE)
+
+# Bande 1 (rouge, 620-670 nm)
+plyr::d_ply(rast_files[1,], "date", proc_MODIS_hdf,
+            bbox = study_bbox,
+            out_dir = file.path(dl_dir, "tif_bande_1/"),
+            layer_num = 2, land_mask = FALSE)
+
+# Bande 2 (NIR, 841-876 nm)
+plyr::d_ply(rast_files[1,], "date", proc_MODIS_hdf,
+            bbox = study_bbox,
+            out_dir = file.path(dl_dir, "tif_bande_2/"),
+            layer_num = 3, land_mask = FALSE)
+
+## 4) Load ----------------------------------------------------------------
+
+MODIS_mask <- rast(list.files(dl_dir, pattern = "study_area_MOD44W.*\\.tif$", full.names = TRUE))
+
+tif_b1 <- list.files(file.path(dl_dir, "tif_bande_1/"), pattern = "MOD09GQ.*\\.tif$", full.names = TRUE)  # ← changé
+tif_b2 <- list.files(file.path(dl_dir, "tif_bande_2/"), pattern = "MOD09GQ.*\\.tif$", full.names = TRUE)  # ← changé
+
+df_b1 <- load_MODIS_tif(tif_b1, MODIS_mask)
+df_b2 <- load_MODIS_tif(tif_b2, MODIS_mask)
+
+study_area_df_07_05_2026 <- left_join(df_b1, df_b2, by = c("date", "lon", "lat"))
+
+## 5) Plot ----------------------------------------------------------------
+coastline_giscoR <- gisco_get_coastallines(resolution = "01")
+countries_giscoR  <- gisco_get_countries(region = "Europe", resolution = "01")
+
+study_area_df_07_05_2026 |>
+  filter(sur_refl_b01_1 <= 3000) |>
+  ggplot() +
+  geom_tile(aes(x = lon, y = lat, fill = sur_refl_b01_1)) +
+  geom_sf(data = countries_giscoR, colour = "black", fill = "grey80", linewidth = 0.3) +
+  scale_fill_viridis_c() +
+  labs(x = "Longitude (°E)", y = "Latitude (°N)",
+       fill = "Surface reflectance (620-670 nm)",
+       title = "2020-05-07 — Terra/MODIS") +  # ← titre mis à jour
+  coord_sf(xlim = range(study_area_df_07_05_2026$lon),
+           ylim = range(study_area_df_07_05_2026$lat), expand = FALSE) +
+  theme_minimal()
+
+save(study_area_df_07_05_2026, file = "~/Downloads/MODIS NASA/07_05_2026/study_area_df_07_05_2026.Rdata")

@@ -734,3 +734,99 @@ ggplot() +
   )
 
 
+# plotting ----------------------------------------------------------------
+
+library(terra)
+library(tidyterra)
+library(ggplot2)
+library(ggspatial)
+library(sf)
+
+# ── 1. Chemin ──────────────────────────────────────────────────────────────
+safe_dir <- "~/Downloads/S2B_MSIL2A_20201003T101759_N0500_R065_T32TLP_20230412T082558.SAFE"
+
+# Trouver automatiquement le TCI
+tci_path <- list.files(safe_dir, pattern = "TCI_10m\\.jp2$", 
+                       recursive = TRUE, full.names = TRUE)
+
+# ── 2. Charger ─────────────────────────────────────────────────────────────
+tci <- rast(tci_path)
+
+# ── 3. Recadrer sur ta zone ────────────────────────────────────────────────
+zone_sf <- st_bbox(c(xmin = 6.8925000, xmax = 7.657228,
+                     ymin = 43.2736389, ymax = 43.730000),
+                   crs = 4326) |>
+  st_as_sfc() |>
+  st_transform(crs(tci))
+
+tci_crop <- tci |>
+  crop(zone_sf) |>
+  project("EPSG:4326")
+
+# ── 4. Plot ────────────────────────────────────────────────────────────────
+ggplot() +
+  geom_spatraster_rgb(data = tci_crop) +
+  coord_sf(xlim   = c(6.8925000, 7.657228),
+           ylim   = c(43.2736389, 43.730000),
+           expand = FALSE,
+           datum  = sf::st_crs(4326)) +
+  annotation_scale(location  = "bl", width_hint = 0.3,
+                   bar_cols  = c("white", "black"),
+                   text_col  = "white",
+                   line_col  = "white") +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering(),
+                         height = unit(1, "cm"), width = unit(1, "cm")) +
+  labs(x       = "Longitude (°E)",
+       y       = "Latitude (°N)",
+       caption = "Source : Copernicus/ESA — Sentinel-2 MSI L2A") +
+  theme_bw(base_size = 15) +
+  theme(axis.title = element_text(face = "bold"),
+        plot.caption = element_text(size = 15))
+
+
+
+# 2018-11-16 --------------------------------------------------------------
+
+
+# ── 1. Chemin ──────────────────────────────────────────────────────────────
+safe_dir <- "~/Downloads/S2B_MSIL2A_20181116T103309_N0500_R108_T32TLP_20230704T152937.SAFE"
+
+# Trouver automatiquement le TCI
+tci_path <- list.files(safe_dir, pattern = "TCI_10m\\.jp2$", 
+                       recursive = TRUE, full.names = TRUE)
+
+# ── 2. Charger ─────────────────────────────────────────────────────────────
+tci <- rast(tci_path)
+
+# ── 3. Recadrer sur ta zone ────────────────────────────────────────────────
+zone_sf <- st_bbox(c(xmin = 6.8925000, xmax = 7.657228,
+                     ymin = 43.2736389, ymax = 43.730000),
+                   crs = 4326) |>
+  st_as_sfc() |>
+  st_transform(crs(tci))
+
+tci_crop <- tci |>
+  crop(zone_sf) |>
+  project("EPSG:4326")
+
+# ── 4. Plot ────────────────────────────────────────────────────────────────
+ggplot() +
+  geom_spatraster_rgb(data = tci_crop) +
+  coord_sf(xlim   = c(7.1, 7.4),
+           ylim   = c(43.5, 43.730000),
+           expand = FALSE,
+           datum  = sf::st_crs(4326)) +
+  annotation_scale(location  = "bl", width_hint = 0.3,
+                   bar_cols  = c("white", "black"),
+                   text_col  = "white",
+                   line_col  = "white") +
+  annotation_north_arrow(location = "tr", which_north = "true",
+                         style = north_arrow_fancy_orienteering(),
+                         height = unit(1, "cm"), width = unit(1, "cm")) +
+  labs(x       = "Longitude (°E)",
+       y       = "Latitude (°N)",
+       caption = "Source : Copernicus/ESA — Sentinel-2 MSI L2A") +
+  theme_bw(base_size = 15) +
+  theme(axis.title = element_text(face = "bold"),
+        plot.caption = element_text(size = 15))

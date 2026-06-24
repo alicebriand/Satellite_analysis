@@ -21,6 +21,7 @@ library(ggspatial)
 library(effectsize)
 library(moments)
 library(rstatix)
+library(dplyr)
 
 load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
 
@@ -361,7 +362,7 @@ Wind_T <- Wind_T |>
   mutate(date = seq(as.Date("1950-01-01"), as.Date("2024-12-31"), by = "day"))
 
 Wind_T <- Wind_T |> 
-  filter(date >= "1991-01-01")
+  filter(date >= "1998-01-01")
 
 Wind_2015_2024 <- Wind_T |> 
   filter(date >= as.Date("2015-01-01"), date <= as.Date("2024-12-31"))
@@ -450,36 +451,22 @@ cat("Jours non classifiés (zones grises entre secteurs) :",
 
 # relationship ------------------------------------------------------------
 
-# on classifie les vents en deux catégories : vent de terre et de mer
-# ces derniers constituent la grande majorité de notre jeu de données
-
-# Wind_classified <- Wind_T |>
-#   mutate(
-#     wind_type = case_when(
-#       # Vents de terre : N, NW, NE (offshore pour la côte azuréenne)
-#       (DXY >= 300, DXY <= 330) ~ "Nord-Ouest",
-#       # Vents de mer : E (onshore)
-#       (DXY >= 75, DXY <= 105)  ~ "Est",
-#       TRUE ~ "Autre"
-#     )
-#   )
-
 Wind_classified <- Wind_T |>
   mutate(
     wind_type = case_when(
-      DXY >= 300 & DXY <= 330 ~ "Nord-Ouest",   # virgule → & 
-      DXY >= 75  & DXY <= 105 ~ "Est",           # virgule → &
-      TRUE ~ NA_character_                        # le reste écarté
+      DXY >= 300 & DXY <= 330 ~ "Nord-Ouest",  
+      DXY >= 75  & DXY <= 105 ~ "Est",          
+      TRUE ~ NA_character_                       
     )
   ) |>
-  filter(!is.na(wind_type))                       # garder seulement les deux secteurs
+  filter(!is.na(wind_type))                      
 
 # Vérifier la répartition
 Wind_classified |> 
   count(wind_type) |> 
   mutate(
-    pct_secteur  = round(n / sum(n) * 100, 1),         # % entre les deux secteurs
-    pct_total    = round(n / nrow(Wind_T) * 100, 1)    # % du dataset complet
+    pct_secteur  = round(n / sum(n) * 100, 1),         
+    pct_total    = round(n / nrow(Wind_T) * 100, 1)   
   )
 
 # ── 2. Jointure avec les métriques du panache ──────────────────────────────

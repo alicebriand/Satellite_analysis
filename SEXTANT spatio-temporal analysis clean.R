@@ -29,6 +29,8 @@ library(zoo)
 library(trend)
 library(mblm)
 library(modifiedmk)
+library(tibble)
+library(readr)
 
 # Get satellite download function
 source("~/sat_access/sat_access_script.R")
@@ -794,6 +796,9 @@ SEXTANT_1998_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |>
 cat("Tendance Theil-Sen :", round(slope_kmjan, 2), "km²/an\n")
 cat("Mann-Kendall p =", round(mk_result$p.value, 4), "\n")
 
+cat("Pente brute :", sen_panache$estimates, "km²/jour\n")
+cat("Pente annuelle :", sen_panache$estimates * 365, "km²/an\n")
+
 ##### tendance runoff Var ---------------------------------------
 
 Y6442010_depuis_2006 <- Y6442010_depuis_2000 |> 
@@ -834,10 +839,10 @@ n_panache <- sum(!is.na(SEXTANT_1998_2025_spm_95$aire_panache_km2))
 n_debit   <- sum(!is.na(Y6442010_depuis_2000$débit))
 n_commun  <- nrow(merged_data)   # si tu veux le n de la corrélation (dates communes)
 
-#### plotting ----------------------------------------------------------
+#### plotting en série temporelle ----------------------------------------------------------
 
-SEXTANT_2000_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
-  filter(date >= "2000-01-01")
+# SEXTANT_2000_2025_spm_95 <- SEXTANT_1998_2025_spm_95 |> 
+#   filter(date >= "2000-01-01")
 
 # mise à l'échelle
 adjust_factors <- sec_axis_adjustement_factors(SEXTANT_2000_2025_spm_95$aire_panache_km2, Y6442010_depuis_2006$débit)
@@ -867,108 +872,6 @@ cor.test(merged_data$débit, merged_data$aire_panache_km2, method = "spearman")
 n_debit   <- sum(!is.na(Y6442010_depuis_2006$débit))
 n_panache <- sum(!is.na(SEXTANT_2000_2025_spm_95$aire_panache_km2))
 n_commun  <- nrow(merged_data)
-
-ggplot() +
-  # Aire des panaches
-  geom_line(
-    data = SEXTANT_2000_2025_spm_95,
-    aes(x = date, y = scaled_aire_panache, color = "Aire des panaches"),
-    linewidth = 0.4, alpha = 0.6
-  ) +
-  # Tendance Theil-Sen panaches
-  geom_line(
-    data = SEXTANT_2000_2025_spm_95,
-    aes(x = date, y = theilsen_fit_scaled, color = "Tendance panaches"),
-    linewidth = 1.2
-  ) +
-  # Débit
-  geom_line(
-    data = debit_clean,
-    aes(x = date, y = débit, color = "Débit"),
-    linewidth = 0.4, alpha = 0.6
-  ) +
-  # Tendance Theil-Sen débit
-  geom_line(
-    data = debit_clean,
-    aes(x = date, y = theilsen_fit_debit, color = "Tendance débit"),
-    linewidth = 1.2
-  ) +
-  scale_color_manual(
-    values = c(
-      "Aire des panaches" = "darkcyan",
-      "Tendance panaches" = "darkcyan",
-      "Débit"             = "blue",
-      "Tendance débit"    = "blue"
-    ),
-    name = NULL
-  ) +
-  scale_y_continuous(
-    name     = "Débit (m³/s)",
-    sec.axis = sec_axis(
-      ~ (. - adjust_factors$adjust) / adjust_factors$diff,
-      name = expression("Aire des panaches (km²)")
-    )
-  ) +
-  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
-  # Corrélation Spearman — haut droite
-  annotate(
-    "text",
-    x = max(SEXTANT_2000_2025_spm_95$date, na.rm = TRUE),
-    y = max(debit_clean$débit, na.rm = TRUE) * 0.97,
-    hjust = 1, vjust = 1, size = 8,
-    color = "grey20", fontface = "italic", family = "serif",
-    label = paste0(
-      "R = ", round(correlation, 2),
-      "\np ", ifelse(p_value < 0.001, "< 0.001", format(p_value, digits = 3)),
-      "\nn = ", n_commun
-    )
-  ) +
-  # Tendance Theil-Sen panaches — haut gauche
-  annotate(
-    "text",
-    x = as.Date("2000-01-01"),
-    y = max(debit_clean$débit, na.rm = TRUE) * 0.97,
-    hjust = 0, vjust = 1, size = 8,
-    color = "darkcyan", fontface = "italic", family = "serif",
-    label = paste0(
-      "Tendance panaches : ", round(slope_kmjan, 2), " km²/an",
-      "\np ", ifelse(mk_result$p.value < 0.001, "< 0.001",
-                                  ifelse(mk_result$p.value < 0.05, "< 0.05",
-                                         paste0("= ", round(mk_result$p.value, 3)))),
-      "\nn = ", n_panache
-    )
-  ) +
-  # Tendance Theil-Sen débit — milieu gauche
-  annotate(
-    "text",
-    x = as.Date("2000-01-01"),
-    y = max(debit_clean$débit, na.rm = TRUE) * 0.70,
-    hjust = 0, vjust = 1, size = 8,
-    color = "blue", fontface = "italic", family = "serif",
-    label = paste0(
-      "Tendance débit : ", round(slope_debit_jan, 2), " m³/s/an",
-      "\np ", ifelse(mk_debit$p.value < 0.001, "< 0.001",
-                                  ifelse(mk_debit$p.value < 0.05, "< 0.05",
-                                         paste0("= ", round(mk_debit$p.value, 3))))
-    )
-  ) +
-  labs(
-    title    = "Évolution de l'extension des panaches turbides et du débit du Var",
-    subtitle = "Produit SEXTANT OC5 (2000–2025)",
-    x        = NULL
-  ) +
-  theme_bw(base_size = 14) +
-  theme(
-    plot.title       = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
-    plot.subtitle    = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
-    axis.title       = element_text(face = "bold", family = "serif"),
-    axis.text        = element_text(color = "grey30", family = "serif"),
-    panel.grid.minor = element_blank(),
-    panel.border     = element_rect(color = "grey70"),
-    legend.position  = "top",
-    legend.text      = element_text(size = 11),
-    plot.margin      = margin(1, 1.5, 1, 1, "cm")
-  )
 
 ggplot() +
   # Aire des panaches en fond avec alpha
@@ -1051,6 +954,249 @@ ggplot() +
     panel.border     = element_rect(color = "grey70"),
     legend.position  = "top",
     legend.text      = element_text(size = 11),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
+
+ggplot() +
+  # Aire des panaches
+  geom_line(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = aire_panache_km2),
+    color = "darkcyan", linewidth = 0.4, alpha = 0.6
+  ) +
+  # Tendance Theil-Sen panaches
+  geom_line(
+    data = SEXTANT_1998_2025_spm_95,
+    aes(x = date, y = theilsen_fit),
+    color = "darkcyan", linewidth = 1.2
+  ) +
+  # Annotation tendance
+  annotate(
+    "text",
+    x = as.Date("1998-01-01"),
+    y = 900,
+    hjust = 0, vjust = 1, size = 8,
+    color = "darkcyan", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance : ", round(slope_kmjan, 2), " km²/an",
+      "\np ", ifelse(mk_result$p.value < 0.001, "< 0.001",
+                     ifelse(mk_result$p.value < 0.05, "< 0.05",
+                            paste0("= ", round(mk_result$p.value, 3)))),
+      "\nn = ", n_panache
+    )
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  scale_y_continuous(name = expression("Aire des panaches (km²)")) +
+  coord_cartesian(ylim = c(0, 1000)) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides du Var",
+    subtitle = "Produit Sextant OC5 (1998–2025)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 16, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 13, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(size = 20, face = "bold", family = "serif"),
+    axis.text        = element_text(size = 18, color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
+
+#### plotting en scatter plot ----------------------------------------------------------
+
+ggplot(merged_data, aes(x = débit, y = aire_panache_km2)) +
+  geom_point(alpha = 0.25, size = 1.8, color = "steelblue") +
+  annotate(
+    "text",
+    x = Inf, y = Inf,
+    hjust = 1.05, vjust = 1.5,
+    size = 10,
+    color = "grey25", fontface = "italic", family = "serif",
+    label = paste0(
+      "r = ", round(correlation, 2),
+      "\np < 0.001",
+      "\nn = ", n_commun
+    )
+  ) +
+  coord_cartesian(xlim = c(0, 300)) +  # zoom sans exclure les données
+  scale_x_continuous(name = "Débit du Var (m³/s)") +
+  scale_y_log10(
+    name   = expression("Aire des panaches (km²)"),
+    breaks = c(1, 10, 100, 1000),
+    labels = c("1", "10", "100", "1000")
+  ) +
+  labs(
+    title    = "Corrélation entre le débit du Var et l'extension des panaches turbides",
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 12, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(size = 20, family = "serif"),
+    axis.text        = element_text(color = "grey30", size = 17, family = "serif"),
+    panel.grid.major = element_line(color = "grey90", linewidth = 0.4),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey60"),
+    plot.margin      = margin(10, 15, 10, 10)
+  )
+
+#### 2016-2024 ----------------------------------------------------------
+
+# Filtrer les deux séries sur 2016-2024
+# debit_2016_2024 <- debit_clean |>
+#   filter(date >= as.Date("2016-01-01"), date <= as.Date("2024-12-31"))
+
+debit_cumule_2016_2024 <- All_debit |>
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31")) |>
+  drop_na(debit_cumule)
+
+panache_2016_2024 <- SEXTANT_1998_2025_spm_95 |>
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31"))
+
+# Fusionner
+merged_sextant_cumule <- merge(
+  debit_cumule_2016_2024 |> select(date, debit_cumule),
+  panache_2016_2024 |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
+
+# Corrélation Spearman
+correlation_sextant_cumule <- cor(merged_sextant_cumule$debit_cumule, 
+                                  merged_sextant_cumule$aire_panache_km2,
+                                  method = "spearman", use = "complete.obs")
+p_value_sextant_cumule     <- cor.test(merged_sextant_cumule$debit_cumule, 
+                                       merged_sextant_cumule$aire_panache_km2,
+                                       method = "spearman")$p.value
+n_sextant_cumule           <- nrow(merged_sextant_cumule)
+
+cat("R =", round(correlation_sextant_cumule, 3), "\n")
+cat("p =", round(p_value_sextant_cumule, 4), "\n")
+cat("n =", n_sextant_cumule, "\n")
+
+# Mise à l'échelle pour double axe
+adjust_factors_2016 <- sec_axis_adjustement_factors(
+  merged_2016_2024$aire_panache_km2,
+  merged_2016_2024$débit
+)
+
+merged_2016_2024 <- merged_2016_2024 |>
+  mutate(scaled_aire = aire_panache_km2 * adjust_factors_2016$diff + adjust_factors_2016$adjust)
+
+ggplot() +
+  geom_line(
+    data = merged_2016_2024,
+    aes(x = date, y = débit, color = "Débit du Var"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
+  geom_line(
+    data = merged_2016_2024,
+    aes(x = date, y = scaled_aire, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6
+  ) +
+  scale_color_manual(
+    values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan"),
+    name = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors_2016$adjust) / adjust_factors_2016$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  annotate(
+    "text",
+    x = as.Date("2024-01-01"),
+    y = max(merged_2016_2024$débit, na.rm = TRUE) * 0.97,
+    hjust = 1, vjust = 1, size = 6,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation_2016_2024, 2),
+      "\np < 0.001",
+      "\nn = ", n_2016_2024
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit du Var",
+    subtitle = "Produit Sextant OC5 (2016–2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 12, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif"),
+    axis.text        = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "top",
+    legend.text      = element_text(size = 11),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
+
+merged_2016_2024_complet <- merged_2016_2024 |>
+  complete(date = seq(min(date), max(date), by = "day"))
+
+merged_2016_2024_complet <- merged_2016_2024_complet |> 
+  filter(date >= "2016-04-26")
+
+merged_2016_2024_complet <- merged_2016_2024_complet |>
+  mutate(scaled_aire = aire_panache_km2 * adjust_factors_2016$diff + adjust_factors_2016$adjust)
+
+ggplot() +
+  geom_line(
+    data = merged_2016_2024_complet,
+    aes(x = date, y = débit, color = "Débit du Var"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  geom_line(
+    data = merged_2016_2024_complet,
+    aes(x = date, y = scaled_aire, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  scale_color_manual(
+    values = c("Débit du Var" = "blue", "Aire des panaches" = "darkcyan"),
+    name = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_factors_2016$adjust) / adjust_factors_2016$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 250)) +  # ← limite sans supprimer les données
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  annotate(
+    "text",
+    x = as.Date("2024-01-01"),
+    y = 240,
+    hjust = 2, vjust = 1, size = 10,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "R = ", round(correlation_2016_2024, 2),
+      "\np < 0.001",
+      "\nn = ", n_2016_2024
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit du Var",
+    subtitle = "Produit Sextant OC5 (2016–2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 12, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title       = element_text(size = 18, face = "bold", family = "serif"),
+    axis.text        = element_text(size = 14, color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 16, family = "serif"),
     plot.margin      = margin(1, 1.5, 1, 1, "cm")
   )
 
@@ -1462,16 +1608,10 @@ Y6442010_2008_2019 <- Y6442010_2008_2019 |>
     debit_interp = na.approx(débit, x = date, na.rm = FALSE)
   )
 
-# garder seulment les jours en crues
-Var_crue <- Y6442010_2008_2019 |> 
-  filter(débit > 121)
-
-load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_95.Rdata")
-
 # Tout en une fois
 df_corr <- Y6442010_2008_2019 |>
   filter(débit > 121) |>
-  mutate(date_panache = date + 1) |>        # lag 1 jour créé ici
+  mutate(date_panache = date + 1) |>  
   left_join(
     SEXTANT_1998_2025_spm_95 |> select(date, aire_panache_km2),
     by = c("date_panache" = "date")
@@ -1525,7 +1665,6 @@ ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "bottom")
 
-
 # Transformation log du débit
 df_corr <- df_corr |>
   mutate(log_debit = log10(débit))
@@ -1539,7 +1678,7 @@ ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
   geom_point(alpha = 0.7, size = 3) +
   geom_smooth(method = "lm", se = TRUE,
               color = "black", linetype = "dashed", linewidth = 0.8,
-              formula = y ~ log10(x)) +          # régression sur log10(x)
+              formula = y ~ log10(x)) +
   scale_x_log10(
     breaks = c(125, 200, 300, 500, 750, 1000, 2000, 5000),
     labels = scales::comma
@@ -1551,22 +1690,29 @@ ggplot(df_corr, aes(x = débit, y = aire_panache_km2, color = saison)) +
     "Hiver"     = "#888780"
   )) +
   annotate("text",
-           x = max(df_corr$débit) * 0.6,
-           y = max(df_corr$aire_panache_km2) * 0.95,
+           x     = max(df_corr$débit),          # ← bord droit
+           y     = max(df_corr$aire_panache_km2) * 0.95,
            label = paste0("r (log₁₀Q) = ", round(cor_log$estimate, 2),
-                          "\nR² = ", round(cor_log$estimate^2, 2),
-                          "\np = ", format(cor_log$p.value, digits = 2,
-                                           scientific = TRUE)),
-           hjust = 1, vjust = 1, size = 4) +
+                          "\nR² = ",            round(cor_log$estimate^2, 2),
+                          "\np = ",             format(cor_log$p.value,
+                                                       digits = 2,
+                                                       scientific = TRUE)),
+           hjust = 1, vjust = 1, size = 5,      # ← taille réduite
+           color = "grey20",
+           fontface = "italic") +
   labs(
-    title = "Débit du Var vs aire du panache turbide (lag 1 jour)",
-    subtitle = "Crues > 121 m³/s — 2008–2019 — axe x en échelle log₁₀",
-    x = "Débit du Var J (m³/s, échelle log₁₀)",
-    y = "Aire du panache J+1 (km²)",
+    x     = "Débit du Var (m³/s)",
+    y     = "Aire du panache (km²)",
     color = "Saison"
   ) +
-  theme_minimal(base_size = 13) +
-  theme(legend.position = "bottom")
+  theme_bw(base_size = 13) +                    # ← theme_bw plus propre
+  theme(
+    legend.position      = "bottom",
+    legend.title         = element_text(face = "bold"),
+    panel.grid.minor     = element_blank(),      # ← supprime grille mineure
+    axis.title           = element_text(face = "bold"),
+    plot.margin          = margin(10, 15, 10, 10) # ← marge droite élargie
+  )
 
 # CHL ---------------------------------------------------------------------
 
@@ -2711,7 +2857,381 @@ ggarrange(
   )
 
 
-# débit en crue vs extension des panaches ---------------------------------
+# Débit en crue vs extension des panaches ---------------------------------
 
+# Validation in situ ------------------------------------------------------
 
+load("data/SEXTANT/SPM/SEXTANT_1998_2025_spm_pixels.RData")
+
+# MES <- tibble(
+#   Station = c("1", "2", "3", "4", "5", "6", "7", "8"),
+#   lat = as.numeric(c("43.6828", "43.6922", "43.6486", "43.6606", "43.6358", "43.6603", "43.6894", "43.6833")),
+#   lon = as.numeric(c("7.3142", "7.2600", "7.1903", "7.1733", "7.1919", "7.1744", "7.2497", "7.3164")),
+#   Turbidité = as.numeric(c("0.56333", "2.68", "24.6", "20.1", "0.6833", "35.966", "2.39", "0.57")),
+#   Concentration_en_MES     = as.numeric(c("3.924", "3.154", "25.22", "32.2", "1.92", "26.68", "2.704", "1.622")),
+# )
+
+Log_Var_Paillon_2016_2017 <- read_delim("~/Downloads/Var_Paillon_Mars2017/Var_Paillon_Mars2017/Log_Var_Paillon_2016_2017.csv",
+                                        delim = ",", locale = locale(decimal_mark = ","))
+
+# renommer le doc
+Var_2016 <- Log_Var_Paillon_2016_2017
+
+# garder seulement les paramètres d'intérêts
+Var_2016 <- Var_2016 |> 
+  select(StationID, Date, Latitude_dd, Longitude_dd, Location, `SPMmoyen(mg/l)`, 
+         `SPMsd(mg/l)`)
+
+# rename columns
+Var_2016 <- Var_2016 |> 
+  rename(date = Date,
+         lat = Latitude_dd, 
+         lon = Longitude_dd,
+         SPM_moy = `SPMmoyen(mg/l)`, 
+         SPM_sd = `SPMsd(mg/l)`)
+
+# transformer la date en "vraie" date
+Var_2016 <- Var_2016 %>%
+  mutate(date = as.Date(date, format = "%d/%m/%Y"))
+
+Var_2016 <- Var_2016 |>
+  mutate(
+    lat = as.numeric(gsub(",", ".", lat)),
+    lon = as.numeric(gsub(",", ".", lon))
+  )
+
+Var_2016 <- Var_2016[-6,]
+
+date_terrain <- as.Date("2016-11-25")
+
+SEXTANT_jour <- SEXTANT_1998_2025_spm_pixels |>
+  mutate(annee = as.integer(format(date, "%Y")),
+         mois  = as.integer(format(date, "%m")),
+         jour  = as.integer(format(date, "%d"))) |>
+  filter(date == date_terrain)
+
+cat("Pixels disponibles ce jour :", nrow(SEXTANT_jour), "\n")
+
+# ── Match-up : pixel le plus proche pour chaque station ──────────────────
+matchup <- Var_2016 |>
+  filter(date == date_terrain) |>
+  drop_na(lat, lon) |>
+  rowwise() |>
+  mutate(
+    dist_min  = min(sqrt((SEXTANT_jour$lon - lon)^2 +
+                           (SEXTANT_jour$lat - lat)^2), na.rm = TRUE),
+    idx       = which.min(sqrt((SEXTANT_jour$lon - lon)^2 +
+                                 (SEXTANT_jour$lat - lat)^2)),
+    MES_sat   = SEXTANT_jour$analysed_spim[idx],
+    lon_pixel = SEXTANT_jour$lon[idx],
+    lat_pixel = SEXTANT_jour$lat[idx],
+    dist_km   = dist_min * 111
+  ) |>
+  ungroup()
+
+print(matchup |> select(StationID, lat, lon, SPM_moy, MES_sat, dist_km))  # ← corrigé
+
+# ── Corrélation et stats ──────────────────────────────────────────────────
+matchup_clean <- matchup |> filter(!is.na(MES_sat), !is.na(SPM_moy))
+
+cor_result <- cor.test(matchup_clean$SPM_moy,       # ← corrigé
+                       matchup_clean$MES_sat,
+                       method = "spearman")
+
+rmse  <- sqrt(mean((matchup_clean$SPM_moy - matchup_clean$MES_sat)^2, na.rm = TRUE))  # ← corrigé
+biais <- mean(matchup_clean$MES_sat - matchup_clean$SPM_moy, na.rm = TRUE)             # ← corrigé
+
+cat("r de Spearman =", round(cor_result$estimate, 3), "\n")
+cat("p-value =", format(cor_result$p.value, scientific = TRUE, digits = 3), "\n")
+cat("RMSE =", round(rmse, 3), "g/m³\n")
+cat("Biais =", round(biais, 3), "g/m³\n")
+
+# ── Graphique match-up ───────────────────────────────────────────────────
+lim <- range(c(matchup_clean$SPM_moy, matchup_clean$MES_sat), na.rm = TRUE)  # ← corrigé
+
+ggplot(matchup_clean, aes(x = SPM_moy, y = MES_sat, label = StationID)) +   # ← corrigé
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey50") +
+  geom_point(size = 4, color = "steelblue", alpha = 0.8) +
+  ggrepel::geom_label_repel(size = 3.5) +
+  annotate("text",
+           x     = lim[1] + diff(lim) * 0.05,
+           y     = lim[2] * 0.95,
+           hjust = 0, vjust = 1, size = 4, color = "grey20",
+           label = paste0("r = ",     round(cor_result$estimate, 2),
+                          "\nRMSE = ", round(rmse, 2),  " g/m³",
+                          "\nBiais = ", round(biais, 2), " g/m³",
+                          "\nn = ",    nrow(matchup_clean))) +
+  scale_x_continuous(limits = lim) +
+  scale_y_continuous(limits = lim) +
+  coord_fixed() +
+  labs(
+    x        = expression("MES in situ (g m"^{-3}*")"),
+    y        = expression("MES satellite — Sextant OC5 (g m"^{-3}*")"),
+    title    = "Match-up MES in situ vs Sextant OC5",
+    subtitle = paste0("25 novembre 2016 — Panache du Var")
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.title    = element_text(face = "bold"),
+    plot.title    = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(color = "grey40", hjust = 0.5)
+  )
+
+# évolution [MES] à l'embouchure ------------------------------------------
+
+# Zone proche de l'embouchure du Var (~5 km autour)
+lon_var <- 7.199082
+lat_var <- 43.654709
+rayon_deg <- 5 / 111  # ~5 km en degrés
+
+SEXTANT_embouchure <- SEXTANT_1998_2025_spm_pixels |>
+  filter(
+    lon >= lon_var - rayon_deg & lon <= lon_var + rayon_deg,
+    lat >= lat_var - rayon_deg & lat <= lat_var + rayon_deg,
+    analysed_spim >= 0 | is.na(analysed_spim)
+  )
+
+# Vérifier combien de pixels dans cette zone
+n_distinct(SEXTANT_embouchure |> select(lon, lat))
+
+SEXTANT_embouchure_jour <- SEXTANT_embouchure |>
+  group_by(date) |>
+  summarise(
+    mean_spm   = mean(analysed_spim, na.rm = TRUE),
+    median_spm = median(analysed_spim, na.rm = TRUE),
+    sd_spm     = sd(analysed_spim, na.rm = TRUE),
+    n_pixels   = sum(!is.na(analysed_spim)),
+    .groups    = "drop")
+
+# Mann-Kendall — y a-t-il une tendance ?
+mk_embouchure <- mk.test(SEXTANT_embouchure_jour$median_spm)
+print(mk_embouchure)
+
+# Pente Theil-Sen — quelle est la magnitude de la tendance ?
+SEXTANT_embouchure_jour <- SEXTANT_embouchure_jour |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_embouchure   <- sens.slope(SEXTANT_embouchure_jour$median_spm)
+slope_emb_yr     <- sen_embouchure$estimates * 365
+
+intercept_emb <- median(
+  SEXTANT_embouchure_jour$median_spm - sen_embouchure$estimates * SEXTANT_embouchure_jour$date_num,
+  na.rm = TRUE
+)
+
+SEXTANT_embouchure_jour <- SEXTANT_embouchure_jour |>
+  mutate(theilsen_fit = intercept_emb + sen_embouchure$estimates * date_num)
+
+cat("Tendance :", round(slope_emb_yr, 4), "g/m³/an\n")
+cat("Mann-Kendall p =", round(mk_embouchure$p.value, 4), "\n")
+
+ggplot(SEXTANT_embouchure_jour, aes(x = date, y = median_spm)) +
+  geom_line(color = "tomato", linewidth = 0.4, alpha = 0.6) +
+  geom_line(aes(y = theilsen_fit), color = "tomato", linewidth = 1.2) +
+  annotate(
+    "text",
+    x = as.Date("1998-01-01"),
+    y = 27,
+    hjust = 0, vjust = 1, size = 10,
+    color = "tomato", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance : ", round(slope_emb_yr, 4), " g/m³/an",
+      "\np ", ifelse(mk_embouchure$p.value < 0.001, "< 0.001",
+                     ifelse(mk_embouchure$p.value < 0.05, "< 0.05",
+                            paste0("= ", round(mk_embouchure$p.value, 3)))),
+      "\nn = 9402"
+    )
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  scale_y_continuous(name = expression("Concentration en MES (g m"^{-3}*")")) +
+  coord_cartesian(ylim = c(0, 30)) +
+  labs(
+    title    = "Évolution de la concentration en MES à l'embouchure du Var",
+    subtitle = "Zone de 5 km · Produit Sextant OC5 (1998–2025)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title    = element_text(size = 18, face = "bold", family = "serif"),
+    axis.text     = element_text(size = 17, color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border  = element_rect(color = "grey70"),
+    plot.margin   = margin(1, 1.5, 1, 1, "cm")
+  )
+
+# évolution [Chl-a] à l'embouchure ------------------------------------------
+
+# Étape 1 — Zone à l'embouchure
+SEXTANT_embouchure_chl <- SEXTANT_1998_2025_chl_pixels |>
+  filter(
+    lon >= lon_var - rayon_deg & lon <= lon_var + rayon_deg,
+    lat >= lat_var - rayon_deg & lat <= lat_var + rayon_deg,
+    analysed_chl_a >= 0 | is.na(analysed_chl_a)
+  )
+
+# Étape 2 — Concentration journalière
+SEXTANT_embouchure_chl_jour <- SEXTANT_embouchure_chl |>
+  group_by(date) |>
+  summarise(
+    mean_chl   = mean(analysed_chl_a, na.rm = TRUE),
+    median_chl = median(analysed_chl_a, na.rm = TRUE),
+    sd_chl     = sd(analysed_chl_a, na.rm = TRUE),
+    n_pixels   = sum(!is.na(analysed_chl_a)),
+    .groups    = "drop"
+  )
+
+# Étape 3 — Tests statistiques
+SEXTANT_embouchure_chl_jour <- SEXTANT_embouchure_chl_jour |>
+  filter(!is.na(median_chl))
+
+mk_embouchure_chl <- mk.test(SEXTANT_embouchure_chl_jour$median_chl)
+print(mk_embouchure_chl)
+
+SEXTANT_embouchure_chl_jour <- SEXTANT_embouchure_chl_jour |>
+  mutate(date_num = as.numeric(date - min(date)))
+
+sen_embouchure_chl <- sens.slope(SEXTANT_embouchure_chl_jour$median_chl)
+slope_emb_chl_yr   <- sen_embouchure_chl$estimates * 365
+
+intercept_emb_chl <- median(
+  SEXTANT_embouchure_chl_jour$median_chl - sen_embouchure_chl$estimates * SEXTANT_embouchure_chl_jour$date_num,
+  na.rm = TRUE
+)
+
+SEXTANT_embouchure_chl_jour <- SEXTANT_embouchure_chl_jour |>
+  mutate(theilsen_fit = intercept_emb_chl + sen_embouchure_chl$estimates * date_num)
+
+cat("Tendance :", round(slope_emb_chl_yr, 4), "µg/L/an\n")
+cat("Mann-Kendall p =", round(mk_embouchure_chl$p.value, 4), "\n")
+
+# Étape 4 — Plot
+ggplot(SEXTANT_embouchure_chl_jour, aes(x = date, y = median_chl)) +
+  geom_line(color = "chartreuse3", linewidth = 0.4, alpha = 0.6) +
+  geom_line(aes(y = theilsen_fit), color = "chartreuse3", linewidth = 1.2) +
+  annotate(
+    "text",
+    x = as.Date("1998-01-01"),
+    y = max(SEXTANT_embouchure_chl_jour$median_chl, na.rm = TRUE) * 0.97,
+    hjust = 0, vjust = 1, size = 6,
+    color = "chartreuse3", fontface = "italic", family = "serif",
+    label = paste0(
+      "Tendance : ", round(slope_emb_chl_yr, 4), " µg/L/an",
+      "\np ", ifelse(mk_embouchure_chl$p.value < 0.001, "< 0.001",
+                     ifelse(mk_embouchure_chl$p.value < 0.05, "< 0.05",
+                            paste0("= ", round(mk_embouchure_chl$p.value, 3)))),
+      "\nn = 9402"
+    )
+  ) +
+  scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  scale_y_continuous(name = expression("Concentration en Chl-a (µg L"^{-1}*")")) +
+  labs(
+    title    = "Évolution de la concentration en chlorophylle a à l'embouchure du Var",
+    subtitle = "Zone de 5 km · Produit Sextant OC5 (1998–2025)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 15, hjust = 0.5, family = "serif"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "grey50", family = "serif"),
+    axis.title    = element_text(size = 18, face = "bold", family = "serif"),
+    axis.text     = element_text(color = "grey30", family = "serif"),
+    panel.grid.minor = element_blank(),
+    panel.border  = element_rect(color = "grey70"),
+    plot.margin   = margin(1, 1.5, 1, 1, "cm")
+  )
+
+# ── Données communes 2016-2024 ──────────────────────────────────────────────
+
+debit_cumule_periode <- All_debit |>
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31")) |>
+  drop_na(debit_cumule)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SEXTANT OC5
+# ══════════════════════════════════════════════════════════════════════════════
+
+panache_sextant_periode <- SEXTANT_1998_2025_spm_95 |>
+  filter(date >= as.Date("2016-04-26"), date <= as.Date("2024-12-31"))
+
+merged_sextant <- merge(
+  debit_cumule_periode |> select(date, debit_cumule),
+  panache_sextant_periode |> select(date, aire_panache_km2),
+  by = "date", all = FALSE
+) |> drop_na()
+
+correlation_sextant <- cor(merged_sextant$debit_cumule, merged_sextant$aire_panache_km2,
+                           method = "spearman", use = "complete.obs")
+p_value_sextant     <- cor.test(merged_sextant$debit_cumule, merged_sextant$aire_panache_km2,
+                                method = "spearman")$p.value
+n_sextant           <- nrow(merged_sextant)
+
+cat("Sextant — R =", round(correlation_sextant, 3),
+    "| p =", round(p_value_sextant, 4),
+    "| n =", n_sextant, "\n")
+
+# Mise à l'échelle et série complète
+adjust_sextant <- sec_axis_adjustement_factors(
+  merged_sextant$aire_panache_km2,
+  merged_sextant$debit_cumule
+)
+
+merged_sextant_complet <- merged_sextant |>
+  complete(date = seq(min(date), max(date), by = "day")) |>
+  mutate(scaled_aire = aire_panache_km2 * adjust_sextant$diff + adjust_sextant$adjust)
+
+# Plot Sextant
+ggplot() +
+  geom_line(
+    data = merged_sextant_complet,
+    aes(x = date, y = debit_cumule, color = "Débit cumulé"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  geom_line(
+    data = merged_sextant_complet,
+    aes(x = date, y = scaled_aire, color = "Aire des panaches"),
+    linewidth = 0.4, alpha = 0.6, na.rm = FALSE
+  ) +
+  scale_color_manual(
+    values = c("Débit cumulé" = "darkolivegreen3", "Aire des panaches" = "darkcyan"),
+    name = NULL
+  ) +
+  scale_y_continuous(
+    name     = "Débit cumulé (m³/s)",
+    sec.axis = sec_axis(
+      ~ (. - adjust_sextant$adjust) / adjust_sextant$diff,
+      name = expression("Aire des panaches (km²)")
+    )
+  ) +
+  coord_cartesian(ylim = c(0, 250)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  annotate(
+    "text",
+    x = as.Date("2024-01-01"), y = 240,
+    hjust = 2, vjust = 1, size = 10,
+    color = "grey20", fontface = "italic", family = "serif",
+    label = paste0(
+      "r = ", round(correlation_sextant, 2),
+      "\np ", ifelse(p_value_sextant < 0.001, "< 0.001", format(p_value_sextant, digits = 3)),
+      "\nn = ", n_sextant
+    )
+  ) +
+  labs(
+    title    = "Évolution de l'extension des panaches turbides et du débit cumulé",
+    subtitle = "Produit Sextant OC5 (2016–2024)",
+    x        = NULL
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 18, hjust = 0.5, family = "serif"),
+    plot.subtitle    = element_text(size = 15, hjust = 0.5, color = "grey30", family = "serif"),
+    axis.title       = element_text(face = "bold", family = "serif", size = 16),
+    axis.text        = element_text(color = "grey30", family = "serif", size = 14),
+    panel.grid.minor = element_blank(),
+    panel.border     = element_rect(color = "grey70"),
+    legend.position  = "bottom",
+    legend.text      = element_text(size = 16, family = "serif"),
+    plot.margin      = margin(1, 1.5, 1, 1, "cm")
+  )
 

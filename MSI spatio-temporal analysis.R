@@ -15,6 +15,8 @@ library(stars)
 library(tidync)
 library(gganimate)
 library(doParallel); registerDoParallel(cores = 14)
+library(terra)
+library(sf)
 
 # function ----------------------------------------------------------------
 
@@ -89,4 +91,70 @@ summary(download_2020_SPM)
 
 SPM_2025_2025 <- rbind(ma_liste_SPM, .id = "source") %>%
   mutate(date = as.Date(date))  # S'assurer que "date" est bien un objet Date
+
+
+
+# 04/03/2024 --------------------------------------------------------------
+
+list.files("~/Downloads/S2A_MSIL2A_20240304T102921_N0510_R108_T32TLP_20240313T160152.SAFE", recursive = TRUE)
+
+# Chemin de base
+safe_dir <- "~/Downloads/S2A_MSIL2A_20240304T102921_N0510_R108_T32TLP_20240313T160152.SAFE"
+
+# Chemins des bandes à 10m
+b02_path <- file.path(safe_dir, "GRANULE/L2A_T32TLP_A045436_20240304T102921/IMG_DATA/R10m/T32TLP_20240304T102921_B02_10m.jp2")
+b03_path <- file.path(safe_dir, "GRANULE/L2A_T32TLP_A045436_20240304T102921/IMG_DATA/R10m/T32TLP_20240304T102921_B03_10m.jp2")
+b04_path <- file.path(safe_dir, "GRANULE/L2A_T32TLP_A045436_20240304T102921/IMG_DATA/R10m/T32TLP_20240304T102921_B04_10m.jp2")
+b08_path <- file.path(safe_dir, "GRANULE/L2A_T32TLP_A045436_20240304T102921/IMG_DATA/R10m/T32TLP_20240304T102921_B08_10m.jp2")
+
+# Charger les bandes
+b02 <- rast(b02_path)
+b03 <- rast(b03_path)
+b04 <- rast(b04_path)
+b08 <- rast(b08_path)
+
+# Vérifier le CRS (UTM 32N)
+crs(b02)
+
+# Définir la zone d'étude et la reprojeter en UTM
+zone_sf <- st_bbox(c(xmin = 7.110978, xmax = 7.360000,
+                     ymin = 43.523182, ymax = 43.730000),
+                   crs = 4326) |>
+  st_as_sfc() |>
+  st_transform(crs(b02))
+
+# Recadrer les bandes
+b02_crop <- crop(b02, zone_sf)
+b03_crop <- crop(b03, zone_sf)
+b04_crop <- crop(b04, zone_sf)
+b08_crop <- crop(b08, zone_sf)
+
+# Convertir en réflectance de surface (diviser par 10000 pour Sentinel-2 L2A)
+b02_refl <- b02_crop / 10000
+b03_refl <- b03_crop / 10000
+b04_refl <- b04_crop / 10000
+b08_refl <- b08_crop / 10000
+
+# Reprojeter en WGS84 pour faciliter le plot
+b02_refl <- project(b02_refl, "EPSG:4326")
+b03_refl <- project(b03_refl, "EPSG:4326")
+b04_refl <- project(b04_refl, "EPSG:4326")
+b08_refl <- project(b08_refl, "EPSG:4326")
+
+# Vérifier les valeurs
+summary(b04_refl)
+
+# Convertir en dataframe pour ggplot
+df_b02 <- as.data.frame(b02_refl, xy = TRUE) |> rename(lon = x, lat = y, refl_b02 = 3)
+df_b03 <- as.data.frame(b03_refl, xy = TRUE) |> rename(lon = x, lat = y, refl_b03 = 3)
+df_b04 <- as.data.frame(b04_refl, xy = TRUE) |> rename(lon = x, lat = y, refl_b04 = 3)
+df_b08 <- as.data.frame(b08_refl, xy = TRUE) |> rename(lon = x, lat = y, refl_b08 = 3)
+
+# Assembler en un seul dataframe
+df_MSI <- df_b02 |>
+  left_join(df_b03, by = c("lon", "lat")) |>
+  left_join(df_b04, by = c("lon", "lat")) |>
+  left_join(df_b08, by = c("lon", "lat"))
+
+head(df_MSI)
 
